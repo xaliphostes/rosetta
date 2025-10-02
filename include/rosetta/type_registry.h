@@ -125,3 +125,5 @@ private:                                                                        
     static void registerIntrospection(rosetta::TypeRegistrar<ClassName> reg);                      \
                                                                                                    \
 public:
+
+#include "inline/type_registry.hxx"
