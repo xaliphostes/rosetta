@@ -1,7 +1,7 @@
 # Rosetta, a C++ automatic language binding
 
 <p align="center">
-  <img src="media/logo.png" alt="Logo rosetta" width="200">
+  <img src="media/logo.png" alt="Logo rosetta" width="300">
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@ This C++ introspection system enables **automatic language binding generation fo
 - For **Python**, the introspection data can drive automatic pybind11 binding generation, creating properties for all members and properly typed method bindings with argument validation - eliminating the need to manually write .def() calls for each class feature. Example:
   ```cpp
   PYBIND11_MODULE(introspection_demo, m) {
-      PythonBindingGenerator generator(m);
+      rosetta::PyGenerator generator(m);
       generator.bind_classes<Person, Vehicle>();
   }
   ```
@@ -30,8 +30,9 @@ This C++ introspection system enables **automatic language binding generation fo
 - For **JavaScript** (via V8, Node.js addons, or Emscripten), the reflection data enables automatic generation of property descriptors and method wrappers, allowing seamless integration where JavaScript objects can directly access C++ class members as properties and call methods with automatic type conversion between JavaScript values and C++ types. Example:
   ```cpp
   Napi::Object Init(Napi::Env env, Napi::Object exports) {
-      JavascriptBindingGenerator generator(env, exports);
+      rosetta::JsGenerator generator(env, exports);
       generator.bind_classes<Person, Vehicle>();
+      return exports;
   }
   ```
 
