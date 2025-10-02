@@ -114,8 +114,7 @@ void Person::registerIntrospection(rosetta::TypeRegistrar<Person> reg) {
 ### 2. Create Python Module (Only 3 Lines!)
 
 ```cpp
-#include "PythonBindingGenerator.h"
-#include <pybind11/pybind11.h>
+#include <rosetta/generators/py.h>
 
 PYBIND11_MODULE(introspection_demo, m) {
     m.doc() = "Automatic Python bindings using C++ introspection";

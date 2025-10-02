@@ -9,7 +9,17 @@ namespace rosetta {
     using JsToCppConverter = std::function<std::any(const Napi::Value&)>;
 
     /**
-     * @brief Binding generator
+     * @brief Automatic N-API/JavaScript binding generator for introspectable classes
+     * @example
+     * ```cpp
+     * // Usage example:
+     * Napi::Object Init(Napi::Env env, Napi::Object exports) {
+     *     rosetta::JsGenerator generator(env, exports);
+     *     generator.bind_classes<Person, Vehicle>();
+     *     return exports;
+     * }
+     * NODE_API_MODULE(jsperson, Init)
+     * ```
      */
     class JsGenerator {
     public:
@@ -32,4 +42,4 @@ namespace rosetta {
 
 #define NAPI_AUTO_BIND_CLASS(generator, ClassName) generator.bind_class<ClassName>(#ClassName)
 
-#include "inline/JsGenerator.hxx"
+#include "inline/js.hxx"

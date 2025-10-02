@@ -73,7 +73,7 @@ void Person::registerIntrospection(rosetta::TypeRegistrar<Person> reg) {
 ### 2. Create Node.js Addon (Only 1 line!)
 
 ```cpp
-#include "JavascriptBindingGenerator.h"
+#include <rosetta/generators/js.h>
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     JavascriptBindingGenerator(env, exports).bind_class<Person>();

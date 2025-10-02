@@ -34,6 +34,26 @@ This C++ introspection system enables **automatic language binding generation fo
   }
   ```
 
+- For **Lua** (via Lua or LuaGit, and Sol3), the type information allows automatic creation of Lua userdata metatables with `__index` and `__newindex` metamethods that dynamically resolve member access, while method calls can be automatically wrapped using the stored function signatures and parameter types. Example:
+  ```cpp
+  void main() {
+    sol::state lua;
+    lua.open_libraries(sol::lib::base);    
+    // Bind classes automatically
+    rosetta::LuaGenerator(lua).bind_classes<Person, Vehicle>();
+  }
+  ```
+
+
+## Comparison: Lua vs Python vs JavaScript
+
+| Feature | Lua | Python | JavaScript |
+|---------|-----|--------|------------|
+| Binding Library | Sol3 | pybind11 | N-API |
+| Setup Lines | 1 | 1 | 1 |
+| Performance | Fastest | Fast | Fast |
+| Use Case | Game scripting | Scientific computing | Web/Desktop apps |
+
 The key advantage is that once a C++ class inherits from Introspectable and registers its members/methods, it can be automatically exposed to all scripting languages using the same introspection metadata, drastically reducing the maintenance burden of keeping multiple language bindings synchronized with C++ class changes.
 
 ## Features
@@ -87,7 +107,7 @@ void Person::registerIntrospection(rosetta::TypeRegistrar<Person> reg) {
 ### 3. Bind in JavaScript (1 line)
 
 ```cpp
-#include <rosetta/JsGenerator.h>
+#include <rosetta/generators/js.h>
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     rosetta::JsGenerator(env, exports).bind_class<Person>();
@@ -100,10 +120,21 @@ NODE_API_MODULE(jsperson, Init)
 ### 4. Bind in Python (1 line)
 
 ```cpp
-#include <rosetta/PyGenerator.h>
+#include <rosetta/generators/py.h>
 
 PYBIND11_MODULE(rosettapy, m) {
     rosetta::PyGenerator(m).bind_class<Person>();
+}
+```
+
+### 5. Bind in Lua (1 line)
+
+```cpp
+#include <rosetta/generators/lua.h>
+
+void main() {
+    ...
+    rosetta::LuaGenerator(lua).bind_class<Person>();
 }
 ```
 

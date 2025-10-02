@@ -1,4 +1,4 @@
-#include <rosetta/PyGenerator.h>
+#include <rosetta/generators/py.h>
 #include "../demo.h"
 
 // pybind11 module definition using automatic binding

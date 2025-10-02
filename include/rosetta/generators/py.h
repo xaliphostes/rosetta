@@ -30,23 +30,6 @@ namespace rosetta {
      *     PYBIND11_AUTO_BIND_CLASS(m, Person);
      * }
      * ```
-     *
-     * @example
-     * ```python
-     * import rosetta as I
-     *
-     * # Create objects using constructors
-     * person = I.Person("Alice", 30, 1.65)
-     * vehicle = I.Vehicle("Honda", "Civic", 2022)
-     *
-     * # Call methods
-     * person.introduce()
-     * person.celebrate_birthday() # Note: pybind11 converts camelCase to snake_case
-     *
-     * vehicle.start()
-     * vehicle.drive(100.5)
-     * print(vehicle.get_info())
-     * ```
      */
     class PyGenerator {
     private:
@@ -101,4 +84,4 @@ namespace rosetta {
 #define PYBIND11_AUTO_BIND_CLASS(module, ClassName)                                                \
     PyGenerator(module).bind_class<ClassName>(#ClassName)
 
-#include "inline/PyGenerator.hxx"
+#include "inline/py.hxx"
