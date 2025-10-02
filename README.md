@@ -22,16 +22,14 @@ This C++ introspection system enables **automatic language binding generation fo
 - For **Python**, the introspection data can drive automatic pybind11 binding generation, creating properties for all members and properly typed method bindings with argument validation - eliminating the need to manually write .def() calls for each class feature. Example:
   ```cpp
   PYBIND11_MODULE(introspection_demo, m) {
-      rosetta::PyGenerator generator(m);
-      generator.bind_classes<Person, Vehicle>();
+      rosetta::PyGenerator(m).bind_classes<Person, Vehicle>();
   }
   ```
 
 - For **JavaScript** (via V8, Node.js addons, or Emscripten), the reflection data enables automatic generation of property descriptors and method wrappers, allowing seamless integration where JavaScript objects can directly access C++ class members as properties and call methods with automatic type conversion between JavaScript values and C++ types. Example:
   ```cpp
   Napi::Object Init(Napi::Env env, Napi::Object exports) {
-      rosetta::JsGenerator generator(env, exports);
-      generator.bind_classes<Person, Vehicle>();
+      rosetta::JsGenerator(env, exports).bind_classes<Person, Vehicle>();
       return exports;
   }
   ```
@@ -86,28 +84,26 @@ void Person::registerIntrospection(rosetta::TypeRegistrar<Person> reg) {
 }
 ```
 
-### 3. Bind in Js
+### 3. Bind in JavaScript (1 line)
 
 ```cpp
 #include <rosetta/JsGenerator.h>
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-    rosetta::JsGenerator generator(env, exports);
-    generator.bind_class<Person>();
+    rosetta::JsGenerator(env, exports).bind_class<Person>();
     return exports;
 }
 
 NODE_API_MODULE(jsperson, Init)
 ```
 
-### 4. Bind in Py
+### 4. Bind in Python (1 line)
 
 ```cpp
 #include <rosetta/PyGenerator.h>
 
 PYBIND11_MODULE(rosettapy, m) {
-    rosetta::PyGenerator generator(m);
-    generator.bind_class<Person>();
+    rosetta::PyGenerator(m).bind_class<Person>();
 }
 ```
 
