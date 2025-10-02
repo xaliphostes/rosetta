@@ -1,41 +1,38 @@
 #include <rosetta/generators/js.h>
-
-using Vertices = std::vector<double>;
-using Triangles = std::vector<size_t>;
+#include <rosetta/generators/js_vectors.h>
 
 class Surface : public rosetta::Introspectable {
     INTROSPECTABLE(Surface)
 public:
     Surface() { }
-    Surface(const Vertices& v, const Triangles& t)
+    Surface(const std::vector<double>& v, const std::vector<size_t>& t)
         : vertices_(v)
         , triangles_(t)
     {
     }
 
-    const Vertices& vertices() const { return vertices_; }
-    const Triangles& triangles() const { return triangles_; }
+    const std::vector<double>& vertices() const { return vertices_; }
+    const std::vector<size_t>& triangles() const { return triangles_; }
 
 private:
-    Vertices vertices_;
-    Triangles triangles_;
+    std::vector<double> vertices_;
+    std::vector<size_t> triangles_;
 };
-REGISTER_TYPE(Vertices);
-REGISTER_TYPE(Triangles);
 
 void Surface::registerIntrospection(rosetta::TypeRegistrar<Surface> reg)
 {
     reg.constructor<>()
-        .constructor<const Vertices &, const Triangles &>()
+        .constructor<const std::vector<double>&, const std::vector<size_t>&>()
         .method("vertices", &Surface::vertices)
         .method("triangles", &Surface::triangles);
 }
 
-// -----------------------------------------------------
-
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
-    rosetta::JsGenerator(env, exports).bind_class<Surface>();
+    rosetta::JsGenerator generator(env, exports);
+    rosetta::registerCommonVectorTypes(generator);
+    generator.bind_class<Surface>();
+
     return exports;
 }
 
