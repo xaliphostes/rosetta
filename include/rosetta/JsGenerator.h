@@ -15,12 +15,12 @@ namespace rosetta {
     public:
         JsGenerator(Napi::Env env, Napi::Object exports);
 
-        template <typename T> void bind_class(const std::string& class_name = "");
+        template <typename T> JsGenerator& bind_class(const std::string& class_name = "");
+        template <typename... Classes> JsGenerator& bind_classes();
 
-        template <typename... Classes> void bind_classes() { (bind_class<Classes>(), ...); }
-
-        void add_utilities();
-        void register_type_converter(const std::string&, CppToJsConverter, JsToCppConverter);
+        JsGenerator& add_utilities();
+        JsGenerator& register_type_converter(
+            const std::string&, CppToJsConverter, JsToCppConverter);
 
     private:
         Napi::Env env;

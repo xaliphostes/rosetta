@@ -113,8 +113,8 @@ namespace rosetta {
 
     template <typename T> inline void ObjectWrapper<T>::SetupBindings()
     {
-        auto env = this->Env();
-        auto obj = this->Value();
+        //auto env = this->Env();
+        //auto obj = this->Value();
         const auto& type_info = cpp_obj->getTypeInfo();
 
         // Bind properties
@@ -394,24 +394,6 @@ namespace rosetta {
     // Static member definition
     template <typename T> Napi::FunctionReference ObjectWrapper<T>::constructor;
 
-    // ================================================
-
-    template <typename T> inline void JsGenerator::bind_class(const std::string& class_name)
-    {
-        static_assert(
-            std::is_base_of_v<Introspectable, T>, "Type must inherit from Introspectable");
-
-        const auto& type_info = T::getStaticTypeInfo();
-        std::string final_name = class_name.empty() ? type_info.class_name : class_name;
-
-        if (bound_classes.find(final_name) != bound_classes.end()) {
-            throw std::runtime_error("Class already bound: " + final_name);
-        }
-        bound_classes.insert(final_name);
-
-        ObjectWrapper<T>::Init(env, exports, final_name);
-    }
-
     // ================================================================================================
 
     inline TypeConverterRegistry& TypeConverterRegistry::instance()
@@ -553,7 +535,7 @@ namespace rosetta {
     {
     }
 
-    inline void JsGenerator::add_utilities()
+    inline JsGenerator& JsGenerator::add_utilities()
     {
         exports.Set(
             "getAllClasses", Napi::Function::New(env, [this](const Napi::CallbackInfo& info) {
@@ -564,12 +546,38 @@ namespace rosetta {
                 }
                 return arr;
             }));
+
+        return *this;
     }
 
-    inline void JsGenerator::register_type_converter(
+    inline JsGenerator& JsGenerator::register_type_converter(
         const std::string& type_name, CppToJsConverter to_js, JsToCppConverter to_cpp)
     {
         TypeConverterRegistry::instance().register_converter(type_name, to_js, to_cpp);
+        return *this;
+    }
+
+    template <typename T> inline JsGenerator& JsGenerator::bind_class(const std::string& class_name)
+    {
+        static_assert(
+            std::is_base_of_v<Introspectable, T>, "Type must inherit from Introspectable");
+
+        const auto& type_info = T::getStaticTypeInfo();
+        std::string final_name = class_name.empty() ? type_info.class_name : class_name;
+
+        if (bound_classes.find(final_name) != bound_classes.end()) {
+            throw std::runtime_error("Class already bound: " + final_name);
+        }
+        bound_classes.insert(final_name);
+
+        ObjectWrapper<T>::Init(env, exports, final_name);
+        return *this;
+    }
+
+    template <typename... Classes> inline JsGenerator& JsGenerator::bind_classes()
+    {
+        (bind_class<Classes>(), ...);
+        return *this;
     }
 
 }

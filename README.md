@@ -50,7 +50,7 @@ The key advantage is that once a C++ class inherits from Introspectable and regi
 
 ## Quick Start
 
-### 1. Make Your Class Introspectable
+### 1. Make Your Class Introspectable (or wrap it)
 
 ```cpp
 #include <rosetta/rosetta.h>
@@ -71,8 +71,6 @@ private:
 };
 ```
 
-or if your class is already in a lib, make a wrapper around it.
-
 ### 2. Register Ctors, Members and Methods
 
 ```cpp
@@ -88,75 +86,30 @@ void Person::registerIntrospection(rosetta::TypeRegistrar<Person> reg) {
 }
 ```
 
-### 3. Use Runtime Introspection (in C++)
+### 3. Bind in Js
 
 ```cpp
-Person person("Alice", 30);
+#include <rosetta/JsGenerator.h>
 
-// Access members by name
-person.printMemberValue("name");  // Prints: name (string): Alice
-person.setMemberValue("age", 25);
-std::cout << std::any_cast<int>(person.getMemberValue("age")); // Prints: 25
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    rosetta::JsGenerator generator(env, exports);
+    generator.bind_class<Person>();
+    return exports;
+}
 
-// Call methods by name
-person.callMethod("introduce");   // Prints: Hi, I'm Alice
-person.callMethod("setName", std::vector<std::any>{std::string("Bob")});
-auto name = person.callMethod("getName");
-std::cout << std::any_cast<std::string>(name); // Prints: Bob
-
-// Introspection utilities
-std::cout << person.getClassName();        // Prints: Person
-std::cout << person.hasMember("name");     // Prints: 1 (true)
-std::cout << person.hasMethod("introduce"); // Prints: 1 (true)
-person.printClassInfo(); // Prints complete class information
+NODE_API_MODULE(jsperson, Init)
 ```
 
-## API Reference
+### 4. Bind in Py
 
-### Introspectable Base Class
+```cpp
+#include <rosetta/PyGenerator.h>
 
-All introspectable classes inherit from `Introspectable` and gain these methods:
-
-- `getMemberValue(name)` → `std::any` - Get member value by name
-- `setMemberValue(name, value)` → `void` - Set member value by name
-- `callMethod(name, args = {})` → `std::any` - Call method by name
-- `hasMember(name)` → `bool` - Check if member exists
-- `hasMethod(name)` → `bool` - Check if method exists
-- `getMemberNames()` → `vector<string>` - Get all member names
-- `getMethodNames()` → `vector<string>` - Get all method names
-- `getClassName()` → `string` - Get class name
-- `printMemberValue(name)` - Print member with type info
-- `printClassInfo()` - Print complete class information
-
-### TypeRegistrar Template
-
-Fluent registration API:
-
-- `member(name, &Class::member)` - Register a member variable
-- `method(name, &Class::method)` - Register a method (supports 0-n parameters)
-
-Both return `TypeRegistrar&` for method chaining.
-
-## Compilation
-
-Requires C++20 or later:
-
-```cmake
-cmake_minimum_required(VERSION 3.17)
-set(CMAKE_CXX_STANDARD 20)
-add_executable(your_app main.cpp)
+PYBIND11_MODULE(rosettapy, m) {
+    rosetta::PyGenerator generator(m);
+    generator.bind_class<Person>();
+}
 ```
-
-```bash
-g++ -std=c++20 main.cpp -o your_app
-```
-
-## Supported Types
-
-- All fundamental types (`int`, `double`, `float`, `bool`, etc.)
-- `std::string`
-- Custom classes (with appropriate `std::any` casting)
-- Method parameters and return values (including `void`)
 
 ## Limitations
 
