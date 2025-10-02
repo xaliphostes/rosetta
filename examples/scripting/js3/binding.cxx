@@ -1,29 +1,19 @@
 #include <rosetta/generators/js.h>
 #include <rosetta/generators/js_vectors.h>
 
-using Vertices = std::vector<double>;
-using Triangles = std::vector<size_t>;
-
-REGISTER_TYPE_ALIAS_MANGLED(Vertices);
-REGISTER_TYPE_ALIAS_MANGLED(Triangles);
-
 class Surface : public rosetta::Introspectable {
     INTROSPECTABLE(Surface)
 public:
     Surface() { }
-    Surface(const std::vector<double>& v, const std::vector<size_t>& t)
-        : vertices_(v)
-        , triangles_(t)
-    {
-    }
+    Surface(const std::vector<double>& v, const std::vector<size_t>& t): vertices_(v), triangles_(t) {}
 
-    const Vertices& vertices() const { return vertices_; }
-    void setVertices(const Vertices& v) { vertices_ = v; }
-    const Triangles& triangles() const { return triangles_; }
+    const std::vector<double>& vertices() const { return vertices_; }
+    void setVertices(const std::vector<double>& v) { vertices_ = v; }
+    const std::vector<size_t>& triangles() const { return triangles_; }
 
 private:
-    Vertices vertices_;
-    Triangles triangles_;
+    std::vector<double> vertices_;
+    std::vector<size_t> triangles_;
 };
 
 void Surface::registerIntrospection(rosetta::TypeRegistrar<Surface> reg)
