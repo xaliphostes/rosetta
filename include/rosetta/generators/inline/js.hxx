@@ -585,4 +585,12 @@ namespace rosetta {
         return *this;
     }
 
+    template <typename T> inline void bind_class(JsGenerator& generator) {
+        generator.bind_class<T>();
+    }
+
+    template <typename ...Classes> inline void bind_classes(JsGenerator& generator) {
+        generator.bind_classes<Classes...>();
+    }
+
 }

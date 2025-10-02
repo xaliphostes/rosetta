@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025-now fmaerten@gmail.com
  * LGPL v3 license
- * 
+ *
  */
 #pragma once
 #include <any>
@@ -42,6 +42,9 @@ namespace rosetta {
         Napi::Object exports;
         std::unordered_set<std::string> bound_classes;
     };
+
+    template <typename T> void bind_class(JsGenerator&);
+    template <typename... Classes> void bind_classes(JsGenerator&);
 
 } // namespace rosetta
 
