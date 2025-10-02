@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-now fmaerten@gmail.com
+ * LGPL v3 license
+ * 
+ */
 #include <stdexcept>
 
 namespace rosetta {

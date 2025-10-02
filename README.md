@@ -147,3 +147,6 @@ void main() {
 ## License
 
 LGPL License - feel free to use in your project
+
+## Author
+[xaliphostes](https://github.com/xaliphostes)

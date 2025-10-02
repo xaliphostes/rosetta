@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-now fmaerten@gmail.com
+ * LGPL v3 license
+ * 
+ */
 namespace rosetta {
 
     inline MemberInfo::MemberInfo(const std::string& n, const std::string& t,

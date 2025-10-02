@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-now fmaerten@gmail.com
+ * LGPL v3 license
+ * 
+ */
 #pragma once
 #include <rosetta/info.h>
 #include <rosetta/type_registry.h>
