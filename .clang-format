@@ -1,0 +1,5 @@
+BasedOnStyle: WebKit  # or Google, LLVM, Mozilla, Chromium, WebKit
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 100
+NamespaceIndentation: All # or None, Inner, All
