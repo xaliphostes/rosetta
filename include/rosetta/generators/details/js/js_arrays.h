@@ -1,10 +1,7 @@
 /*
-
-- Copyright (c) 2025-now fmaerten@gmail.com
-- LGPL v3 license
--
-
-*/
+ * Copyright (c) 2025-now fmaerten@gmail.com
+ * LGPL v3 license
+ */
 #pragma once
 
 namespace rosetta {
@@ -21,7 +18,7 @@ namespace rosetta {
      * @tparam N Size of the array
      * @param generator The JavaScript generator to register with
      */
-    template <typename T, size_t N> inline void registerArrayType(JsGenerator& generator);
+    template <typename T, size_t N> void registerArrayType(JsGenerator& generator);
 
     /**
      * @brief Register type alias converter for std::array
@@ -31,13 +28,13 @@ namespace rosetta {
      * @param generator The JavaScript generator to register with
      */
     template <typename AliasType, typename ElementType, size_t N>
-    inline void registerArrayAlias(JsGenerator& generator);
+    void registerArrayAlias(JsGenerator& generator);
 
     /**
      * @brief Register common fixed-size array types
      * @param generator The JavaScript generator to register with
      */
-    inline void registerCommonArrayTypes(JsGenerator& generator);
+    void registerCommonArrayTypes(JsGenerator& generator);
 
 } // namespace rosetta
 

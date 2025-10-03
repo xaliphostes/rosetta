@@ -3,8 +3,8 @@
  * LGPL v3 license
  *
  */
-#include <rosetta/generators/js.h>
-#include <rosetta/generators/js_common.h>
+#include "../js_common.h"
+#include "../js_generator.h"
 #include <rosetta/type_registry.h>
 #include <type_traits>
 #include <typeinfo>

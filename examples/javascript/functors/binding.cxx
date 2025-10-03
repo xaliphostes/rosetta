@@ -1,8 +1,6 @@
 #include <algorithm>
 #include <numeric>
 #include <rosetta/generators/js.h>
-#include <rosetta/generators/js_functors.h>
-#include <rosetta/generators/js_vectors.h>
 
 class DataProcessor : public rosetta::Introspectable {
     INTROSPECTABLE(DataProcessor)

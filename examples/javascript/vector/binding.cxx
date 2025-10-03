@@ -1,5 +1,4 @@
 #include <rosetta/generators/js.h>
-#include <rosetta/generators/js_vectors.h>
 
 class Surface : public rosetta::Introspectable {
     INTROSPECTABLE(Surface)

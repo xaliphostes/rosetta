@@ -5,8 +5,8 @@
  */
 #include <functional>
 #include <memory>
-#include <rosetta/generators/js.h>
-#include <rosetta/generators/js_common.h>
+#include "../js_generator.h"
+#include "../js_common.h"
 
 namespace rosetta {
 

@@ -1,5 +1,4 @@
 #include <rosetta/generators/js.h>
-#include <rosetta/generators/js_arrays.h>
 
 using Stress = std::array<double, 6>;
 REGISTER_TYPE_ALIAS_MANGLED(Stress);

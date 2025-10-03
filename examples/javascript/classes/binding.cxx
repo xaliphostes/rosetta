@@ -50,7 +50,10 @@ void B::registerIntrospection(rosetta::TypeRegistrar<B> reg)
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
-    rosetta::JsGenerator(env, exports).bind_classes<A, B>();
+    rosetta::JsGenerator generator(env, exports);
+    rosetta::registerPointerType<A>(generator);
+    rosetta::bind_classes<A, B>(generator);
+    
     return exports;
 }
 

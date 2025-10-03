@@ -1,10 +1,9 @@
 /*
  * Copyright (c) 2025-now fmaerten@gmail.com
  * LGPL v3 license
- *
  */
 #pragma once
-#include <rosetta/generators/js.h>
+#include "js_generator.h"
 #include <rosetta/type_registry.h>
 #include <type_traits>
 #include <typeinfo>

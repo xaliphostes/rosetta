@@ -7,7 +7,7 @@
 #include <memory>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-#include <rosetta/generators/py.h>
+#include <rosetta/generators/details/py/py_generator.h>
 
 namespace py = pybind11;
 
