@@ -1,0 +1,32 @@
+{
+    "name": "rosetta-js-array",
+    "version": "1.0.0",
+    "description": "Automatic JavaScript bindings for C++ introspection system",
+    "main": "index.js",
+    "scripts": {
+        "install": "node-gyp rebuild",
+        "build": "node-gyp build",
+        "clean": "node-gyp clean",
+        "test": "node test.js"
+    },
+    "gypfile": true,
+    "dependencies": {
+        "node-addon-api": "^7.0.0"
+    },
+    "devDependencies": {
+        "node-gyp": "^10.0.0"
+    },
+    "keywords": [
+        "cpp", "c++",
+        "javascript",
+        "nodejs",
+        "napi",
+        "introspection",
+        "reflection",
+        "bindings",
+        "native",
+        "addon"
+    ],
+    "author": "xaliphostes",
+    "license": "LGPL-3.0-or-later"
+}
