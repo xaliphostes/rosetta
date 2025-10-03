@@ -14,7 +14,6 @@
 
 namespace rosetta {
 
-```
 // ============================================================================
 // Type conversion helpers for std::array
 // ============================================================================
@@ -161,7 +160,6 @@ inline void registerCommonArrayTypes(JsGenerator& generator)
     registerArrayType<unsigned char, 4>(generator);
     registerArrayType<float, 4>(generator);
 }
-```
 
 } // namespace rosetta
 
