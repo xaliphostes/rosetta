@@ -1,5 +1,5 @@
 // examples/scripting/lua/binding.cxx
-#include "../demo.h"
+#include "../../classes_demo.h"
 #include <iostream>
 #include <rosetta/generators/lua.h>
 #include <sol/sol.hpp>

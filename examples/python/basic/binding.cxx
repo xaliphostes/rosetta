@@ -1,5 +1,5 @@
 #include <rosetta/generators/py.h>
-#include "../demo.h"
+#include "../../classes_demo.h"
 
 // pybind11 module definition using automatic binding
 PYBIND11_MODULE(rosettapy, m)

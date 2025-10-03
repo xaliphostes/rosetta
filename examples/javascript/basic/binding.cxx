@@ -1,5 +1,5 @@
 #include <rosetta/generators/js.h>
-#include "../demo.h"
+#include "../../classes_demo.h"
 
 // Node.js addon initialization - ONLY 3 LINES for both classes!
 Napi::Object Init(Napi::Env env, Napi::Object exports)
