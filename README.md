@@ -19,14 +19,22 @@ A lightweight, headers-only C++ introspection system that enables runtime inspec
 
 This C++ introspection system enables **automatic language binding generation for multiple scripting languages** without requiring manual binding code for each class member and method.
 
-- For **Python**, the introspection data can drive automatic pybind11 binding generation, creating properties for all members and properly typed method bindings with argument validation - eliminating the need to manually write .def() calls for each class feature. Example:
+1. 👉 Min effort
+2. 👉 Only very few of C++ line of code
+3. 👉 Automatic language binding
+4. 👉 All supported scripting languages shared a same API
+5. 👉 C++ API changes? Just recompile 🚀
+
+Example for some well known scripting langues:
+
+- **Python**, the introspection data can drive automatic pybind11 binding generation, creating properties for all members and properly typed method bindings with argument validation - eliminating the need to manually write .def() calls for each class feature. Example:
   ```cpp
   PYBIND11_MODULE(introspection_demo, m) {
       rosetta::PyGenerator(m).bind_classes<Person, Vehicle>();
   }
   ```
 
-- For **JavaScript** (via V8, Node.js addons, or Emscripten), the reflection data enables automatic generation of property descriptors and method wrappers, allowing seamless integration where JavaScript objects can directly access C++ class members as properties and call methods with automatic type conversion between JavaScript values and C++ types. Example:
+- **JavaScript** (via V8, Node.js addons, or Emscripten), the reflection data enables automatic generation of property descriptors and method wrappers, allowing seamless integration where JavaScript objects can directly access C++ class members as properties and call methods with automatic type conversion between JavaScript values and C++ types. Example:
   ```cpp
   Napi::Object Init(Napi::Env env, Napi::Object exports) {
       rosetta::JsGenerator(env, exports).bind_classes<Person, Vehicle>();
@@ -34,7 +42,7 @@ This C++ introspection system enables **automatic language binding generation fo
   }
   ```
 
-- For **Lua** (via Lua or LuaGit, and Sol3), the type information allows automatic creation of Lua userdata metatables with `__index` and `__newindex` metamethods that dynamically resolve member access, while method calls can be automatically wrapped using the stored function signatures and parameter types. Example:
+- **Lua** (via Lua or LuaGit, and Sol3), the type information allows automatic creation of Lua userdata metatables with `__index` and `__newindex` metamethods that dynamically resolve member access, while method calls can be automatically wrapped using the stored function signatures and parameter types. Example:
   ```cpp
   void main() {
     sol::state lua;
