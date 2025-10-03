@@ -23,7 +23,7 @@ This C++ introspection system enables **automatic language binding generation fo
 2. 👉 Just a few lines of C++ are needed
 3. 👉 Automatic language binding
 4. 👉 All supported scripting languages shared a same API
-5. 👉 C++ API changes? Just recompile 🚀
+5. 👉 C++ API changes? Just recompile for all scripting languages 🚀
 
 Example for some well known scripting langues:
 
