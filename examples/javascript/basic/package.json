@@ -1,5 +1,5 @@
 {
-    "name": "rosettajs",
+    "name": "rosetta-js-basic",
     "version": "1.0.0",
     "description": "Automatic JavaScript bindings for C++ introspection system",
     "main": "index.js",

@@ -8,4 +8,4 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     return exports;
 }
 
-NODE_API_MODULE(jsrosetta, Init)
+NODE_API_MODULE(rosetta, Init)

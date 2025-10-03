@@ -1,4 +1,4 @@
-const rosetta = require('./build/Release/js3')
+const rosetta = require('./build/Release/rosetta')
 
 const s = new rosetta.Surface([0., 1, 2, 3, 4, 5, 6, 7, 8], [0, 1, 2])
 console.log('s.vertices():', s.vertices())

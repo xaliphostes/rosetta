@@ -1,4 +1,4 @@
-const rosetta = require('./build/Release/js2')
+const rosetta = require('./build/Release/rosetta')
 
 const a = new rosetta.A()
 console.log('a:', a)

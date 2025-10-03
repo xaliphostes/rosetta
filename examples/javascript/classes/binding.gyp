@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "js2",
+      "target_name": "rosetta",
       "sources": [
         "binding.cxx"
       ],

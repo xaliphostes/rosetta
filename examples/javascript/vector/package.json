@@ -1,5 +1,5 @@
 {
-    "name": "js3",
+    "name": "rosetta-js-vector",
     "version": "1.0.0",
     "description": "Automatic JavaScript bindings for C++ introspection system",
     "main": "index.js",

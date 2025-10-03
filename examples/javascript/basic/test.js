@@ -1,4 +1,4 @@
-const rosetta = require('./build/Release/jsrosetta');
+const rosetta = require('./build/Release/rosetta');
 
 console.log('=== Automatic JavaScript Bindings Test ===\n');
 
