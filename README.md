@@ -17,7 +17,7 @@
 
 A lightweight, headers-only C++ introspection system that enables runtime inspection and manipulation of class members and methods without external dependencies.
 
-This C++ introspection system enables **automatic language binding generation for multiple scripting languages** without requiring manual binding code for each class member and method.
+*This C++ introspection system enables automatic language binding generation for multiple scripting languages—eliminating both (1) the need for manual binding code for each class member and method, and (2) the need for any knowledge of the underlying binding libraries*:
 
 1. 👉 Min effort
 2. 👉 Just a few lines of C++ are needed
@@ -55,12 +55,12 @@ Example for some well known scripting langues:
 
 ## Comparison: Lua vs Python vs JavaScript
 
-| Feature | Lua | Python | JavaScript |
-|---------|-----|--------|------------|
-| Binding Library | Sol3 | pybind11 | N-API |
-| Setup Lines | 1 | 1 | 1 |
-| Performance | Fastest | Fast | Fast |
-| Use Case | Game scripting | Scientific computing | Web/Desktop apps |
+| Feature         | Lua            | Python               | JavaScript       |
+| --------------- | -------------- | -------------------- | ---------------- |
+| Binding Library | Sol3           | pybind11             | N-API            |
+| Setup Lines     | 1              | 1                    | 1                |
+| Performance     | Fastest        | Fast                 | Fast             |
+| Use Case        | Game scripting | Scientific computing | Web/Desktop apps |
 
 The key advantage is that once a C++ class inherits from Introspectable and registers its members/methods, it can be automatically exposed to all scripting languages using the same introspection metadata, drastically reducing the maintenance burden of keeping multiple language bindings synchronized with C++ class changes.
 
