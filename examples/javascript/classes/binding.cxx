@@ -34,10 +34,6 @@ class B : public rosetta::Introspectable {
 public:
     B() { a_ = new A(); }
     B(int x) { a_ = new A(x); }
-    B(A* a)
-        : a_(a)
-    {
-    }
     A* a() { return a_; }
     void setA(A* a) { this->a_ = a; }
 
@@ -47,11 +43,7 @@ private:
 
 void B::registerIntrospection(rosetta::TypeRegistrar<B> reg)
 {
-    reg.constructor<>()
-        .constructor<int>()
-        .constructor<A*>()
-        .method("a", &B::a)
-        .method("setA", &B::setA);
+    reg.constructor<>().constructor<int>().method("a", &B::a).method("setA", &B::setA);
 }
 
 // -----------------------------------------------------

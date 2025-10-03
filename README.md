@@ -65,6 +65,9 @@ The key advantage is that once a C++ class inherits from Introspectable and regi
 - **Zero Dependencies**: No external libraries required
 - **C++20 Compatible**: Uses modern C++ features like `std::any` and `if constexpr`
 - **Multiple constructors** if **needed**
+- **vector<T>** support
+- **array<T,N>** support
+- **functor** support (C++ → Script) and (Script → C++)
 
 ## Quick Start
 
