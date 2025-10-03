@@ -36,9 +36,11 @@ namespace rosetta {
         JsGenerator& register_type_converter(
             const std::string&, CppToJsConverter, JsToCppConverter);
 
-    private:
+        // Public members for convenience (beurk!)
         Napi::Env env;
         Napi::Object exports;
+
+    private:
         std::unordered_set<std::string> bound_classes;
     };
 

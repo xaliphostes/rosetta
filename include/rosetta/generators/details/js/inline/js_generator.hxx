@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025-now fmaerten@gmail.com
  * LGPL v3 license
- * 
+ *
  */
 #include <rosetta/introspectable.h>
 
@@ -18,6 +18,26 @@ namespace rosetta {
         ObjectWrapper(const Napi::CallbackInfo& info);
 
         T* GetCppObject();
+
+        /**
+         * @brief Set this wrapper to reference an existing C++ object (non-owning)
+         * @param ptr Pointer to existing C++ object
+         */
+        void SetNonOwningPointer(T* ptr)
+        {
+            if (!ptr) {
+                cpp_obj = nullptr;
+                return;
+            }
+
+            // Create non-owning shared_ptr with no-op deleter
+            cpp_obj = std::shared_ptr<T>(ptr, [](T*) {
+                // Do nothing - we don't own this pointer
+            });
+
+            // Setup all bindings for this object
+            SetupBindings();
+        }
 
     private:
         std::shared_ptr<T> cpp_obj;
@@ -118,8 +138,8 @@ namespace rosetta {
 
     template <typename T> inline void ObjectWrapper<T>::SetupBindings()
     {
-        //auto env = this->Env();
-        //auto obj = this->Value();
+        // auto env = this->Env();
+        // auto obj = this->Value();
         const auto& type_info = cpp_obj->getTypeInfo();
 
         // Bind properties
@@ -585,11 +605,13 @@ namespace rosetta {
         return *this;
     }
 
-    template <typename T> inline void bind_class(JsGenerator& generator) {
+    template <typename T> inline void bind_class(JsGenerator& generator)
+    {
         generator.bind_class<T>();
     }
 
-    template <typename ...Classes> inline void bind_classes(JsGenerator& generator) {
+    template <typename... Classes> inline void bind_classes(JsGenerator& generator)
+    {
         generator.bind_classes<Classes...>();
     }
 

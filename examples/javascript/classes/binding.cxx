@@ -1,59 +1,78 @@
+// examples/javascript/classes/binding.cxx
+// Simple test for pointer handling
+
 #include <rosetta/generators/js.h>
 
-// -----------------------------------------------------
-
+// Simple class A with one integer member
 class A : public rosetta::Introspectable {
     INTROSPECTABLE(A)
 public:
-    A() { }
-    A(int x)
-        : x(x)
+    A()
+        : value_(0)
     {
     }
-    int getX() const { return x; }
-    void setX(int value) { x = value; }
+    A(int v)
+        : value_(v)
+    {
+    }
+
+    int getValue() const { return value_; }
+    void setValue(int v) { value_ = v; }
 
 private:
-    int x { 0 };
+    int value_;
 };
-REGISTER_TYPE(A);
 
 void A::registerIntrospection(rosetta::TypeRegistrar<A> reg)
 {
     reg.constructor<>()
         .constructor<int>()
-        .member("x", &A::x)
-        .method("getX", &A::getX)
-        .method("setX", &A::setX);
+        .member("value", &A::value_)
+        .method("getValue", &A::getValue)
+        .method("setValues", &A::setValue);
 }
 
 // -----------------------------------------------------
 
+// Class B that contains an A and returns pointer to it
 class B : public rosetta::Introspectable {
     INTROSPECTABLE(B)
 public:
-    B() { a_ = new A(); }
-    B(int x) { a_ = new A(x); }
-    A* a() { return a_; }
-    void setA(A* a) { this->a_ = a; }
+    B()
+        : a_(0)
+    {
+    }
+    B(int v)
+        : a_(v)
+    {
+    }
+
+    A* getA() { return &a_; }
+
+    int getAValue() const { return a_.getValue(); }
 
 private:
-    A* a_;
+    A a_;
 };
 
 void B::registerIntrospection(rosetta::TypeRegistrar<B> reg)
 {
-    reg.constructor<>().constructor<int>().method("a", &B::a).method("setA", &B::setA);
+    reg.constructor<>()
+        .constructor<int>()
+        .method("getA", &B::getA)
+        .method("getAValue", &B::getAValue);
 }
 
 // -----------------------------------------------------
+
+REGISTER_TYPE(A);
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
     rosetta::JsGenerator generator(env, exports);
     rosetta::registerPointerType<A>(generator);
-    rosetta::bind_classes<A, B>(generator);
-    
+    generator.bind_classes<A, B>();
+
     return exports;
 }
 
