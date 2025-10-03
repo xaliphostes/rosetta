@@ -20,7 +20,7 @@ A lightweight, headers-only C++ introspection system that enables runtime inspec
 This C++ introspection system enables **automatic language binding generation for multiple scripting languages** without requiring manual binding code for each class member and method.
 
 1. 👉 Min effort
-2. 👉 ust a few lines of C++ are needed
+2. 👉 Just a few lines of C++ are needed
 3. 👉 Automatic language binding
 4. 👉 All supported scripting languages shared a same API
 5. 👉 C++ API changes? Just recompile 🚀
