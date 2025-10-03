@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/license-LGPL-blue.svg" alt="License">
 </p>
 
-A lightweight, header-only C++ introspection system that enables runtime inspection and manipulation of class members and methods without external dependencies.
+A lightweight, headers-only C++ introspection system that enables runtime inspection and manipulation of class members and methods without external dependencies.
 
 This C++ introspection system enables **automatic language binding generation for multiple scripting languages** without requiring manual binding code for each class member and method.
 
@@ -69,6 +69,7 @@ The key advantage is that once a C++ class inherits from Introspectable and regi
 - **std::array** support: see [this example](./examples/javascript/array)
 - **Functor** support (C++ → Script) and (Script → C++): see [this example](./examples/javascript/functors)
 - **Pointer handling**: see [this example](./examples/javascript/classes)
+- **Standalone functions**
 
 ## Quick Start
 
