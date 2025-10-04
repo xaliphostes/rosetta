@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025-now fmaerten@gmail.com
  * LGPL v3 license
- * 
+ *
  */
 #pragma once
 #include <rosetta/info.h>
@@ -29,13 +29,10 @@ namespace rosetta {
      */
     template <typename Class> class TypeRegistrar {
     private:
-        TypeInfo& info;
+        TypeInfo &info;
 
     public:
-        explicit TypeRegistrar(TypeInfo& type_info)
-            : info(type_info)
-        {
-        }
+        explicit TypeRegistrar(TypeInfo &type_info) : info(type_info) {}
 
         /**
          * @brief Register a member variable.
@@ -46,7 +43,7 @@ namespace rosetta {
          * member's type is deduced using the getTypeName function.
          */
         template <typename MemberType>
-        TypeRegistrar& member(const std::string& name, MemberType Class::* member_ptr);
+        TypeRegistrar &member(const std::string &name, MemberType Class::*member_ptr);
 
         /**
          * @brief Register a method based on C++ variadic method registration
@@ -57,23 +54,23 @@ namespace rosetta {
          * getTypeName function.
          */
         template <typename ReturnType, typename... Args>
-        TypeRegistrar& method(const std::string& name, ReturnType (Class::*method_ptr)(Args...));
+        TypeRegistrar &method(const std::string &name, ReturnType (Class::*method_ptr)(Args...));
 
         /**
          * @brief Register a const method based on C++ variadic method registration
          * (handles any number of parameters).
          */
         template <typename ReturnType, typename... Args>
-        TypeRegistrar& method(
-            const std::string& name, ReturnType (Class::*method_ptr)(Args...) const);
+        TypeRegistrar &method(const std::string &name,
+                              ReturnType (Class::*method_ptr)(Args...) const);
 
         /**
          * @brief Register a constructor with specific parameter types.
          * This creates a factory function that constructs the object.
          */
-        template <typename... Args> TypeRegistrar& constructor();
+        template <typename... Args> TypeRegistrar &constructor();
     };
 
-}
+} // namespace rosetta
 
 #include "inline/types.hxx"

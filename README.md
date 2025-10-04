@@ -25,7 +25,7 @@ A lightweight, headers-only C++ introspection system that enables runtime inspec
 4. 👉 All supported scripting languages shared a same API
 5. 👉 C++ API changes? Just recompile for all scripting languages 🚀
 
-Example for some well known scripting langues:
+Example for some well known scripting languages:
 
 - **Python**, the introspection data can drive automatic pybind11 binding generation, creating properties for all members and properly typed method bindings with argument validation - eliminating the need to manually write .def() calls for each class feature. Example:
   ```cpp

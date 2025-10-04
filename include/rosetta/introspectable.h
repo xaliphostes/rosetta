@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025-now fmaerten@gmail.com
  * LGPL v3 license
- * 
+ *
  */
 #pragma once
 #include <rosetta/info.h>
@@ -18,26 +18,26 @@ namespace rosetta {
      */
     class Introspectable {
     public:
-        virtual ~Introspectable() = default;
-        virtual const TypeInfo& getTypeInfo() const = 0;
+        virtual ~Introspectable()                   = default;
+        virtual const TypeInfo &getTypeInfo() const = 0;
 
         // Introspection utility methods
-        std::any getMemberValue(const std::string& member_name) const;
-        void setMemberValue(const std::string& member_name, const Arg& value);
-        std::any callMethod(const std::string& method_name, const Args& args = {});
+        std::any                 getMemberValue(const std::string &member_name) const;
+        void                     setMemberValue(const std::string &member_name, const Arg &value);
+        std::any                 callMethod(const std::string &method_name, const Args &args = {});
         std::vector<std::string> getMemberNames() const;
         std::vector<std::string> getMethodNames() const;
-        std::string getClassName() const;
-        bool hasMember(const std::string& name) const;
-        bool hasMethod(const std::string& name) const;
+        std::string              getClassName() const;
+        bool                     hasMember(const std::string &name) const;
+        bool                     hasMethod(const std::string &name) const;
 
-        void printMemberValue(const std::string& member_name) const;
+        void printMemberValue(const std::string &member_name) const;
         void printClassInfo() const;
 
         std::string toJSON() const;
     };
 
-}
+} // namespace rosetta
 
 /**
  * @brief Macro to declare a class as introspectable.
@@ -53,23 +53,24 @@ namespace rosetta {
  * efficient memory usage. C++20 standard is used for std::any and other
  * features.
  */
-#define INTROSPECTABLE(ClassName)                                                                  \
-public:                                                                                            \
-    static rosetta::TypeInfo& getStaticTypeInfo()                                                  \
-    {                                                                                              \
-        static rosetta::TypeInfo info(#ClassName);                                                 \
-        static bool initialized = false;                                                           \
-        if (!initialized) {                                                                        \
-            registerIntrospection(rosetta::TypeRegistrar<ClassName>(info));                        \
-            initialized = true;                                                                    \
-        }                                                                                          \
-        return info;                                                                               \
-    }                                                                                              \
-    const rosetta::TypeInfo& getTypeInfo() const override { return getStaticTypeInfo(); }          \
-                                                                                                   \
-private:                                                                                           \
-    static void registerIntrospection(rosetta::TypeRegistrar<ClassName> reg);                      \
-                                                                                                   \
+#define INTROSPECTABLE(ClassName)                                             \
+public:                                                                       \
+    static rosetta::TypeInfo &getStaticTypeInfo() {                           \
+        static rosetta::TypeInfo info(#ClassName);                            \
+        static bool              initialized = false;                         \
+        if (!initialized) {                                                   \
+            registerIntrospection(rosetta::TypeRegistrar<ClassName>(info));   \
+            initialized = true;                                               \
+        }                                                                     \
+        return info;                                                          \
+    }                                                                         \
+    const rosetta::TypeInfo &getTypeInfo() const override {                   \
+        return getStaticTypeInfo();                                           \
+    }                                                                         \
+                                                                              \
+private:                                                                      \
+    static void registerIntrospection(rosetta::TypeRegistrar<ClassName> reg); \
+                                                                              \
 public:
 
 #include "inline/introspectable.hxx"

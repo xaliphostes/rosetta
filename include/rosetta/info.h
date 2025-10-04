@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025-now fmaerten@gmail.com
  * LGPL v3 license
- * 
+ *
  */
 #pragma once
 #include <any>
@@ -13,7 +13,7 @@
 
 namespace rosetta {
 
-    using Arg = std::any;
+    using Arg  = std::any;
     using Args = std::vector<Arg>;
 
     /**
@@ -21,15 +21,12 @@ namespace rosetta {
      */
     class ConstructorInfo {
     public:
-        std::vector<std::string> parameter_types;
-        std::function<void*(const Args&)> factory; // Creates new instance
+        std::vector<std::string>            parameter_types;
+        std::function<void *(const Args &)> factory; // Creates new instance
 
-        ConstructorInfo(
-            const std::vector<std::string>& param_types, std::function<void*(const Args&)> fact)
-            : parameter_types(param_types)
-            , factory(fact)
-        {
-        }
+        ConstructorInfo(const std::vector<std::string>     &param_types,
+                        std::function<void *(const Args &)> fact)
+            : parameter_types(param_types), factory(fact) {}
     };
 
     /**
@@ -37,13 +34,13 @@ namespace rosetta {
      */
     class MemberInfo {
     public:
-        std::string name;
-        std::string type_name;
-        std::function<Arg(const void*)> getter;
-        std::function<void(void*, const Arg&)> setter;
+        std::string                              name;
+        std::string                              type_name;
+        std::function<Arg(const void *)>         getter;
+        std::function<void(void *, const Arg &)> setter;
 
-        MemberInfo(const std::string& n, const std::string& t, std::function<Arg(const void*)> g,
-            std::function<void(void*, const Arg&)> s);
+        MemberInfo(const std::string &n, const std::string &t, std::function<Arg(const void *)> g,
+                   std::function<void(void *, const Arg &)> s);
     };
 
     /**
@@ -51,14 +48,14 @@ namespace rosetta {
      */
     class MethodInfo {
     public:
-        std::string name;
-        std::string return_type;
-        std::vector<std::string> parameter_types;
-        std::function<Arg(void*, const Args&)> invoker;
+        std::string                              name;
+        std::string                              return_type;
+        std::vector<std::string>                 parameter_types;
+        std::function<Arg(void *, const Args &)> invoker;
 
-        MethodInfo(const std::string& n, const std::string& ret_type,
-            const std::vector<std::string>& param_types,
-            std::function<Arg(void*, const Args&)> inv);
+        MethodInfo(const std::string &n, const std::string &ret_type,
+                   const std::vector<std::string>          &param_types,
+                   std::function<Arg(void *, const Args &)> inv);
     };
 
     /**
@@ -71,36 +68,33 @@ namespace rosetta {
      */
     class TypeInfo {
     public:
-        std::string class_name;
+        std::string                                                  class_name;
         std::unordered_map<std::string, std::unique_ptr<MemberInfo>> members;
         std::unordered_map<std::string, std::unique_ptr<MethodInfo>> methods;
-        std::vector<std::unique_ptr<ConstructorInfo>> constructors;
+        std::vector<std::unique_ptr<ConstructorInfo>>                constructors;
 
-        explicit TypeInfo(const std::string& name)
-            : class_name(name)
-        {
-        }
+        explicit TypeInfo(const std::string &name) : class_name(name) {}
 
         // Delete copy operations (unique_ptr is not copyable)
-        TypeInfo(const TypeInfo&) = delete;
-        TypeInfo& operator=(const TypeInfo&) = delete;
+        TypeInfo(const TypeInfo &)            = delete;
+        TypeInfo &operator=(const TypeInfo &) = delete;
 
         // Default move operations
-        TypeInfo(TypeInfo&&) = default;
-        TypeInfo& operator=(TypeInfo&&) = default;
+        TypeInfo(TypeInfo &&)            = default;
+        TypeInfo &operator=(TypeInfo &&) = default;
 
         void addMember(std::unique_ptr<MemberInfo> member);
         void addMethod(std::unique_ptr<MethodInfo> method);
         void addConstructor(std::unique_ptr<ConstructorInfo> ctor);
 
-        const MemberInfo* getMember(const std::string& name) const;
-        const MethodInfo* getMethod(const std::string& name) const;
-        const std::vector<std::unique_ptr<ConstructorInfo>>& getConstructors() const;
+        const MemberInfo *getMember(const std::string &name) const;
+        const MethodInfo *getMethod(const std::string &name) const;
+        const std::vector<std::unique_ptr<ConstructorInfo>> &getConstructors() const;
 
         std::vector<std::string> getMemberNames() const;
         std::vector<std::string> getMethodNames() const;
     };
 
-}
+} // namespace rosetta
 
 #include "inline/info.hxx"
