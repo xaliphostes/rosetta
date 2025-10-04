@@ -49,9 +49,25 @@
 
 - Property Change Notifications
   ```cpp
-    class Observable : public rosetta::Introspectable {
-        // Emit change events to scripting language
-    };
+    reg.constructor<const std::string&, int>()
+      .member_observable("name", &Person::name)  // Observable!
+      .member_observable("age", &Person::age)    // Observable!
+      .method("getName", &Person::getName)
+      .method("setName", &Person::setName)
+      .method("getAge", &Person::getAge)
+      .method("setAge", &Person::setAge);
+
+    // C++ usage
+    Person person("Alice", 30);
+    person.propertyChanged.subscribe([](const std::string& prop, 
+                                      const std::any& oldVal, 
+                                      const std::any& newVal) {
+        std::cout << "Property '" << prop << "' changed from " 
+                  << std::any_cast<int>(oldVal) << " to " 
+                  << std::any_cast<int>(newVal) << std::endl;
+    });
+
+    person.setAge(31);  // Triggers notification
   ```
 
 ## Advanced Method Features
