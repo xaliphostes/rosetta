@@ -11,6 +11,16 @@
 #include "details/js/js_pointers.h"
 #include "details/js/js_vectors.h"
 
+/**
+ * @example
+ * @code{.cpp}
+ * #include <rosetta/generators/js.h>
+ * 
+ * BEGIN_JS(gen) {
+ *  gen.bind_classes<Person, Vehicle>();
+ * }
+ * END_JS();
+ */
 #define BEGIN_JS(generatorName)                              \
     Napi::Object Init(Napi::Env env, Napi::Object exports) { \
         rosetta::JsGenerator generatorName(env, exports);

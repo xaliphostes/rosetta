@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.0)
-project(pyrosetta)
+project(rosetta)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,4 +51,4 @@ include_directories(../../../include)
 #find_package(pybind11 REQUIRED)
 
 # Create the Python module
-pybind11_add_module(pyrosetta binding.cxx)
+pybind11_add_module(rosetta binding.cxx)
