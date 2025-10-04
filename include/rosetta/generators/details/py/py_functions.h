@@ -8,12 +8,11 @@
 
 namespace rosetta {
 
-    inline void bindFunctions(py::module_& m)
-    {
-        auto& registry = FunctionRegistry::instance();
+    inline void bindFunctions(py::module_ &m) {
+        auto &registry = FunctionRegistry::instance();
 
-        for (const auto& func_name : registry.getFunctionNames()) {
-            const auto* func_info = registry.getFunction(func_name);
+        for (const auto &func_name : registry.getFunctionNames()) {
+            const auto *func_info = registry.getFunction(func_name);
             if (!func_info)
                 continue;
 
