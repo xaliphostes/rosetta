@@ -16,6 +16,7 @@ public:
 private:
     int value_;
 };
+REGISTER_TYPE(A);
 
 void A::registerIntrospection(rosetta::TypeRegistrar<A> reg) {
     reg.constructor<>()
@@ -50,14 +51,8 @@ void B::registerIntrospection(rosetta::TypeRegistrar<B> reg) {
 
 // -----------------------------------------------------
 
-REGISTER_TYPE(A);
-
-Napi::Object Init(Napi::Env env, Napi::Object exports) {
-    rosetta::JsGenerator generator(env, exports);
+BEGIN_JS(generator) {
     rosetta::registerPointerType<A>(generator);
-    generator.bind_classes<A, B>();
-
-    return exports;
+    rosetta::bind_classes<A, B>(generator);
 }
-
-NODE_API_MODULE(rosetta, Init)
+END_JS()
