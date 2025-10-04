@@ -77,7 +77,7 @@ The key advantage is that once a C++ class inherits from Introspectable and regi
 - **std::array** support: see [this example](./examples/javascript/array)
 - **Functor** support (C++ → Script) and (Script → C++): see [this example](./examples/javascript/functors)
 - **Pointer handling**: see [this example](./examples/javascript/classes)
-- **Standalone functions**
+- **Standalone functions**: see [this example](./examples/javascript/functions)
 
 ## Quick Start
 
