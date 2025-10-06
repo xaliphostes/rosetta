@@ -605,7 +605,7 @@ namespace rosetta {
         return *this;
     }
 
-    template <typename T> inline void bind_class(JsGenerator& generator, const std::string& class_name = "")
+    template <typename T> inline void bind_class(JsGenerator& generator, const std::string& class_name)
     {
         generator.bind_class<T>(class_name);
     }

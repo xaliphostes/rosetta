@@ -44,7 +44,7 @@ namespace rosetta {
         std::unordered_set<std::string> bound_classes;
     };
 
-    template <typename T> void bind_class(JsGenerator&);
+    template <typename T> void bind_class(JsGenerator&, const std::string& class_name = "");
     template <typename... Classes> void bind_classes(JsGenerator&);
 
 } // namespace rosetta
