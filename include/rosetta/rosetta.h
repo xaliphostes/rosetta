@@ -6,4 +6,4 @@
 #pragma once
 #include <rosetta/introspectable.h>
 #include <rosetta/type_registry.h>
-#include <rosetta/enum_registry.h>
+// #include <rosetta/enum_registry.h>
