@@ -12,6 +12,7 @@ Go inside each leaf folder, and then type:
     ```sh
     npm install # first time
     ```
+    then
     ```sh
     npm run build
     node test.js
