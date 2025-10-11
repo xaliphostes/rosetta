@@ -15,6 +15,8 @@
   <img src="https://img.shields.io/badge/license-LGPL-blue.svg" alt="License">
 </p>
 
+## Actually working on non intrusif introspection 
+
 A lightweight, headers-only C++ introspection system that enables runtime inspection and manipulation of class members and methods without external dependencies.
 
 *This C++ introspection system enables automatic language binding generation for multiple scripting languages—eliminating both (1) the need for manual binding code for each class member and method, and (2) the need for any knowledge of the underlying binding libraries*:
