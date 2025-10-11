@@ -15,7 +15,10 @@
   <img src="https://img.shields.io/badge/license-LGPL-blue.svg" alt="License">
 </p>
 
-## Actually working on non intrusif introspection 
+<br><br>
+## Actually working on non intrusif introspection (no inheritance, no wrapper, nothing)!
+### Keep connected on this page...
+<br><br>
 
 A lightweight, headers-only C++ introspection system that enables runtime inspection and manipulation of class members and methods without external dependencies.
 
