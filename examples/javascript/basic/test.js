@@ -9,7 +9,7 @@ console.log(v.length());  // 5.0
 v.normalize();
 console.log(v.x, v.y, v.z);  // 0.6, 0.8, 0.0
 
-const p = new geometry.Point2D();
+const p = new geometry.Point();
 p.x = 3;
 p.y = 4;
 console.log(p.distance());  // 5.0

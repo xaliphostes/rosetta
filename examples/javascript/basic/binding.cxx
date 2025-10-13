@@ -51,8 +51,9 @@ void register_types() {
 BEGIN_MODULE(basic) { 
     register_types();
 
-    rosetta::generators::NapiBindingGenerator generator(env, exports);
-    generator.bind_classes<Vector3D, Point2D>();
+    rosetta::generators::NapiBindingGenerator(env, exports)
+        .bind_class<Vector3D>()
+        .bind_class<Point2D>("Point"); // Custom name
 
     return exports;
 }
