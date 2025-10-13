@@ -1,0 +1,312 @@
+// ============================================================================
+// example/example.cpp
+//
+// Exemple complet d'utilisation de la bibliothèque Rosetta
+// ============================================================================
+
+#include "rosetta.h"
+#include <cmath>
+#include <iostream>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846 // Valeur de π si non définie
+#endif
+
+// ============================================================================
+// 1. DÉFINITION DES CLASSES (code utilisateur, AUCUNE modification)
+// ============================================================================
+
+class Vector3D {
+public:
+    double x, y, z;
+
+    Vector3D(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
+
+    double length() const { return std::sqrt(x * x + y * y + z * z); }
+
+    void normalize() {
+        double len = length();
+        if (len > 0) {
+            x /= len;
+            y /= len;
+            z /= len;
+        }
+    }
+
+    std::string to_string() const {
+        return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")";
+    }
+};
+
+class Shape {
+public:
+    std::string name;
+    Vector3D    position;
+
+    Shape(const std::string &n = "Shape") : name(n) {}
+    virtual ~Shape() = default;
+
+    virtual double      volume() const   = 0;
+    virtual std::string get_type() const = 0;
+};
+
+class Sphere : public Shape {
+public:
+    double radius;
+
+    Sphere(double r = 1.0) : Shape("Sphere"), radius(r) {}
+
+    double volume() const override { return (4.0 / 3.0) * M_PI * radius * radius * radius; }
+
+    std::string get_type() const override { return "Sphere"; }
+};
+
+class Box : public Shape {
+public:
+    double width, height, depth;
+
+    Box(double w = 1, double h = 1, double d = 1) : Shape("Box"), width(w), height(h), depth(d) {}
+
+    double volume() const override { return width * height * depth; }
+
+    std::string get_type() const override { return "Box"; }
+};
+
+// ============================================================================
+// 2. ENREGISTREMENT DES CLASSES
+// ============================================================================
+
+void register_types() {
+    using namespace rosetta;
+
+    // Vector3D
+    ROSETTA_REGISTER_CLASS(Vector3D)
+        .field("x", &Vector3D::x)
+        .field("y", &Vector3D::y)
+        .field("z", &Vector3D::z)
+        .method("length", &Vector3D::length)
+        .method("normalize", &Vector3D::normalize)
+        .method("to_string", &Vector3D::to_string);
+
+    // Shape (abstract)
+    ROSETTA_REGISTER_CLASS(Shape)
+        .field("name", &Shape::name)
+        .field("position", &Shape::position)
+        .pure_virtual_method<double>("volume")
+        .pure_virtual_method<std::string>("get_type");
+
+    // Sphere
+    ROSETTA_REGISTER_CLASS(Sphere)
+        .inherits_from<Shape>("Shape")
+        .field("radius", &Sphere::radius)
+        .base_field<Shape>("name", &Shape::name)
+        .base_field<Shape>("position", &Shape::position)
+        .override_method("volume", &Sphere::volume)
+        .override_method("get_type", &Sphere::get_type);
+
+    // Box
+    ROSETTA_REGISTER_CLASS(Box)
+        .inherits_from<Shape>("Shape")
+        .field("width", &Box::width)
+        .field("height", &Box::height)
+        .field("depth", &Box::depth)
+        .base_field<Shape>("name", &Shape::name)
+        .base_field<Shape>("position", &Shape::position)
+        .override_method("volume", &Box::volume)
+        .override_method("get_type", &Box::get_type);
+}
+
+// ============================================================================
+// 3. DÉMONSTRATION DES FONCTIONNALITÉS
+// ============================================================================
+
+void demo_introspection() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 1: INTROSPECTION\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    Vector3D vec(3, 4, 0);
+    auto    &meta = ROSETTA_GET_META(Vector3D);
+
+    std::cout << "\nVector3D initial: " << vec.to_string() << "\n";
+    std::cout << "Champs enregistrés: ";
+    for (const auto &field : meta.fields()) {
+        std::cout << field << " ";
+    }
+    std::cout << "\n";
+
+    // Accès dynamique
+    auto x_value = meta.get_field(vec, "x");
+    std::cout << "Valeur de x (dynamique): " << x_value.as<double>() << "\n";
+
+    // Modification dynamique
+    meta.set_field(vec, "x", rosetta::Any(10.0));
+    std::cout << "Après modification: " << vec.to_string() << "\n";
+
+    // Appel de méthode
+    auto length = meta.invoke_method(vec, "length");
+    std::cout << "Longueur: " << length.as<double>() << "\n";
+
+    meta.invoke_method(vec, "normalize");
+    std::cout << "Après normalisation: " << vec.to_string() << "\n";
+}
+
+void demo_inheritance() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 2: HÉRITAGE\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    auto       &sphere_meta = ROSETTA_GET_META(Sphere);
+    const auto &inheritance = sphere_meta.inheritance();
+
+    std::cout << "\nSphere:\n";
+    std::cout << "  Est abstraite: " << inheritance.is_abstract << "\n";
+    std::cout << "  Est polymorphique: " << inheritance.is_polymorphic << "\n";
+    std::cout << "  Nombre de classes de base: " << inheritance.base_classes.size() << "\n";
+
+    if (!inheritance.base_classes.empty()) {
+        std::cout << "  Hérite de: " << inheritance.base_classes[0].name << "\n";
+    }
+
+    // Test polymorphisme
+    Sphere sphere(5.0);
+    sphere.name = "Big Sphere";
+
+    auto vol = sphere_meta.invoke_method(sphere, "volume");
+    std::cout << "\nVolume de la sphère: " << vol.as<double>() << "\n";
+}
+
+void demo_generators() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 3: GÉNÉRATION DE BINDINGS\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    // Python
+    std::cout << "\n--- Python (pybind11) ---\n";
+    rosetta::PythonGenerator py_gen("geometry");
+    std::string              py_code = py_gen.generate();
+    std::cout << py_code.substr(0, 500) << "...\n";
+
+    // JavaScript
+    std::cout << "\n--- JavaScript (Emscripten) ---\n";
+    rosetta::JavaScriptGenerator js_gen("geometry");
+    std::string                  js_code = js_gen.generate();
+    std::cout << js_code.substr(0, 500) << "...\n";
+
+    // TypeScript
+    std::cout << "\n--- TypeScript Definitions ---\n";
+    rosetta::TypeScriptGenerator ts_gen("geometry");
+    std::string                  ts_code = ts_gen.generate();
+    std::cout << ts_code << "\n";
+}
+
+void demo_serialization() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 4: SÉRIALISATION\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    Vector3D vec(1.5, 2.5, 3.5);
+
+    // JSON
+    std::cout << "\n--- JSON ---\n";
+    std::string json = rosetta::JSONSerializer::serialize(vec);
+    std::cout << json << "\n";
+
+    // XML
+    std::cout << "\n--- XML ---\n";
+    std::string xml = rosetta::XMLSerializer::serialize(vec, "Vector3D");
+    std::cout << xml << "\n";
+}
+
+void demo_validation() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 5: VALIDATION\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    using namespace rosetta;
+
+    // Ajouter des contraintes
+    ConstraintValidator::instance().add_field_constraint<Sphere, double>(
+        "radius", make_range_constraint(0.1, 100.0));
+
+    // Test avec valeur valide
+    Sphere                   valid_sphere(5.0);
+    std::vector<std::string> errors;
+
+    if (ConstraintValidator::instance().validate(valid_sphere, errors)) {
+        std::cout << "\nSphère valide ✓\n";
+    }
+
+    // Test avec valeur invalide
+    Sphere invalid_sphere(-5.0);
+    errors.clear();
+
+    if (!ConstraintValidator::instance().validate(invalid_sphere, errors)) {
+        std::cout << "\nSphère invalide ✗\n";
+        for (const auto &error : errors) {
+            std::cout << "  Erreur: " << error << "\n";
+        }
+    }
+}
+
+void demo_documentation() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 6: GÉNÉRATION DE DOCUMENTATION\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    // Markdown
+    std::cout << "\n--- Markdown ---\n";
+    rosetta::DocGenerator md_gen(rosetta::DocFormat::Markdown);
+    std::string           markdown = md_gen.generate();
+    std::cout << markdown.substr(0, 800) << "...\n";
+}
+
+void demo_registry() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO 7: REGISTRY\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    auto &registry = rosetta::Registry::instance();
+
+    std::cout << "\nClasses enregistrées: " << registry.size() << "\n";
+    std::cout << "Liste:\n";
+    for (const auto &name : registry.list_classes()) {
+        std::cout << "  - " << name << "\n";
+    }
+
+    std::cout << "\nVérifications:\n";
+    std::cout << "  Vector3D enregistré: " << ROSETTA_HAS_CLASS(Vector3D) << "\n";
+    std::cout << "  Shape enregistré: " << ROSETTA_HAS_CLASS(Shape) << "\n";
+}
+
+// ============================================================================
+// MAIN
+// ============================================================================
+
+int main() {
+    std::cout << "\n";
+    std::cout << "╔════════════════════════════════════════════════════════╗\n";
+    std::cout << "║         ROSETTA - Exemple complet d'utilisation       ║\n";
+    std::cout << "╚════════════════════════════════════════════════════════╝\n";
+
+    // Afficher les infos
+    rosetta::print_info();
+
+    // Enregistrer les types
+    register_types();
+
+    // Lancer les démos
+    demo_introspection();
+    demo_inheritance();
+    demo_generators();
+    demo_serialization();
+    demo_validation();
+    demo_documentation();
+    demo_registry();
+
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "✅ Toutes les démos terminées avec succès!\n";
+    std::cout << std::string(60, '=') << "\n\n";
+
+    return 0;
+}
