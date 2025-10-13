@@ -11,13 +11,14 @@
     },
     "gypfile": true,
     "dependencies": {
-        "node-addon-api": "^7.0.0"
+        "node-addon-api": "^7.1.1"
     },
     "devDependencies": {
-        "node-gyp": "^10.0.0"
+        "node-gyp": "^10.3.1"
     },
     "keywords": [
-        "cpp", "c++",
+        "cpp",
+        "c++",
         "javascript",
         "nodejs",
         "napi",

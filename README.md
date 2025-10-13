@@ -15,151 +15,271 @@
   <img src="https://img.shields.io/badge/license-LGPL-blue.svg" alt="License">
 </p>
 
-A lightweight, headers-only C++ introspection system that enables runtime inspection and manipulation of class members and methods without external dependencies.
+# Rosetta
 
-*This C++ introspection system enables automatic language binding generation for multiple scripting languages—eliminating both (1) the need for manual binding code for each class member and method, and (2) the need for any knowledge of the underlying binding libraries*:
+> **Non-intrusive C++ introspection library for automatic binding generation**
 
-1. 👉 Min effort
-2. 👉 Just a few lines of C++ are needed
-3. 👉 Automatic language binding
-4. 👉 All supported scripting languages shared a same API
-5. 👉 C++ API changes? Just recompile for all scripting languages 🚀
-
-Example for some well known scripting languages:
-
-- **Python**, the introspection data can drive automatic pybind11 binding generation, creating properties for all members and properly typed method bindings with argument validation - eliminating the need to manually write .def() calls for each class feature. Example:
-  ```cpp
-  PYBIND11_MODULE(introspection_demo, m) {
-      rosetta::PyGenerator(m).bind_classes<Person, Vehicle>();
-  }
-  ```
-
-- **JavaScript** (via V8, Node.js addons, or Emscripten), the reflection data enables automatic generation of property descriptors and method wrappers, allowing seamless integration where JavaScript objects can directly access C++ class members as properties and call methods with automatic type conversion between JavaScript values and C++ types. Example:
-  ```cpp
-  Napi::Object Init(Napi::Env env, Napi::Object exports) {
-      rosetta::JsGenerator(env, exports).bind_classes<Person, Vehicle>();
-      return exports;
-  }
-  ```
-
-- **Lua** (via Lua or LuaGit, and Sol3), the type information allows automatic creation of Lua userdata metatables with `__index` and `__newindex` metamethods that dynamically resolve member access, while method calls can be automatically wrapped using the stored function signatures and parameter types. Example:
-  ```cpp
-  void main() {
-    sol::state lua;
-    lua.open_libraries(sol::lib::base);    
-    // Bind classes automatically
-    rosetta::LuaGenerator(lua).bind_classes<Person, Vehicle>();
-  }
-  ```
-
-
-## Comparison: Lua vs Python vs JavaScript
-
-| Feature         | Lua            | Python               | JavaScript       |
-| --------------- | -------------- | -------------------- | ---------------- |
-| Binding Library | Sol3           | pybind11             | N-API            |
-| Setup Lines     | 1              | 1                    | 1                |
-| Performance     | Fastest        | Fast                 | Fast             |
-| Use Case        | Game scripting | Scientific computing | Web/Desktop apps |
-
-The key advantage is that once a C++ class inherits from Introspectable and registers its members/methods, it can be automatically exposed to all scripting languages using the same introspection metadata, drastically reducing the maintenance burden of keeping multiple language bindings synchronized with C++ class changes.
+Rosetta enables seamless C++ to Python/JavaScript/Lua... bindings without modifying your classes. Register once, export everywhere.
 
 ## Features
 
-- **Runtime Member Access**: Get/set member variables by name
-- **Runtime Method Invocation**: Call methods by name with parameters
-- **Type-Safe**: Compile-time registration with runtime type checking
-- **Template-Based**: Clean, fluent registration API using member/method pointers
-- **Zero Dependencies**: No external libraries required
-- **C++20 Compatible**: Uses modern C++ features like `std::any` and `if constexpr`
-- **Multiple constructors** if **needed**
-- **std::vector** support: see [this example](./examples/javascript/vector)
-- **std::array** support: see [this example](./examples/javascript/array)
-- **Functor** support (C++ → Script) and (Script → C++): see [this example](./examples/javascript/functors)
-- **Pointer handling**: see [this example](./examples/javascript/classes)
-- **Standalone functions**: see [this example](./examples/javascript/functions)
+- ✨ **Zero-intrusion**: No inheritance, no macros in your classes
+- 🐍 **Automatic Python bindings** via pybind11
+- 🌐 **JavaScript binding** via NAPI
+- 🌐 **WASM bindings** via Emscripten
+- 📦 **Container support**: `std::vector`, `std::array`, `std::map`, `std::optional`, etc.
+- 🎯 **Smart pointers**: `shared_ptr`, `unique_ptr`, raw pointers
+- 🏛️ **Full inheritance**: Virtual methods, abstract classes, multiple inheritance
+- 🔍 **Const correctness**: Distinguishes const/non-const methods
+- 📝 **Auto-documentation**: Generate Markdown/HTML docs
+- ✅ **Validation**: Constraint system for runtime checks
 
 ## Quick Start
 
-### 1. Make Your Class Introspectable (or wrap it)
+### 1. Define Your Classes (No Changes Needed!)
 
 ```cpp
-#include <rosetta/rosetta.h>
-
-class Person : public rosetta::Introspectable {
-    INTROSPECTABLE(Person)    
+class Vector3D {
 public:
-    Person(const std::string& n, int a) : name(n), age(a) {}
+    double x, y, z;
     
-    std::string getName() const { return name; }
-    void setName(const std::string& n) { name = n; }
-    int getAge() const { return age; }
-    void introduce() { std::cout << "Hi, I'm " << name << std::endl; }
-
-private:
-    std::string name;
-    int age;
+    double length() const {
+        return std::sqrt(x*x + y*y + z*z);
+    }
+    
+    void normalize();
 };
 ```
 
-### 2. Register Ctors, Members and Methods
+### 2. Register with Rosetta
 
 ```cpp
-void Person::registerIntrospection(rosetta::TypeRegistrar<Person> reg) {
-    reg.constructor<>()
-       .constructor<const std::string&, int, double>()
-       .member("name", &Person::name)
-       .member("age", &Person::age)
-       .method("getName", &Person::getName)
-       .method("setName", &Person::setName)
-       .method("getAge", &Person::getAge)
-       .method("introduce", &Person::introduce);
+#include "rosetta/rosetta.hpp"
+
+void register_types() {
+    ROSETTA_REGISTER_CLASS(Vector3D)
+        .field("x", &Vector3D::x)
+        .field("y", &Vector3D::y)
+        .field("z", &Vector3D::z)
+        .method("length", &Vector3D::length)
+        .method("normalize", &Vector3D::normalize);
+}
+```
+That way, any scripting language can be binded using this Rosetta instrospection.
+
+### 3. Generate Python Bindings
+
+```cpp
+#include <pybind11/pybind11.h>
+#include "rosetta/generators/python_binding_generator.hpp"
+
+PYBIND11_MODULE(my_module, m) {
+    register_types();
+    
+    rosetta::generators::PythonBindingGenerator(m)
+        .bind_class<Vector3D>();
 }
 ```
 
-### 3. Bind in JavaScript (1 line)
+### 4. Use in Python
 
+```python
+import my_module
+
+v = my_module.Vector3D()
+v.x = 3.0
+v.y = 4.0
+v.z = 0.0
+print(v.length())  # 5.0
+v.normalize()
+```
+
+### 5. Generate Javascript Bindings
 ```cpp
-#include <rosetta/generators/js.h>
+Napi::Object Init(Napi::Env env, Napi::Object exports)
+{
+    rosetta::generators::JavaScriptBindingGenerator(env, exports)
+      .bind_class<Vector3D>();
 
-Napi::Object Init(Napi::Env env, Napi::Object exports) {
-    rosetta::JsGenerator(env, exports).bind_class<Person>();
     return exports;
 }
 
-NODE_API_MODULE(jsperson, Init)
+NODE_API_MODULE(my_module, Init)
 ```
 
-### 4. Bind in Python (1 line)
+### 6. Use in JavaScript
+
+```js
+const my_module = require('./build/Release/my_module')
+
+v = new my_module.Vector3D()
+v.x = 3.0
+v.y = 4.0
+v.z = 0.0
+console.log(v.length())  # 5.0
+v.normalize()
+```
+
+## Advanced Features
+
+### Inheritance
 
 ```cpp
-#include <rosetta/generators/py.h>
+class Shape {
+public:
+    virtual double area() const = 0;
+};
 
-PYBIND11_MODULE(rosettapy, m) {
-    rosetta::PyGenerator(m).bind_class<Person>();
+class Circle : public Shape {
+public:
+    double radius;
+    double area() const override;
+};
+
+ROSETTA_REGISTER_CLASS(Shape)
+    .pure_virtual_method<double>("area");
+
+ROSETTA_REGISTER_CLASS(Circle)
+    .inherits_from<Shape>("Shape")
+    .field("radius", &Circle::radius)
+    .override_method("area", &Circle::area);
+```
+
+### Validation
+
+```cpp
+using namespace rosetta;
+
+ConstraintValidator::instance()
+    .add_field_constraint<Circle, double>(
+        "radius",
+        make_range_constraint(0.0, 1000.0)
+    );
+
+Circle c;
+c.radius = -5.0;
+
+std::vector<std::string> errors;
+if (!ConstraintValidator::instance().validate(c, errors)) {
+    for (const auto& err : errors) {
+        std::cerr << err << "\n";  // "radius: Value must be between 0 and 1000"
+    }
 }
 ```
 
-### 5. Bind in Lua (1 line)
+### Multiple Bindings
 
 ```cpp
-#include <rosetta/generators/lua.h>
+// Python
+rosetta::PythonGenerator py_gen;
+std::cout << py_gen.generate();
 
-void main() {
-    ...
-    rosetta::LuaGenerator(lua).bind_class<Person>();
-}
+// JavaScript
+rosetta::JavaScriptGenerator js_gen;
+std::cout << js_gen.generate();
+
+// TypeScript definitions
+rosetta::TypeScriptGenerator ts_gen;
+std::cout << ts_gen.generate();
+
+// Documentation
+rosetta::DocGenerator doc_gen;
+std::cout << doc_gen.generate();
 ```
+
+## Installation
+
+### Requirements
+
+- C++20 or later
+- CMake 3.15+
+- Optional: pybind11 (for Python bindings)
+- Optional: NAPI (for JavaScript bindings)
+- Optional: emscripten (for JavaScript bindings)
+
+### Build
+
+```bash
+git clone https://github.com/yourusername/rosetta.git
+cd rosetta
+mkdir build && cd build
+cmake ..
+make
+```
+
+### Include in Your Project
+
+```cmake
+add_subdirectory(rosetta)
+target_link_libraries(your_target rosetta::rosetta)
+```
+
+Or header-only:
+
+```cpp
+#include "rosetta/rosetta.hpp"
+```
+
+## Architecture
+
+```
+rosetta/
+├── core/              # Core introspection engine
+├── traits/            # Type detection (containers, pointers, inheritance)
+├── generators/        # Binding generators (Python, JS, TS)
+└── extensions/        # Optional features (serialization, validation, docs)
+```
+
+## Examples
+
+See `examples/` directory for complete working examples:
+
+- `examples/basic/` - Simple class registration
+- `examples/inheritance/` - Virtual methods and polymorphism
+- `examples/python/` - Full Python binding
+- `examples/validation/` - Constraint validation
+
+## Comparison
+
+| Feature | Rosetta | Manual pybind11 | SWIG | Boost.Python |
+|---------|---------|----------------|------|--------------|
+| **Non-intrusive** | ✅ | ✅ | ✅ | ❌ |
+| **Modern C++17** | ✅ | ✅ | ❌ | ⚠️ |
+| **Zero boilerplate** | ✅ | ❌ | ❌ | ❌ |
+| **Type-safe** | ✅ | ✅ | ⚠️ | ✅ |
+| **Multiple targets** | ✅ | ❌ | ✅ | ❌ |
+| **Compile-time** | ✅ | ✅ | ❌ | ✅ |
 
 ## Limitations
 
-- Requires explicit registration of members/methods
-- Runtime overhead due to `std::any` and function pointers
-- No inheritance introspection (each class registers independently)
+- Requires explicit registration (not fully automatic)
+- Template classes need per-instantiation registration
+- Operator overloading requires manual declaration
+
+## Contributing
+
+Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## License
 
-LGPL License - feel free to use in your project
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## Author
-[xaliphostes](https://github.com/xaliphostes)
+## Credits
+
+Created by [Your Name](https://github.com/yourusername)
+
+Inspired by:
+- [pybind11](https://github.com/pybind/pybind11) - Python bindings
+- [Boost.PFR](https://github.com/boostorg/pfr) - Reflection for aggregates
+- [rttr](https://github.com/rttrorg/rttr) - Runtime reflection
+
+## Support
+
+- 📖 [Documentation](https://rosetta.readthedocs.io)
+- 💬 [Discord](https://discord.gg/rosetta)
+- 🐛 [Issue Tracker](https://github.com/yourusername/rosetta/issues)
+- ⭐ Star us on GitHub!
+
+---
+
+**One registration, infinite possibilities** 🚀

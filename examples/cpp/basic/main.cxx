@@ -4,7 +4,7 @@
 // Exemple complet d'utilisation de la bibliothèque Rosetta
 // ============================================================================
 
-#include "rosetta.h"
+#include <rosetta/rosetta.h>
 #include <cmath>
 #include <iostream>
 
