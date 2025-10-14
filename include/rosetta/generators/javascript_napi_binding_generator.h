@@ -342,7 +342,47 @@ private:
     // Conversion Any → NAPI
     static napi_value any_to_napi(napi_env env, const core::Any& value) {
         // Simplification - nécessite inspection du type réel
+        if (!value.has_value()) {
+            napi_value result;
+            napi_get_undefined(env, &result);
+            return result;
+        }
+        
+        // Essayer différents types
+        // Note: Ceci est une simplification - une vraie implémentation
+        // nécessiterait un système de type registry
+        
         napi_value result;
+        
+        try {
+            // Essayer double
+            double d = const_cast<core::Any&>(value).as<double>();
+            napi_create_double(env, d, &result);
+            return result;
+        } catch (...) {}
+        
+        try {
+            // Essayer int
+            int i = const_cast<core::Any&>(value).as<int>();
+            napi_create_int32(env, i, &result);
+            return result;
+        } catch (...) {}
+        
+        try {
+            // Essayer bool
+            bool b = const_cast<core::Any&>(value).as<bool>();
+            napi_get_boolean(env, b, &result);
+            return result;
+        } catch (...) {}
+        
+        try {
+            // Essayer string
+            std::string s = const_cast<core::Any&>(value).as<std::string>();
+            napi_create_string_utf8(env, s.c_str(), s.length(), &result);
+            return result;
+        } catch (...) {}
+        
+        // Par défaut, retourner undefined
         napi_get_undefined(env, &result);
         return result;
     }
