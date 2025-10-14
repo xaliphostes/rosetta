@@ -17,7 +17,7 @@
       "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags": [ "-std=c++20" ],
       "cflags_cc": [ "-std=c++20" ],
-      "defines": [ "NAPI_DISABLE_CPP_EXCEPTIONS" ],
+      "defines": [ "NAPI_CPP_EXCEPTIONS" ],
       "xcode_settings": {
         "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
         "GCC_ENABLE_CPP_RTTI": "YES",

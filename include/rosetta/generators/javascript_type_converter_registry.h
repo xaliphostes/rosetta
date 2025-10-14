@@ -1,13 +1,13 @@
 // ============================================================================
 // rosetta/generators/type_converter_registry.hpp
 //
-// Registry pour convertir Any <-> NAPI de manière extensible
+// Registry pour convertir Any <-> NAPI de manière extensible (C++ wrapper)
 // ============================================================================
 #pragma once
 #include "../core/any.h"
 #include <functional>
 #include <memory>
-#include <node_api.h>
+#include <napi.h>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
@@ -24,14 +24,14 @@ namespace rosetta::generators {
     class TypeConverterRegistry {
     public:
         /**
-         * @brief Fonction de conversion Any -> napi_value
+         * @brief Fonction de conversion Any -> Napi::Value
          */
-        using ToNapiConverter = std::function<napi_value(napi_env, const core::Any &)>;
+        using ToNapiConverter = std::function<Napi::Value(Napi::Env, const core::Any &)>;
 
         /**
-         * @brief Fonction de conversion napi_value -> Any
+         * @brief Fonction de conversion Napi::Value -> Any
          */
-        using FromNapiConverter = std::function<core::Any(napi_env, napi_value)>;
+        using FromNapiConverter = std::function<core::Any(Napi::Env, const Napi::Value &)>;
 
     private:
         std::unordered_map<std::type_index, ToNapiConverter>   to_napi_converters_;
@@ -57,8 +57,8 @@ namespace rosetta::generators {
         /**
          * @brief Enregistre un convertisseur pour un type
          * @tparam T Type C++
-         * @param to_napi Fonction de conversion T -> napi_value
-         * @param from_napi Fonction de conversion napi_value -> T
+         * @param to_napi Fonction de conversion T -> Napi::Value
+         * @param from_napi Fonction de conversion Napi::Value -> T
          */
         template <typename T>
         void register_converter(ToNapiConverter to_napi, FromNapiConverter from_napi) {
@@ -73,16 +73,14 @@ namespace rosetta::generators {
         }
 
         /**
-         * @brief Convertit Any -> napi_value
+         * @brief Convertit Any -> Napi::Value
          * @param env Environnement NAPI
          * @param value Valeur Any à convertir
-         * @return napi_value ou undefined si type non supporté
+         * @return Napi::Value ou undefined si type non supporté
          */
-        napi_value any_to_napi(napi_env env, const core::Any &value) const {
+        Napi::Value any_to_napi(Napi::Env env, const core::Any &value) const {
             if (!value.has_value()) {
-                napi_value result;
-                napi_get_undefined(env, &result);
-                return result;
+                return env.Undefined();
             }
 
             // Essayer de trouver un convertisseur par nom de type
@@ -106,55 +104,39 @@ namespace rosetta::generators {
             }
 
             // Aucun convertisseur trouvé
-            napi_value result;
-            napi_get_undefined(env, &result);
-            return result;
+            return env.Undefined();
         }
 
         /**
-         * @brief Convertit napi_value -> Any
+         * @brief Convertit Napi::Value -> Any
          * @param env Environnement NAPI
          * @param value Valeur NAPI à convertir
          * @return Any contenant la valeur convertie
          */
-        core::Any napi_to_any(napi_env env, napi_value value) const {
-            napi_valuetype type;
-            napi_typeof(env, value, &type);
-
-            switch (type) {
-            case napi_undefined:
-            case napi_null:
+        core::Any napi_to_any(Napi::Env env, const Napi::Value &value) const {
+            if (value.IsUndefined() || value.IsNull()) {
                 return core::Any();
-
-            case napi_boolean: {
-                bool b;
-                napi_get_value_bool(env, value, &b);
-                return core::Any(b);
             }
 
-            case napi_number: {
-                double d;
-                napi_get_value_double(env, value, &d);
-                return core::Any(d);
+            if (value.IsBoolean()) {
+                return core::Any(value.As<Napi::Boolean>().Value());
             }
 
-            case napi_string: {
-                size_t length;
-                napi_get_value_string_utf8(env, value, nullptr, 0, &length);
-                std::string str(length, '\0');
-                napi_get_value_string_utf8(env, value, &str[0], length + 1, nullptr);
-                return core::Any(str);
+            if (value.IsNumber()) {
+                return core::Any(value.As<Napi::Number>().DoubleValue());
             }
 
-            case napi_object: {
+            if (value.IsString()) {
+                return core::Any(value.As<Napi::String>().Utf8Value());
+            }
+
+            if (value.IsObject()) {
                 // Pour les objets, on pourrait unwrap les instances C++
                 // Pour l'instant, retourner un any vide
                 return core::Any();
             }
 
-            default:
-                return core::Any();
-            }
+            return core::Any();
         }
 
         /**
@@ -185,133 +167,94 @@ namespace rosetta::generators {
             // bool
             register_converter<bool>(
                 // To NAPI
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    bool       b = const_cast<core::Any &>(value).as<bool>();
-                    napi_value result;
-                    napi_get_boolean(env, b, &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    bool b = const_cast<core::Any &>(value).as<bool>();
+                    return Napi::Boolean::New(env, b);
                 },
                 // From NAPI
-                [](napi_env env, napi_value value) -> core::Any {
-                    bool b;
-                    napi_get_value_bool(env, value, &b);
-                    return core::Any(b);
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Boolean>().Value());
                 });
 
             // int
             register_converter<int>(
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    int        i = const_cast<core::Any &>(value).as<int>();
-                    napi_value result;
-                    napi_create_int32(env, i, &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    int i = const_cast<core::Any &>(value).as<int>();
+                    return Napi::Number::New(env, i);
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    int32_t i;
-                    napi_get_value_int32(env, value, &i);
-                    return core::Any(static_cast<int>(i));
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Number>().Int32Value());
                 });
 
             // int32_t
             register_converter<int32_t>(
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    int32_t    i = const_cast<core::Any &>(value).as<int32_t>();
-                    napi_value result;
-                    napi_create_int32(env, i, &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    int32_t i = const_cast<core::Any &>(value).as<int32_t>();
+                    return Napi::Number::New(env, i);
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    int32_t i;
-                    napi_get_value_int32(env, value, &i);
-                    return core::Any(i);
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Number>().Int32Value());
                 });
 
             // int64_t
             register_converter<int64_t>(
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    int64_t    i = const_cast<core::Any &>(value).as<int64_t>();
-                    napi_value result;
-                    napi_create_int64(env, i, &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    int64_t i = const_cast<core::Any &>(value).as<int64_t>();
+                    return Napi::Number::New(env, static_cast<double>(i));
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    int64_t i;
-                    napi_get_value_int64(env, value, &i);
-                    return core::Any(i);
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Number>().Int64Value());
                 });
 
             // uint32_t
             register_converter<uint32_t>(
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    uint32_t   u = const_cast<core::Any &>(value).as<uint32_t>();
-                    napi_value result;
-                    napi_create_uint32(env, u, &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    uint32_t u = const_cast<core::Any &>(value).as<uint32_t>();
+                    return Napi::Number::New(env, u);
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    uint32_t u;
-                    napi_get_value_uint32(env, value, &u);
-                    return core::Any(u);
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Number>().Uint32Value());
                 });
 
             // float
             register_converter<float>(
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    float      f = const_cast<core::Any &>(value).as<float>();
-                    napi_value result;
-                    napi_create_double(env, static_cast<double>(f), &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    float f = const_cast<core::Any &>(value).as<float>();
+                    return Napi::Number::New(env, static_cast<double>(f));
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    double d;
-                    napi_get_value_double(env, value, &d);
-                    return core::Any(static_cast<float>(d));
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Number>().FloatValue());
                 });
 
             // double
             register_converter<double>(
-                [](napi_env env, const core::Any &value) -> napi_value {
-                    double     d = const_cast<core::Any &>(value).as<double>();
-                    napi_value result;
-                    napi_create_double(env, d, &result);
-                    return result;
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                    double d = const_cast<core::Any &>(value).as<double>();
+                    return Napi::Number::New(env, d);
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    double d;
-                    napi_get_value_double(env, value, &d);
-                    return core::Any(d);
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::Number>().DoubleValue());
                 });
 
             // std::string
             register_converter<std::string>(
-                [](napi_env env, const core::Any &value) -> napi_value {
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
                     const std::string &s = const_cast<core::Any &>(value).as<std::string>();
-                    napi_value         result;
-                    napi_create_string_utf8(env, s.c_str(), s.length(), &result);
-                    return result;
+                    return Napi::String::New(env, s);
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    size_t length;
-                    napi_get_value_string_utf8(env, value, nullptr, 0, &length);
-                    std::string str(length, '\0');
-                    napi_get_value_string_utf8(env, value, &str[0], length + 1, nullptr);
-                    return core::Any(str);
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    return core::Any(value.As<Napi::String>().Utf8Value());
                 });
 
             // const char*
             register_converter<const char *>(
-                [](napi_env env, const core::Any &value) -> napi_value {
+                [](Napi::Env env, const core::Any &value) -> Napi::Value {
                     const char *s = const_cast<core::Any &>(value).as<const char *>();
-                    napi_value  result;
-                    napi_create_string_utf8(env, s, NAPI_AUTO_LENGTH, &result);
-                    return result;
+                    return Napi::String::New(env, s);
                 },
-                [](napi_env env, napi_value value) -> core::Any {
-                    size_t length;
-                    napi_get_value_string_utf8(env, value, nullptr, 0, &length);
-                    std::string str(length, '\0');
-                    napi_get_value_string_utf8(env, value, &str[0], length + 1, nullptr);
-                    return core::Any(str); // Note: retourne string, pas const char*
+                [](Napi::Env env, const Napi::Value &value) -> core::Any {
+                    // Note: retourne string, pas const char*
+                    return core::Any(value.As<Napi::String>().Utf8Value());
                 });
         }
     };
@@ -320,16 +263,16 @@ namespace rosetta::generators {
      * @brief Helper pour enregistrer facilement des convertisseurs custom
      */
     template <typename T>
-    void register_napi_converter(std::function<napi_value(napi_env, const T &)> to_napi,
-                                 std::function<T(napi_env, napi_value)>         from_napi) {
+    void register_napi_converter(std::function<Napi::Value(Napi::Env, const T &)> to_napi,
+                                 std::function<T(Napi::Env, const Napi::Value &)> from_napi) {
         TypeConverterRegistry::instance().register_converter<T>(
             // Wrapper to_napi
-            [to_napi](napi_env env, const core::Any &value) -> napi_value {
+            [to_napi](Napi::Env env, const core::Any &value) -> Napi::Value {
                 const T &typed_value = const_cast<core::Any &>(value).as<T>();
                 return to_napi(env, typed_value);
             },
             // Wrapper from_napi
-            [from_napi](napi_env env, napi_value value) -> core::Any {
+            [from_napi](Napi::Env env, const Napi::Value &value) -> core::Any {
                 T typed_value = from_napi(env, value);
                 return core::Any(typed_value);
             });
@@ -355,43 +298,27 @@ void register_color_converter() {
 
     register_napi_converter<Color>(
         // To NAPI: convertir Color en objet JavaScript
-        [](napi_env env, const Color& color) -> napi_value {
-            napi_value obj;
-            napi_create_object(env, &obj);
+        [](Napi::Env env, const Color& color) -> Napi::Value {
+            Napi::Object obj = Napi::Object::New(env);
 
-            napi_value r, g, b, a;
-            napi_create_uint32(env, color.r, &r);
-            napi_create_uint32(env, color.g, &g);
-            napi_create_uint32(env, color.b, &b);
-            napi_create_uint32(env, color.a, &a);
-
-            napi_set_named_property(env, obj, "r", r);
-            napi_set_named_property(env, obj, "g", g);
-            napi_set_named_property(env, obj, "b", b);
-            napi_set_named_property(env, obj, "a", a);
+            obj.Set("r", Napi::Number::New(env, color.r));
+            obj.Set("g", Napi::Number::New(env, color.g));
+            obj.Set("b", Napi::Number::New(env, color.b));
+            obj.Set("a", Napi::Number::New(env, color.a));
 
             return obj;
         },
         // From NAPI: convertir objet JavaScript en Color
-        [](napi_env env, napi_value value) -> Color {
+        [](Napi::Env env, const Napi::Value& value) -> Color {
+            Napi::Object obj = value.As<Napi::Object>();
+
             Color color = {0, 0, 0, 255};
 
-            napi_value r, g, b, a;
-            napi_get_named_property(env, value, "r", &r);
-            napi_get_named_property(env, value, "g", &g);
-            napi_get_named_property(env, value, "b", &b);
-            napi_get_named_property(env, value, "a", &a);
-
-            uint32_t r_val, g_val, b_val, a_val;
-            napi_get_value_uint32(env, r, &r_val);
-            napi_get_value_uint32(env, g, &g_val);
-            napi_get_value_uint32(env, b, &b_val);
-            napi_get_value_uint32(env, a, &a_val);
-
-            color.r = static_cast<uint8_t>(r_val);
-            color.g = static_cast<uint8_t>(g_val);
-            color.b = static_cast<uint8_t>(b_val);
-            color.a = static_cast<uint8_t>(a_val);
+            if (obj.Has("r")) color.r =
+static_cast<uint8_t>(obj.Get("r").As<Napi::Number>().Uint32Value()); if (obj.Has("g")) color.g =
+static_cast<uint8_t>(obj.Get("g").As<Napi::Number>().Uint32Value()); if (obj.Has("b")) color.b =
+static_cast<uint8_t>(obj.Get("b").As<Napi::Number>().Uint32Value()); if (obj.Has("a")) color.a =
+static_cast<uint8_t>(obj.Get("a").As<Napi::Number>().Uint32Value());
 
             return color;
         }
@@ -400,18 +327,79 @@ void register_color_converter() {
 
 // 2. Utiliser le registry
 void example() {
-    napi_env env = ...; // Votre environnement NAPI
+    Napi::Env env = ...; // Votre environnement NAPI
 
     auto& registry = rosetta::generators::TypeConverterRegistry::instance();
 
     // Convertir C++ -> JavaScript
     Color red = {255, 0, 0, 255};
     rosetta::core::Any any_color(red);
-    napi_value js_color = registry.any_to_napi(env, any_color);
+    Napi::Value js_color = registry.any_to_napi(env, any_color);
 
     // Convertir JavaScript -> C++
     rosetta::core::Any converted = registry.napi_to_any(env, js_color);
     Color& cpp_color = converted.as<Color>();
+}
+
+// 3. Exemple avec std::vector
+void register_vector_converter() {
+    using namespace rosetta::generators;
+
+    register_napi_converter<std::vector<double>>(
+        // To NAPI: convertir vector en Array JavaScript
+        [](Napi::Env env, const std::vector<double>& vec) -> Napi::Value {
+            Napi::Array arr = Napi::Array::New(env, vec.size());
+            for (size_t i = 0; i < vec.size(); ++i) {
+                arr[i] = Napi::Number::New(env, vec[i]);
+            }
+            return arr;
+        },
+        // From NAPI: convertir Array JavaScript en vector
+        [](Napi::Env env, const Napi::Value& value) -> std::vector<double> {
+            Napi::Array arr = value.As<Napi::Array>();
+            std::vector<double> vec;
+            vec.reserve(arr.Length());
+
+            for (uint32_t i = 0; i < arr.Length(); ++i) {
+                Napi::Value element = arr[i];
+                if (element.IsNumber()) {
+                    vec.push_back(element.As<Napi::Number>().DoubleValue());
+                }
+            }
+            return vec;
+        }
+    );
+}
+
+// 4. Exemple avec std::map
+void register_map_converter() {
+    using namespace rosetta::generators;
+
+    register_napi_converter<std::map<std::string, int>>(
+        // To NAPI: convertir map en Object JavaScript
+        [](Napi::Env env, const std::map<std::string, int>& map) -> Napi::Value {
+            Napi::Object obj = Napi::Object::New(env);
+            for (const auto& [key, value] : map) {
+                obj.Set(key, Napi::Number::New(env, value));
+            }
+            return obj;
+        },
+        // From NAPI: convertir Object JavaScript en map
+        [](Napi::Env env, const Napi::Value& value) -> std::map<std::string, int> {
+            Napi::Object obj = value.As<Napi::Object>();
+            std::map<std::string, int> map;
+
+            Napi::Array props = obj.GetPropertyNames();
+            for (uint32_t i = 0; i < props.Length(); ++i) {
+                std::string key = props.Get(i).As<Napi::String>().Utf8Value();
+                Napi::Value val = obj.Get(key);
+                if (val.IsNumber()) {
+                    map[key] = val.As<Napi::Number>().Int32Value();
+                }
+            }
+            return map;
+        }
+    );
 }
 
 */

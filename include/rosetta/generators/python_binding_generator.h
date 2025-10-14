@@ -328,6 +328,12 @@ namespace rosetta::generators {
 // MACROS HELPER
 // ============================================================================
 
+#define BEGIN_MODULE(moduleName, variable) \ // TO BE ADJUSTED like NAPI !!!!
+    PYBIND11_MODULE(moduleName, variable) {
+
+#define END_MODULE(moduleName)
+    
+
 /**
  * @brief Macro pour lier automatiquement une classe
  */

@@ -1,14 +1,13 @@
 // ============================================================================
 // rosetta/generators/napi_binding_generator.hpp
 //
-// Générateur de bindings JavaScript avec Node-API (NAPI)
+// Générateur de bindings JavaScript avec Node-API (C++ wrapper)
 // ============================================================================
 #pragma once
 #include "../core/registry.h"
 #include "javascript_type_converter_registry.h"
 #include <cmath>
-#include <node_api.h>
-#include <stdexcept>
+#include <napi.h>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -17,16 +16,16 @@
 namespace rosetta::generators {
 
     /**
-     * @brief Générateur de bindings JavaScript utilisant Node-API
+     * @brief Générateur de bindings JavaScript utilisant node-addon-api
      *
      * Usage similaire à PythonBindingGenerator mais pour Node.js
      */
     class NapiBindingGenerator {
-        napi_env   env_;
-        napi_value exports_;
+        Napi::Env    env_;
+        Napi::Object exports_;
 
         // Cache des constructeurs de classes
-        std::unordered_map<std::string, napi_ref> class_constructors_;
+        std::unordered_map<std::string, Napi::FunctionReference> class_constructors_;
 
     public:
         /**
@@ -34,16 +33,12 @@ namespace rosetta::generators {
          * @param env Environnement Node-API
          * @param exports Objet exports du module
          */
-        NapiBindingGenerator(napi_env env, napi_value exports) : env_(env), exports_(exports) {}
+        NapiBindingGenerator(Napi::Env env, Napi::Object exports) : env_(env), exports_(exports) {}
 
         /**
-         * @brief Destructeur - libère les références
+         * @brief Destructeur - les FunctionReference se nettoient automatiquement
          */
-        ~NapiBindingGenerator() {
-            for (auto &[name, ref] : class_constructors_) {
-                napi_delete_reference(env_, ref);
-            }
-        }
+        ~NapiBindingGenerator() = default;
 
         // ========================================================================
         // BIND CLASS
@@ -99,28 +94,20 @@ namespace rosetta::generators {
          */
         template <typename Ret, typename... Args>
         NapiBindingGenerator &bind_function(Ret (*func)(Args...), const std::string &name) {
-            // Wrapper NAPI pour la fonction
-            auto callback = [](napi_env env, napi_callback_info info) -> napi_value {
-                // Récupérer le pointeur de fonction depuis data
-                void *data;
-                napi_get_cb_info(env, info, nullptr, nullptr, nullptr, &data);
-
-                auto *func_ptr = static_cast<Ret (*)(Args...)>(data);
+            // Wrapper pour la fonction
+            auto callback = [func](const Napi::CallbackInfo &info) -> Napi::Value {
+                Napi::Env env = info.Env();
 
                 // TODO: Extraire les arguments, appeler la fonction, retourner le résultat
-
-                napi_value result;
-                napi_get_undefined(env, &result);
-                return result;
+                // Pour l'instant, retourner undefined
+                return env.Undefined();
             };
 
-            // Créer la fonction NAPI
-            napi_value js_function;
-            napi_create_function(env_, name.c_str(), NAPI_AUTO_LENGTH, callback,
-                                 reinterpret_cast<void *>(func), &js_function);
+            // Créer la fonction JavaScript
+            Napi::Function js_function = Napi::Function::New(env_, callback, name);
 
             // Ajouter aux exports
-            napi_set_named_property(env_, exports_, name.c_str(), js_function);
+            exports_.Set(name, js_function);
 
             return *this;
         }
@@ -142,17 +129,14 @@ namespace rosetta::generators {
             static_assert(std::is_enum_v<Enum>, "Type must be an enum");
 
             // Créer un objet JavaScript pour l'enum
-            napi_value enum_obj;
-            napi_create_object(env_, &enum_obj);
+            Napi::Object enum_obj = Napi::Object::New(env_);
 
             for (const auto &[value_name, value] : values) {
-                napi_value js_value;
-                napi_create_int32(env_, static_cast<int32_t>(value), &js_value);
-                napi_set_named_property(env_, enum_obj, value_name, js_value);
+                enum_obj.Set(value_name, Napi::Number::New(env_, static_cast<int32_t>(value)));
             }
 
             // Ajouter aux exports
-            napi_set_named_property(env_, exports_, name.c_str(), enum_obj);
+            exports_.Set(name, enum_obj);
 
             return *this;
         }
@@ -166,162 +150,155 @@ namespace rosetta::generators {
         void create_class(const std::string &name, const core::ClassMetadata<Class> &meta,
                           const core::InheritanceInfo &inheritance) {
 
-            std::vector<napi_property_descriptor> properties;
+            std::vector<ClassPropertyDescriptor<Class>> properties;
 
             // Ajouter les champs comme propriétés
             for (const auto &field_name : meta.fields()) {
-                properties.push_back(create_field_property<Class>(field_name, meta));
+                properties.push_back({field_name, meta, true});
             }
 
             // Ajouter les méthodes
             for (const auto &method_name : meta.methods()) {
-                properties.push_back(create_method_property<Class>(method_name, meta));
+                properties.push_back({method_name, meta, false});
             }
 
-            // Créer le constructeur
-            napi_value constructor;
-            napi_define_class(env_, name.c_str(), NAPI_AUTO_LENGTH, constructor_callback<Class>,
-                              nullptr, properties.size(), properties.data(), &constructor);
+            // Créer le constructeur avec propriétés
+            Napi::Function constructor = DefineClass<Class>(env_, name, properties);
 
             // Stocker une référence au constructeur
-            napi_ref constructor_ref;
-            napi_create_reference(env_, constructor, 1, &constructor_ref);
-            class_constructors_[name] = constructor_ref;
+            class_constructors_[name] = Napi::Persistent(constructor);
 
             // Ajouter aux exports
-            napi_set_named_property(env_, exports_, name.c_str(), constructor);
+            exports_.Set(name, constructor);
         }
 
-        // Callback pour le constructeur
+        // Structure pour décrire une propriété
+        template <typename Class> struct ClassPropertyDescriptor {
+            std::string                       name;
+            const core::ClassMetadata<Class> &meta;
+            bool                              is_field; // true = field, false = method
+        };
+
+        // Définir une classe avec ses propriétés
         template <typename Class>
-        static napi_value constructor_callback(napi_env env, napi_callback_info info) {
-            napi_value js_this;
-            napi_get_cb_info(env, info, nullptr, nullptr, &js_this, nullptr);
+        Napi::Function DefineClass(Napi::Env env, const std::string &name,
+                                   const std::vector<ClassPropertyDescriptor<Class>> &props) {
 
-            // Créer une instance C++
-            Class *instance = new Class();
+            std::vector<Napi::ClassPropertyDescriptor<Class>> descriptors;
 
-            // Wrapper l'instance dans l'objet JavaScript
-            napi_wrap(
-                env, js_this, instance,
-                [](napi_env env, void *data, void *hint) { delete static_cast<Class *>(data); },
-                nullptr, nullptr);
-
-            return js_this;
-        }
-
-        // Créer une propriété pour un champ
-        template <typename Class>
-        napi_property_descriptor create_field_property(const std::string                &field_name,
-                                                       const core::ClassMetadata<Class> &meta) {
-
-            // Getter
-            auto getter = [](napi_env env, napi_callback_info info) -> napi_value {
-                napi_value js_this;
-                void      *data;
-                napi_get_cb_info(env, info, nullptr, nullptr, &js_this, &data);
-
-                // Récupérer l'instance C++
-                Class *instance;
-                napi_unwrap(env, js_this, reinterpret_cast<void **>(&instance));
-
-                // Récupérer le nom du champ depuis data
-                auto *field_info = static_cast<FieldInfo<Class> *>(data);
-                auto  value      = field_info->meta->get_field(*instance, field_info->name);
-
-                // Convertir en JavaScript
-                return any_to_napi(env, value);
-            };
-
-            // Setter
-            auto setter = [](napi_env env, napi_callback_info info) -> napi_value {
-                napi_value js_this, js_value;
-                size_t     argc = 1;
-                void      *data;
-                napi_get_cb_info(env, info, &argc, &js_value, &js_this, &data);
-
-                // Récupérer l'instance C++
-                Class *instance;
-                napi_unwrap(env, js_this, reinterpret_cast<void **>(&instance));
-
-                // Récupérer le nom du champ depuis data
-                auto *field_info = static_cast<FieldInfo<Class> *>(data);
-                auto  cpp_value  = napi_to_any(env, js_value);
-
-                field_info->meta->set_field(*instance, field_info->name, cpp_value);
-
-                napi_value undefined;
-                napi_get_undefined(env, &undefined);
-                return undefined;
-            };
-
-            // Stocker les infos du champ
-            auto *field_info = new FieldInfo<Class>{&meta, field_name};
-
-            return napi_property_descriptor{
-                field_name.c_str(), nullptr,   nullptr, getter, setter, nullptr,
-                napi_default,       field_info};
-        }
-
-        // Créer une propriété pour une méthode
-        template <typename Class>
-        napi_property_descriptor create_method_property(const std::string &method_name,
-                                                        const core::ClassMetadata<Class> &meta) {
-
-            auto method = [](napi_env env, napi_callback_info info) -> napi_value {
-                napi_value js_this;
-                size_t     argc = 10; // Max arguments
-                napi_value args[10];
-                void      *data;
-                napi_get_cb_info(env, info, &argc, args, &js_this, &data);
-
-                // Récupérer l'instance C++
-                Class *instance;
-                napi_unwrap(env, js_this, reinterpret_cast<void **>(&instance));
-
-                // Récupérer le nom de la méthode depuis data
-                auto *method_info = static_cast<MethodInfo<Class> *>(data);
-
-                // Convertir les arguments
-                std::vector<core::Any> cpp_args;
-                for (size_t i = 0; i < argc; ++i) {
-                    cpp_args.push_back(napi_to_any(env, args[i]));
+            for (const auto &prop : props) {
+                if (prop.is_field) {
+                    // Créer un accesseur pour le champ
+                    descriptors.push_back(Napi::ObjectWrap<ClassWrapper<Class>>::InstanceAccessor(
+                        prop.name.c_str(), &NapiBindingGenerator::field_getter<Class>,
+                        &NapiBindingGenerator::field_setter<Class>, napi_default,
+                        new FieldData<Class>{prop.meta, prop.name}));
+                } else {
+                    // Créer une méthode
+                    descriptors.push_back(Napi::ObjectWrap<ClassWrapper<Class>>::InstanceMethod(
+                        prop.name.c_str(), &NapiBindingGenerator::method_wrapper<Class>,
+                        napi_default, new MethodData<Class>{prop.meta, prop.name}));
                 }
+            }
 
-                // Invoquer la méthode
-                auto result =
-                    method_info->meta->invoke_method(*instance, method_info->name, cpp_args);
-
-                // Convertir le résultat
-                return any_to_napi(env, result);
-            };
-
-            // Stocker les infos de la méthode
-            auto *method_info = new MethodInfo<Class>{&meta, method_name};
-
-            return napi_property_descriptor{
-                method_name.c_str(), nullptr,    method, nullptr, nullptr, nullptr,
-                napi_default,        method_info};
+            return Napi::ObjectWrap<ClassWrapper<Class>>::DefineClass(
+                env, name.c_str(), descriptors, new ClassData<Class>{props[0].meta} // Pass metadata
+            );
         }
 
-        // Structures pour stocker les infos
-        template <typename Class> struct FieldInfo {
-            const core::ClassMetadata<Class> *meta;
+        // Wrapper pour les classes C++
+        template <typename Class>
+        class ClassWrapper : public Napi::ObjectWrap<ClassWrapper<Class>> {
+        public:
+            Class instance_;
+
+            ClassWrapper(const Napi::CallbackInfo &info)
+                : Napi::ObjectWrap<ClassWrapper<Class>>(info), instance_() {
+                // Constructeur par défaut
+            }
+
+            static Napi::Object NewInstance(Napi::Env env, const Napi::Function &constructor) {
+                return constructor.New({});
+            }
+
+            Class &GetInstance() { return instance_; }
+        };
+
+        // Données pour les champs
+        template <typename Class> struct FieldData {
+            const core::ClassMetadata<Class> &meta;
             std::string                       name;
         };
 
-        template <typename Class> struct MethodInfo {
-            const core::ClassMetadata<Class> *meta;
+        // Données pour les méthodes
+        template <typename Class> struct MethodData {
+            const core::ClassMetadata<Class> &meta;
             std::string                       name;
         };
 
-        // Conversion Any → NAPI
-        static napi_value any_to_napi(napi_env env, const core::Any &value) {
+        // Données pour la classe
+        template <typename Class> struct ClassData {
+            const core::ClassMetadata<Class> &meta;
+        };
+
+        // Getter pour les champs
+        template <typename Class> static Napi::Value field_getter(const Napi::CallbackInfo &info) {
+            Napi::Env env = info.Env();
+
+            auto *wrapper =
+                Napi::ObjectWrap<ClassWrapper<Class>>::Unwrap(info.This().As<Napi::Object>());
+            auto *data = static_cast<FieldData<Class> *>(info.Data());
+
+            // Récupérer la valeur du champ
+            auto value = data->meta.get_field(wrapper->instance_, data->name);
+
+            // Convertir en JavaScript
+            return any_to_napi(env, value);
+        }
+
+        // Setter pour les champs
+        template <typename Class>
+        static void field_setter(const Napi::CallbackInfo &info, const Napi::Value &value) {
+            auto *wrapper =
+                Napi::ObjectWrap<ClassWrapper<Class>>::Unwrap(info.This().As<Napi::Object>());
+            auto *data = static_cast<FieldData<Class> *>(info.Data());
+
+            // Convertir la valeur JavaScript en C++
+            auto cpp_value = napi_to_any(info.Env(), value);
+
+            // Définir le champ
+            data->meta.set_field(wrapper->instance_, data->name, cpp_value);
+        }
+
+        // Wrapper pour les méthodes
+        template <typename Class>
+        static Napi::Value method_wrapper(const Napi::CallbackInfo &info) {
+            Napi::Env env = info.Env();
+
+            auto *wrapper =
+                Napi::ObjectWrap<ClassWrapper<Class>>::Unwrap(info.This().As<Napi::Object>());
+            auto *data = static_cast<MethodData<Class> *>(info.Data());
+
+            // Convertir les arguments
+            std::vector<core::Any> cpp_args;
+            for (size_t i = 0; i < info.Length(); ++i) {
+                cpp_args.push_back(napi_to_any(env, info[i]));
+            }
+
+            // Invoquer la méthode
+            auto result = data->meta.invoke_method(wrapper->instance_, data->name, cpp_args);
+
+            // Convertir le résultat
+            return any_to_napi(env, result);
+        }
+
+        // Conversion Any → Napi::Value
+        static Napi::Value any_to_napi(Napi::Env env, const core::Any &value) {
             return TypeConverterRegistry::instance().any_to_napi(env, value);
         }
 
-        // Conversion NAPI → Any
-        static core::Any napi_to_any(napi_env env, napi_value value) {
+        // Conversion Napi::Value → Any
+        static core::Any napi_to_any(Napi::Env env, const Napi::Value &value) {
             return TypeConverterRegistry::instance().napi_to_any(env, value);
         }
     };
@@ -336,12 +313,12 @@ namespace rosetta::generators {
  * @brief Macro pour initialiser un module Node.js
  */
 #define BEGIN_MODULE(module_name) \
-    napi_value Init_##module_name(napi_env env, napi_value exports)
+    Napi::Object Init_##module_name(Napi::Env env, Napi::Object exports)
 
 /**
  * @brief Macro pour enregistrer le module
  */
-#define END_MODULE(module_name) NAPI_MODULE(NODE_GYP_MODULE_NAME, Init_##module_name)
+#define END_MODULE(module_name) NODE_API_MODULE(module_name, Init_##module_name)
 
 /**
  * @brief Macro pour lier automatiquement une classe
@@ -361,7 +338,7 @@ namespace rosetta::generators {
 
 /*
 
-#include <node_api.h>
+#include <napi.h>
 #include "rosetta/rosetta.hpp"
 #include "rosetta/generators/napi_binding_generator.hpp"
 
@@ -439,9 +416,6 @@ NAPI_MODULE_INIT(geometry) {
         {"Pending", Status::Pending}
     });
 
-    // Ou utiliser la macro
-    // NAPI_AUTO_BIND_CLASS(env, exports, Vector3D);
-
     return exports;
 }
 
@@ -459,14 +433,14 @@ NAPI_MODULE_REGISTER(geometry)
       ],
       "cflags!": [ "-fno-exceptions" ],
       "cflags_cc!": [ "-fno-exceptions" ],
-      "defines": [ "NAPI_DISABLE_CPP_EXCEPTIONS" ],
+      "defines": [ "NAPI_CPP_EXCEPTIONS" ],
       "cflags_cc": [ "-std=c++17" ]
     }
   ]
 }
 
 // 5. Compilation
-// $ npm install
+// $ npm install node-addon-api
 // $ node-gyp configure
 // $ node-gyp build
 
