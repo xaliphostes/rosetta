@@ -4,10 +4,17 @@
 // Registry pour convertir Any <-> NAPI de manière extensible (C++ wrapper)
 // ============================================================================
 #pragma once
+<<<<<<< HEAD
 #include <napi.h>
 #include "../core/any.h"
 #include <functional>
 #include <memory>
+=======
+#include "../core/any.h"
+#include <functional>
+#include <memory>
+#include <napi.h>
+>>>>>>> e2cebf3aea7fc93e17e96fcec02269b9119b98c8
 #include <string>
 #include <typeindex>
 #include <unordered_map>

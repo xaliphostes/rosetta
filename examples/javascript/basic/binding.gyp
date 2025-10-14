@@ -17,12 +17,12 @@
       "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags": [ "-std=c++20" ],
       "cflags_cc": [ "-std=c++20" ],
-      "defines": [ "NAPI_DISABLE_CPP_EXCEPTIONS" ],
+      "defines": [ "NAPI_CPP_EXCEPTIONS" ],
       "xcode_settings": {
         "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
         "GCC_ENABLE_CPP_RTTI": "YES",
         "CLANG_CXX_LIBRARY": "libc++",
-        "MACOSX_DEPLOYMENT_TARGET": "10.7",
+        "MACOSX_DEPLOYMENT_TARGET": "10.14",
         "OTHER_CFLAGS": [ "-std=c++20" ]
       },
       "msvs_settings": {

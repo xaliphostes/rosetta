@@ -73,12 +73,12 @@ That way, any scripting language can be binded using this Rosetta instrospection
 #include <pybind11/pybind11.h>
 #include "rosetta/generators/python_binding_generator.hpp"
 
-PYBIND11_MODULE(my_module, m) {
+BEGIN_MODULE(my_module, m) {
     register_types();
-    
     rosetta::generators::PythonBindingGenerator(m)
         .bind_class<Vector3D>();
 }
+END_MODULE(my_module)
 ```
 
 ### 4. Use in Python
@@ -96,7 +96,7 @@ v.normalize()
 
 ### 5. Generate Javascript Bindings
 ```cpp
-Napi::Object Init(Napi::Env env, Napi::Object exports)
+BEGIN_MODULE(my_module)
 {
     rosetta::generators::JavaScriptBindingGenerator(env, exports)
       .bind_class<Vector3D>();
@@ -104,7 +104,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     return exports;
 }
 
-NODE_API_MODULE(my_module, Init)
+END_MODULE(my_module)
 ```
 
 ### 6. Use in JavaScript
