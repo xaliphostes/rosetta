@@ -168,12 +168,12 @@ namespace rosetta {
 #define ROSETTA_HAS_CLASS(ClassName) rosetta::Registry::instance().has_class<ClassName>()
 
 // ============================================================================
-// Exemple d'utilisation commenté
+// Examples with comments
 // ============================================================================
 
 /*
 
-// 1. Définir vos classes (AUCUNE modification nécessaire)
+// 1. Derfine your classes (no modification needed)
 class Vector3D {
 public:
     double x, y, z;
@@ -192,7 +192,7 @@ public:
     }
 };
 
-// 2. Enregistrer les classes
+// 2. Register your classes
 void setup_introspection() {
     ROSETTA_REGISTER_CLASS(Vector3D)
         .field("x", &Vector3D::x)
@@ -202,20 +202,20 @@ void setup_introspection() {
         .method("normalize", &Vector3D::normalize);
 }
 
-// 3. Utiliser l'introspection
+// 3. Use introspection
 void use_introspection() {
     Vector3D vec(3, 4, 0);
 
-    // Accès dynamique
+    // Dynamique access
     auto& meta = ROSETTA_GET_META(Vector3D);
     auto length = meta.invoke_method(vec, "length");
     std::cout << "Length: " << length.as<double>() << "\n";
 
-    // Génération de bindings
+    // Bindings generation
     rosetta::PythonGenerator py_gen;
     std::cout << py_gen.generate() << "\n";
 
-    // Sérialisation
+    // Serialization
     std::string json = rosetta::JSONSerializer::serialize(vec);
     std::cout << "JSON: " << json << "\n";
 
@@ -224,7 +224,7 @@ void use_introspection() {
     std::cout << doc_gen.generate() << "\n";
 }
 
-// 4. Avec héritage
+// 4. With inheritance
 class Shape {
 public:
     virtual double area() const = 0;
@@ -249,7 +249,7 @@ void register_with_inheritance() {
         .override_method("area", &Circle::area);
 }
 
-// 5. Avec validation
+// 5. With validation
 void setup_validation() {
     using namespace rosetta;
 

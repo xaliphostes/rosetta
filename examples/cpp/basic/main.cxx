@@ -4,9 +4,9 @@
 // Exemple complet d'utilisation de la bibliothèque Rosetta
 // ============================================================================
 
-#include <rosetta/rosetta.h>
 #include <cmath>
 #include <iostream>
+#include <rosetta/rosetta.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846 // Valeur de π si non définie
@@ -72,6 +72,17 @@ public:
     std::string get_type() const override { return "Box"; }
 };
 
+class A {
+public:
+    std::vector<double>                areas;
+    std::vector<Vector3D>              positions;
+    std::map<std::string, uint32_t>    map;
+    std::array<double, 9>              stress;
+    std::vector<std::array<double, 9>> stresses;
+    void setPositions(const std::vector<Vector3D> &pos) { positions = pos; }
+    void setAreas(const std::vector<double> &as) { areas = as; }
+};
+
 // ============================================================================
 // 2. ENREGISTREMENT DES CLASSES
 // ============================================================================
@@ -114,6 +125,16 @@ void register_types() {
         .base_field<Shape>("position", &Shape::position)
         .override_method("volume", &Box::volume)
         .override_method("get_type", &Box::get_type);
+
+    // A
+    ROSETTA_REGISTER_CLASS(A)
+        .field("positions", &A::positions)
+        .field("areas", &A::areas)
+        .field("map", &A::map)
+        .field("stress", &A::stress)
+        .field("stresses", &A::stresses)
+        .method("setAreas", &A::setAreas)
+        .method("setPositions", &A::setPositions);
 }
 
 // ============================================================================
@@ -176,30 +197,6 @@ void demo_inheritance() {
     std::cout << "\nVolume de la sphère: " << vol.as<double>() << "\n";
 }
 
-void demo_generators() {
-    std::cout << "\n" << std::string(60, '=') << "\n";
-    std::cout << "DEMO 3: GÉNÉRATION DE BINDINGS\n";
-    std::cout << std::string(60, '=') << "\n";
-
-    // Python
-    std::cout << "\n--- Python (pybind11) ---\n";
-    rosetta::PythonGenerator py_gen("geometry");
-    std::string              py_code = py_gen.generate();
-    std::cout << py_code.substr(0, 500) << "...\n";
-
-    // JavaScript
-    std::cout << "\n--- JavaScript (Emscripten) ---\n";
-    rosetta::JavaScriptGenerator js_gen("geometry");
-    std::string                  js_code = js_gen.generate();
-    std::cout << js_code.substr(0, 500) << "...\n";
-
-    // TypeScript
-    std::cout << "\n--- TypeScript Definitions ---\n";
-    rosetta::TypeScriptGenerator ts_gen("geometry");
-    std::string                  ts_code = ts_gen.generate();
-    std::cout << ts_code << "\n";
-}
-
 void demo_serialization() {
     std::cout << "\n" << std::string(60, '=') << "\n";
     std::cout << "DEMO 4: SÉRIALISATION\n";
@@ -208,14 +205,23 @@ void demo_serialization() {
     Vector3D vec(1.5, 2.5, 3.5);
 
     // JSON
-    std::cout << "\n--- JSON ---\n";
-    std::string json = rosetta::JSONSerializer::serialize(vec);
-    std::cout << json << "\n";
+    {
+        std::cout << "\n--- JSON ---\n";
+        std::string json = rosetta::JSONSerializer::serialize(vec);
+        std::cout << json << "\n";
+    }
 
     // XML
     std::cout << "\n--- XML ---\n";
     std::string xml = rosetta::XMLSerializer::serialize(vec, "Vector3D");
     std::cout << xml << "\n";
+
+    A a;
+    {
+        std::cout << "\n--- JSON ---\n";
+        std::string json = rosetta::JSONSerializer::serialize(a);
+        std::cout << json << "\n";
+    }
 }
 
 void demo_validation() {
@@ -261,6 +267,22 @@ void demo_documentation() {
     std::cout << markdown.substr(0, 800) << "...\n";
 }
 
+template <typename T> void displayMeta() {
+    std::cout << "\n";
+    std::cout << typeid(T).name() << " enregistré: " << (ROSETTA_HAS_CLASS(Vector3D) ? "Yes" : "No")
+              << "\n";
+    auto &meta = ROSETTA_GET_META(T);
+    std::cout << "Fields:\n";
+    for (const auto &field : meta.fields()) {
+        std::cout << "  - " << field << "\n";
+    }
+    std::cout << "Methods:\n";
+    for (const auto &meth : meta.methods()) {
+        std::cout << "  - " << meth << "\n";
+    }
+    std::cout << "\n\n";
+}
+
 void demo_registry() {
     std::cout << "\n" << std::string(60, '=') << "\n";
     std::cout << "DEMO 7: REGISTRY\n";
@@ -275,8 +297,11 @@ void demo_registry() {
     }
 
     std::cout << "\nVérifications:\n";
-    std::cout << "  Vector3D enregistré: " << ROSETTA_HAS_CLASS(Vector3D) << "\n";
-    std::cout << "  Shape enregistré: " << ROSETTA_HAS_CLASS(Shape) << "\n";
+    displayMeta<Vector3D>();
+    displayMeta<Shape>();
+    displayMeta<Sphere>();
+    displayMeta<Box>();
+    displayMeta<A>();
 }
 
 // ============================================================================
@@ -286,7 +311,7 @@ void demo_registry() {
 int main() {
     std::cout << "\n";
     std::cout << "╔════════════════════════════════════════════════════════╗\n";
-    std::cout << "║         ROSETTA - Exemple complet d'utilisation       ║\n";
+    std::cout << "║         ROSETTA - Exemple complet d'utilisation        ║\n";
     std::cout << "╚════════════════════════════════════════════════════════╝\n";
 
     // Afficher les infos
@@ -298,7 +323,6 @@ int main() {
     // Lancer les démos
     demo_introspection();
     demo_inheritance();
-    demo_generators();
     demo_serialization();
     demo_validation();
     demo_documentation();

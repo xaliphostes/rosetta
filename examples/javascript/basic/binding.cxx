@@ -1,6 +1,6 @@
+#include <node_api.h>
 #include <rosetta/generators/javascript_napi_binding_generator.h>
 #include <rosetta/rosetta.h>
-#include <node_api.h>
 
 // 1. Vos classes (aucune modification)
 class Vector3D {
@@ -30,7 +30,18 @@ public:
     double distance() const { return std::sqrt(x * x + y * y); }
 };
 
-enum class Status { Active, Inactive, Pending };
+class A {
+public:
+    std::vector<double>                areas;
+    std::vector<Vector3D>              positions;
+    std::map<std::string, uint32_t>    map;
+    std::array<double, 9>              stress;
+    std::vector<std::array<double, 9>> stresses;
+    void setPositions(const std::vector<Vector3D> &pos) { positions = pos; }
+    void setAreas(const std::vector<double> &as) { areas = as; }
+};
+
+// enum class Status { Active, Inactive, Pending };
 
 // 2. Enregistrement Rosetta
 void register_types() {
@@ -45,16 +56,26 @@ void register_types() {
         .field("x", &Point2D::x)
         .field("y", &Point2D::y)
         .method("distance", &Point2D::distance);
+
+    ROSETTA_REGISTER_CLASS(A)
+        .field("positions", &A::positions)
+        .field("areas", &A::areas)
+        .field("map", &A::map)
+        .field("stress", &A::stress)
+        .field("stresses", &A::stresses)
+        .method("setAreas", &A::setAreas)
+        .method("setPositions", &A::setPositions);
 }
 
 // 3. Module Node.js avec binding automatique
-BEGIN_MODULE(basic) { 
+BEGIN_MODULE(basic) {
     register_types();
 
     rosetta::generators::NapiBindingGenerator(env, exports)
         .bind_class<Vector3D>()
-        .bind_class<Point2D>("Point"); // Custom name
+        .bind_class<Point2D>("Point") // Custom name
+        .bind_class<A>();
 
     return exports;
 }
-END_MODULE(basic) 
+END_MODULE(basic)

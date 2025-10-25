@@ -7,4 +7,4 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 include_directories(include)
 
-add_subdirectory(examples/cpp/test)
+add_subdirectory(examples/cpp/basic)
