@@ -6,6 +6,7 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <typeindex>
 #include <typeinfo>
 #include <utility>
 
@@ -18,19 +19,20 @@ namespace rosetta::core {
      */
     class Any {
         struct Holder {
-            virtual ~Holder()                     = default;
-            virtual Holder     *clone() const     = 0;
-            virtual std::string type_name() const = 0;
+            virtual ~Holder()                              = default;
+            virtual Holder         *clone() const          = 0;
+            virtual std::string     type_name() const      = 0;
+            virtual const void     *get_void_ptr() const   = 0;
+            virtual std::type_index get_type_index() const = 0; // ADD THIS
         };
 
         template <typename T> struct HolderImpl : Holder {
             T value;
-
             HolderImpl(T v) : value(std::move(v)) {}
-
-            Holder *clone() const override { return new HolderImpl(value); }
-
-            std::string type_name() const override { return typeid(T).name(); }
+            Holder         *clone() const override { return new HolderImpl(value); }
+            std::string     type_name() const override { return typeid(T).name(); }
+            const void     *get_void_ptr() const override { return &value; }
+            std::type_index get_type_index() const override { return std::type_index(typeid(T)); }
         };
 
         std::unique_ptr<Holder> holder_;
@@ -107,6 +109,19 @@ namespace rosetta::core {
          * @brief Réinitialise l'any (le vide)
          */
         void reset() { holder_.reset(); }
+
+        std::type_index get_type_index() const {
+            if (!holder_) {
+                return std::type_index(typeid(void));
+            }
+            return holder_->get_type_index();
+        }
+
+        const void *get_void_ptr() const {
+            if (!holder_)
+                return nullptr;
+            return holder_->get_void_ptr();
+        }
     };
 
 } // namespace rosetta::core

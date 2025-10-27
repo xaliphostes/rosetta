@@ -37,6 +37,7 @@ public:
     std::map<std::string, uint32_t>    map;
     std::array<double, 9>              stress;
     std::vector<std::array<double, 9>> stresses;
+
     void setPositions(const std::vector<Vector3D> &pos) { positions = pos; }
     void setAreas(const std::vector<double> &as) { areas = as; }
 };

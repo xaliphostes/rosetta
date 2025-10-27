@@ -79,6 +79,12 @@ public:
     std::map<std::string, uint32_t>    map;
     std::array<double, 9>              stress;
     std::vector<std::array<double, 9>> stresses;
+
+    // Functor comme membre
+    std::function<double(double, double)>     calculator;
+    std::function<void()>                     callback;
+    std::function<Vector3D(const Vector3D &)> transformer;
+
     void setPositions(const std::vector<Vector3D> &pos) { positions = pos; }
     void setAreas(const std::vector<double> &as) { areas = as; }
 };
@@ -133,6 +139,10 @@ void register_types() {
         .field("map", &A::map)
         .field("stress", &A::stress)
         .field("stresses", &A::stresses)
+        .field("calculator", &A::calculator)
+        .field("callback", &A::callback)
+        .field("transformer", &A::transformer)
+        
         .method("setAreas", &A::setAreas)
         .method("setPositions", &A::setPositions);
 }
@@ -170,6 +180,46 @@ void demo_introspection() {
 
     meta.invoke_method(vec, "normalize");
     std::cout << "Après normalisation: " << vec.to_string() << "\n";
+}
+
+void demo_introspection_A() {
+    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "DEMO: INTROSPECTION of class A\n";
+    std::cout << std::string(60, '=') << "\n";
+
+    A a;
+    a.areas     = {1, 2, 3, 4, 5, 6};
+    a.positions = {{1, 2, 3}, {4, 5, 6}};
+
+    a.calculator  = [](double x, double y) { return x + y; };
+    a.callback    = []() { std::cout << "Hello!\n"; };
+    a.transformer = [](const Vector3D &v) { return Vector3D(v.x * 2, v.y * 2, v.z * 2); };
+
+    auto &meta = ROSETTA_GET_META(A);
+    std::cout << "\n";
+
+    // Accès dynamique
+    {
+        auto        x_value = meta.get_field(a, "areas");
+        const auto &v       = x_value.as<std::vector<double>>();
+        std::cout << "Valeur de areas (dynamique): " << "\n";
+        for (auto m : v) {
+            std::cout << "  " << m << std::endl;
+        }
+    }
+    {
+        auto        x_value = meta.get_field(a, "positions");
+        const auto &v       = x_value.as<std::vector<Vector3D>>();
+        std::cout << "Valeur de areas (dynamique): " << "\n";
+        for (auto m : v) {
+            std::cout << "  " << m.to_string() << std::endl;
+        }
+    }
+
+    // Functors
+    std::cout << a.calculator(10,20) << std::endl;
+    a.callback();
+    std::cout << a.transformer(Vector3D(1,2,3)).to_string() << std::endl;
 }
 
 void demo_inheritance() {
@@ -322,6 +372,7 @@ int main() {
 
     // Lancer les démos
     demo_introspection();
+    demo_introspection_A();
     demo_inheritance();
     demo_serialization();
     demo_validation();
