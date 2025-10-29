@@ -1,116 +1,143 @@
-const geometry = require('./build/Release/geometry');
+const addon = require('./build/Release/geometry.node');
 
-// ============================================================================
-// Classes
-// ============================================================================
+console.log('='.repeat(70));
+console.log('Rosetta JavaScript Binding Test Suite');
+console.log('='.repeat(70));
 
-// Create vectors
-const v1 = new geometry.Vector3D();
-v1.x = 3.0;
-v1.y = 4.0;
-v1.z = 0.0;
+// Test 1: Basic Field Access
+console.log('\n[Test 1] Basic Field Access');
+console.log('-'.repeat(70));
+const vec = new addon.Vector3D();
+console.log('Initial values (should be 0):');
+console.log('  x:', vec.x);
+console.log('  y:', vec.y);
+console.log('  z:', vec.z);
 
-console.log('Length:', v1.length());  // 5.0
-console.log('String:', v1.to_string()); // "Vector3D(3.0, 4.0, 0.0)"
+vec.x = 3;
+vec.y = 4;
+vec.z = 0;
+console.log('\nAfter setting to (3, 4, 0):');
+console.log('  x:', vec.x, '(expected: 3)');
+console.log('  y:', vec.y, '(expected: 4)');
+console.log('  z:', vec.z, '(expected: 0)');
 
-// Normalize
-v1.normalize();
-console.log('Normalized:', v1.x, v1.y, v1.z);  // 0.6, 0.8, 0.0
+// Test 2: Method Calls - Simple Return Type
+console.log('\n[Test 2] Method Call with Simple Return Type');
+console.log('-'.repeat(70));
+const length = vec.length();
+console.log('  vec.length():', length, '(expected: 5)');
 
-// Vector operations
-const v2 = new geometry.Vector3D();
-v2.x = 1.0;
-v2.y = 2.0;
-v2.z = 3.0;
+// Test 3: Method Calls - Complex Return Type (Vector)
+console.log('\n[Test 3] Method Call with Complex Return Type (std::vector)');
+console.log('-'.repeat(70));
+const arr = vec.to_array();
+console.log('  vec.to_array():', arr);
+console.log('  Type:', typeof arr);
+console.log('  Is Array:', Array.isArray(arr));
+if (Array.isArray(arr)) {
+    console.log('  Elements: [' + arr.join(', ') + '] (expected: [3, 4, 0])');
+}
 
-// const v3 = v1.add(v2);
-// console.log('Sum:', v3.x, v3.y, v3.z);
+// Test 4: Complex Field Types - String
+console.log('\n[Test 4] String Field Access');
+console.log('-'.repeat(70));
+const container = new addon.DataContainer();
+console.log('Initial name:', container.name, '(expected: empty string)');
+container.name = "Test Container";
+console.log('After setting:', container.name, '(expected: "Test Container")');
 
-// const v4 = v1.scale(2.0);
-// console.log('Scaled:', v4.x, v4.y, v4.z);
+// Test 5: Complex Field Types - Vector
+if (1) {
+    console.log('\n[Test 5] Vector Field Access');
+    console.log('-'.repeat(70));
+    console.log('Initial values:', container.values, '(expected: empty array or undefined)');
+    container.values = [1, 2, 3, 4, 5];
+    console.log('After setting:', container.values, '(expected: [1, 2, 3, 4, 5])');
+    if (Array.isArray(container.values)) {
+        console.log('  Length:', container.values.length);
+        console.log('  Sum:', container.values.reduce((a, b) => a + b, 0), '(expected: 15)');
+    }
+}
 
-// Shapes
-const circle = new geometry.Circle();
-circle.radius = 5.0;
-console.log('Circle area:', circle.area());        // 78.5398
-console.log('Circle perimeter:', circle.perimeter()); // 31.4159
-console.log('Circle type:', circle.type());        // "Circle"
+// Test 6: Complex Field Types - Optional
+console.log('\n[Test 6] Optional Field Access');
+console.log('-'.repeat(70));
+console.log('Initial threshold:', container.threshold, '(expected: null or undefined)');
+container.threshold = 42.5;
+console.log('After setting:', container.threshold, '(expected: 42.5)');
+console.log('  Type:', typeof container.threshold);
 
-const rect = new geometry.Rectangle();
-rect.width = 10.0;
-rect.height = 5.0;
-console.log('Rectangle area:', rect.area());        // 50.0
-console.log('Rectangle perimeter:', rect.perimeter()); // 30.0
+// Test 7: Type Introspection
+console.log('\n[Test 7] Type Information System');
+console.log('-'.repeat(70));
 
-// ============================================================================
-// Global Functions
-// ============================================================================
+const intInfo = addon.inspectType('integer');
+if (intInfo) {
+    console.log('int type info:');
+    console.log('  name:', intInfo.name);
+    console.log('  size:', intInfo.size, 'bytes');
+    console.log('  is numeric:', intInfo.isNumeric);
+    console.log('  is integer:', intInfo.isInteger);
+}
 
-// Calculate distance
-const distance = geometry.calculateDistance(v1, v2);
-console.log('Distance:', distance);
+const vecInfo = addon.inspectType('Vector3D');
+if (vecInfo) {
+    console.log('\nVector3D type info:');
+    console.log('  name:', vecInfo.name);
+    console.log('  size:', vecInfo.size, 'bytes');
+    console.log('  alignment:', vecInfo.alignment, 'bytes');
+    console.log('  is template:', vecInfo.isTemplate);
+}
 
-// Generate sequence
-const sequence = geometry.generateSequence(10, 0.0, 1.5);
-console.log('Sequence:', sequence);
-// [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0, 10.5, 12.0, 13.5]
+// Test 8: List All Classes
+console.log('\n[Test 8] Available Classes');
+console.log('-'.repeat(70));
+const classes = addon.listClasses();
+console.log('Registered classes:', classes);
+console.log('Count:', classes.length);
 
-// Get statistics
-const data = [1.0, 2.0, 3.0, 4.0, 5.0];
-const stats = geometry.getStatistics(data);
-console.log('Statistics:', stats);
-// { min: 1, max: 5, mean: 3, sum: 15, count: 5 }
+// Test 9: Multiple Instances
+console.log('\n[Test 9] Multiple Instances');
+console.log('-'.repeat(70));
+const vec1 = new addon.Vector3D();
+const vec2 = new addon.Vector3D();
 
-// ============================================================================
-// Callbacks (Functors)
-// ============================================================================
+vec1.x = 1;
+vec1.y = 0;
+vec1.z = 0;
 
-// Apply function (C++ calls JS callback)
-geometry.applyFunction([1, 2, 3, 4, 5], (value) => {
-    console.log('Value:', value);
-});
-// Output: Value: 1, Value: 2, Value: 3, Value: 4, Value: 5
+vec2.x = 0;
+vec2.y = 1;
+vec2.z = 0;
 
-// Transform values (C++ calls JS callback and returns result)
-const doubled = geometry.transformValues([1, 2, 3, 4, 5], (x) => x * 2);
-console.log('Doubled:', doubled);
-// [2, 4, 6, 8, 10]
+console.log('vec1: (', vec1.x, ',', vec1.y, ',', vec1.z, ') length:', vec1.length());
+console.log('vec2: (', vec2.x, ',', vec2.y, ',', vec2.z, ') length:', vec2.length());
+console.log('Instances are independent:', vec1.x !== vec2.x);
 
-const squared = geometry.transformValues([1, 2, 3, 4, 5], (x) => x * x);
-console.log('Squared:', squared);
-// [1, 4, 9, 16, 25]
+// Test 10: Edge Cases
+console.log('\n[Test 10] Edge Cases');
+console.log('-'.repeat(70));
 
-// Complex transformations
-const result = geometry.transformValues([1, 2, 3, 4, 5], (x) => {
-    return Math.sin(x) * 10;
-});
-console.log('Sin*10:', result);
+// Zero vector
+const zeroVec = new addon.Vector3D();
+console.log('Zero vector length:', zeroVec.length(), '(expected: 0)');
 
-// ============================================================================
-// Enumerations
-// ============================================================================
+// Large numbers
+vec.x = 1e6;
+vec.y = 2e6;
+vec.z = 3e6;
+console.log('Large values: (', vec.x, ',', vec.y, ',', vec.z, ')');
+console.log('  Length:', vec.length().toExponential(2));
 
-console.log('Colors:');
-console.log('  Red:', geometry.Color.Red);       // 0
-console.log('  Green:', geometry.Color.Green);   // 1
-console.log('  Blue:', geometry.Color.Blue);     // 2
+// Negative numbers
+vec.x = -3;
+vec.y = -4;
+vec.z = 0;
+console.log('Negative values: (', vec.x, ',', vec.y, ',', vec.z, ')');
+console.log('  Length:', vec.length(), '(expected: 5)');
 
-console.log('ShapeTypes:');
-console.log('  Circle:', geometry.ShapeType.Circle);      // 0
-console.log('  Rectangle:', geometry.ShapeType.Rectangle); // 1
-
-// ============================================================================
-// Arrays and Maps
-// ============================================================================
-
-// Arrays (std::vector) work seamlessly
-const numbers = [1.0, 2.0, 3.0, 4.0, 5.0];
-const moreStats = geometry.getStatistics(numbers);
-
-// Maps (std::map) are converted to/from JS objects
-const settings = {
-    "temperature": 25.5,
-    "humidity": 65.0,
-    "pressure": 1013.25
-};
-// Can be passed to C++ functions expecting std::map<std::string, double>
+// Summary
+console.log('\n' + '='.repeat(70));
+console.log('Test Suite Complete');
+console.log('='.repeat(70));
+console.log('\nIf all values match expectations, the binding system is working correctly!');

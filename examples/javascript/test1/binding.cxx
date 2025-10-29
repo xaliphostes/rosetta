@@ -1,248 +1,237 @@
 // ============================================================================
-// Example: Runtime N-API Binding Generator
+// type_info_example.cpp
+//
+// Example showing how to use the TypeInfo system for better type tracking
 // ============================================================================
 
-#include <rosetta/rosetta.h>
-#include <rosetta/generators/js/BindingGenerator.h>
-#include <rosetta/generators/js/TypeConverterRegistry.h>
-#include <cmath>
 #include <iostream>
+#include <rosetta/generators/js/js_generator.h>
+#include <rosetta/generators/js/type_converters.h>
+#include <rosetta/rosetta.h>
+
+using namespace rosetta;
+using namespace rosetta::generators::js;
 
 // ============================================================================
-// Example Classes
+// EXAMPLE CLASSES
 // ============================================================================
 
 class Vector3D {
 public:
     double x, y, z;
 
-    Vector3D(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
+    Vector3D() : x(0), y(0), z(0) {}
+    Vector3D(double x, double y, double z) : x(x), y(y), z(z) {}
 
     double length() const { return std::sqrt(x * x + y * y + z * z); }
 
-    void normalize() {
-        double len = length();
-        if (len > 0) {
-            x /= len;
-            y /= len;
-            z /= len;
-        }
-    }
-
-    Vector3D add(const Vector3D &other) const {
-        return Vector3D(x + other.x, y + other.y, z + other.z);
-    }
-
-    Vector3D scale(double factor) const { return Vector3D(x * factor, y * factor, z * factor); }
-
-    std::string to_string() const {
-        return "Vector3D(" + std::to_string(x) + ", " + std::to_string(y) + ", " +
-               std::to_string(z) + ")";
-    }
+    std::vector<double> to_array() const { return {x, y, z}; }
 };
 
-class Shape {
+class DataContainer {
 public:
-    virtual ~Shape()                      = default;
-    virtual double      area() const      = 0;
-    virtual double      perimeter() const = 0;
-    virtual std::string type() const      = 0;
-};
+    std::string           name;
+    std::vector<int>      values;
+    std::optional<double> threshold;
 
-class Circle : public Shape {
-public:
-    double radius;
-
-    explicit Circle(double r = 1.0) : radius(r) {}
-
-    double area() const override { return 3.14159 * radius * radius; }
-
-    double perimeter() const override { return 2.0 * 3.14159 * radius; }
-
-    std::string type() const override { return "Circle"; }
-};
-
-class Rectangle : public Shape {
-public:
-    double width, height;
-
-    Rectangle(double w = 1.0, double h = 1.0) : width(w), height(h) {}
-
-    double area() const override { return width * height; }
-
-    double perimeter() const override { return 2.0 * (width + height); }
-
-    std::string type() const override { return "Rectangle"; }
+    DataContainer() : name(""), threshold(std::nullopt) {}
 };
 
 // ============================================================================
-// Example Enum
+// TYPE INFO DEMONSTRATION
 // ============================================================================
 
-enum class Color { Red = 0, Green = 1, Blue = 2, Yellow = 3, Magenta = 4, Cyan = 5 };
+void demonstrate_type_info() {
+    std::cout << "=== TypeInfo System Demonstration ===\n\n";
 
-enum class ShapeType { Circle = 0, Rectangle = 1, Triangle = 2, Polygon = 3 };
+    // Create TypeInfo for various types
+    TypeInfo int_info      = TypeInfo::create<int>();
+    TypeInfo double_info   = TypeInfo::create<double>();
+    TypeInfo string_info   = TypeInfo::create<std::string>();
+    TypeInfo vector_info   = TypeInfo::create<std::vector<int>>();
+    TypeInfo optional_info = TypeInfo::create<std::optional<double>>();
+    TypeInfo class_info    = TypeInfo::create<Vector3D>();
 
-// ============================================================================
-// Global Functions
-// ============================================================================
+    // Display information
+    std::cout << "int type:\n";
+    std::cout << "  Name: " << int_info.name << "\n";
+    std::cout << "  Full name: " << int_info.full_name() << "\n";
+    std::cout << "  Category: " << (int)int_info.category << "\n";
+    std::cout << "  Size: " << int_info.size << " bytes\n";
+    std::cout << "  Is numeric: " << int_info.is_numeric() << "\n";
+    std::cout << "  Is integer: " << int_info.is_integer() << "\n\n";
 
-double calculate_distance(const Vector3D &a, const Vector3D &b) {
-    double dx = b.x - a.x;
-    double dy = b.y - a.y;
-    double dz = b.z - a.z;
-    return std::sqrt(dx * dx + dy * dy + dz * dz);
-}
+    std::cout << "double type:\n";
+    std::cout << "  Name: " << double_info.name << "\n";
+    std::cout << "  Full name: " << double_info.full_name() << "\n";
+    std::cout << "  Is numeric: " << double_info.is_numeric() << "\n";
+    std::cout << "  Is floating: " << double_info.is_floating() << "\n\n";
 
-std::vector<double> generate_sequence(int count, double start, double step) {
-    std::vector<double> result;
-    result.reserve(count);
-    for (int i = 0; i < count; ++i) {
-        result.push_back(start + i * step);
+    std::cout << "std::string type:\n";
+    std::cout << "  Name: " << string_info.name << "\n";
+    std::cout << "  Category: " << (int)string_info.category << "\n\n";
+
+    std::cout << "std::vector<int> type:\n";
+    std::cout << "  Name: " << vector_info.name << "\n";
+    std::cout << "  Full name: " << vector_info.full_name() << "\n";
+    std::cout << "  Is template: " << vector_info.is_template << "\n";
+    std::cout << "  Template name: " << vector_info.template_name << "\n";
+    std::cout << "  Template args count: " << vector_info.template_args.size() << "\n";
+    if (!vector_info.template_args.empty()) {
+        std::cout << "  Element type: " << vector_info.template_args[0].name << "\n";
     }
-    return result;
-}
+    std::cout << "\n";
 
-std::map<std::string, double> get_statistics(const std::vector<double> &data) {
-    if (data.empty()) {
-        return {};
+    std::cout << "std::optional<double> type:\n";
+    std::cout << "  Name: " << optional_info.name << "\n";
+    std::cout << "  Full name: " << optional_info.full_name() << "\n";
+    std::cout << "  Is template: " << optional_info.is_template << "\n";
+    std::cout << "  Template name: " << optional_info.template_name << "\n";
+    if (!optional_info.template_args.empty()) {
+        std::cout << "  Value type: " << optional_info.template_args[0].name << "\n";
     }
+    std::cout << "\n";
 
-    double sum = 0.0;
-    double min = data[0];
-    double max = data[0];
-
-    for (double val : data) {
-        sum += val;
-        if (val < min)
-            min = val;
-        if (val > max)
-            max = val;
-    }
-
-    double mean = sum / data.size();
-
-    return {{"min", min},
-            {"max", max},
-            {"mean", mean},
-            {"sum", sum},
-            {"count", static_cast<double>(data.size())}};
-}
-
-void apply_function(const std::vector<double> &values, std::function<void(double)> callback) {
-    for (double val : values) {
-        callback(val);
-    }
-}
-
-std::vector<double> transform_values(const std::vector<double>    &values,
-                                     std::function<double(double)> transformer) {
-    std::vector<double> result;
-    result.reserve(values.size());
-    for (double val : values) {
-        result.push_back(transformer(val));
-    }
-    return result;
+    std::cout << "Vector3D type:\n";
+    std::cout << "  Name: " << class_info.name << "\n";
+    std::cout << "  Category: " << (int)class_info.category << "\n";
+    std::cout << "  Size: " << class_info.size << " bytes\n";
+    std::cout << "  Alignment: " << class_info.alignment << " bytes\n\n";
 }
 
 // ============================================================================
-// Rosetta Registration
+// TYPE REGISTRY DEMONSTRATION
+// ============================================================================
+
+void demonstrate_type_registry() {
+    std::cout << "=== TypeRegistry Demonstration ===\n\n";
+
+    auto &registry = TypeRegistry::instance();
+
+    // Register types with custom names
+    registry.register_type<int>("integer");
+    registry.register_type<double>("number");
+    registry.register_type<std::string>("text");
+    registry.register_type<Vector3D>("Vector3D");
+    registry.register_type<std::vector<double>>("double_array");
+
+    // List all registered types
+    std::cout << "Registered types:\n";
+    for (const auto &name : registry.list_types()) {
+        std::cout << "  - " << name << "\n";
+    }
+    std::cout << "\n";
+
+    // Get TypeInfo by type
+    const TypeInfo &int_info = registry.get<int>();
+    std::cout << "TypeInfo for int:\n";
+    std::cout << "  Name: " << int_info.name << "\n";
+    std::cout << "  Category: " << (int)int_info.category << "\n\n";
+
+    // Get TypeInfo by name
+    const TypeInfo *vec_info = registry.get_by_name("Vector3D");
+    if (vec_info) {
+        std::cout << "TypeInfo for 'Vector3D':\n";
+        std::cout << "  Full name: " << vec_info->full_name() << "\n";
+        std::cout << "  Size: " << vec_info->size << " bytes\n\n";
+    }
+
+    // Check if type is registered
+    std::cout << "Is Vector3D registered? " << registry.has_type<Vector3D>() << "\n";
+    std::cout << "Is int registered? " << registry.has_type<int>() << "\n\n";
+}
+
+// ============================================================================
+// ROSETTA REGISTRATION
 // ============================================================================
 
 void register_classes() {
-    using namespace rosetta;
-
-    // Register Vector3D
     ROSETTA_REGISTER_CLASS(Vector3D)
         .field("x", &Vector3D::x)
         .field("y", &Vector3D::y)
         .field("z", &Vector3D::z)
         .method("length", &Vector3D::length)
-        .method("normalize", &Vector3D::normalize)
-        .method("add", &Vector3D::add)
-        .method("scale", &Vector3D::scale)
-        .method("to_string", &Vector3D::to_string);
+        .method("to_array", &Vector3D::to_array);
 
-    // Register Shape (abstract base)
-    ROSETTA_REGISTER_CLASS(Shape)
-        .pure_virtual_method<double>("area")
-        .pure_virtual_method<double>("perimeter")
-        .pure_virtual_method<std::string>("type");
-
-    // Register Circle
-    ROSETTA_REGISTER_CLASS(Circle)
-        .inherits_from<Shape>("Shape")
-        .field("radius", &Circle::radius)
-        .override_method("area", &Circle::area)
-        .override_method("perimeter", &Circle::perimeter)
-        .override_method("type", &Circle::type);
-
-    // Register Rectangle
-    ROSETTA_REGISTER_CLASS(Rectangle)
-        .inherits_from<Shape>("Shape")
-        .field("width", &Rectangle::width)
-        .field("height", &Rectangle::height)
-        .override_method("area", &Rectangle::area)
-        .override_method("perimeter", &Rectangle::perimeter)
-        .override_method("type", &Rectangle::type);
-}
-
-void register_type_converters() {
-    using namespace rosetta::generators::js;
-
-    auto &registry = TypeConverterRegistry::instance();
-
-    // Containers
-    registry.register_container_if_needed<std::vector<double>>();
-    registry.register_container_if_needed<std::map<std::string, double>>();
-
-    // Functions/callbacks
-    registry.register_converter<std::function<void(double)>>(
-        std::make_unique<FunctionConverter<void, double>>());
-
-    registry.register_converter<std::function<double(double)>>(
-        std::make_unique<FunctionConverter<double, double>>());
+    ROSETTA_REGISTER_CLASS(DataContainer)
+        .field("name", &DataContainer::name)
+        .field("values", &DataContainer::values)
+        .field("threshold", &DataContainer::threshold);
 }
 
 // ============================================================================
-// Module Initialization
+// N-API BINDING WITH TYPE INFO
 // ============================================================================
 
-BEGIN_NAPI_MODULE(geometry) {
-    using namespace rosetta::generators::js;
+BEGIN_JS_MODULE(gen) {
+    // Run demonstrations (in real code, remove these)
+    // demonstrate_type_info();
+    // demonstrate_type_registry();
 
-    std::cout << "╔════════════════════════════════════════════════════════╗\n";
-    std::cout << "║      Using Rosetta Runtime N-API Binding Generator     ║\n";
-    std::cout << "╚════════════════════════════════════════════════════════╝\n";
-
+    // Register classes
     register_classes();
-    register_type_converters();
 
-    BindingGenerator generator(env, exports);
+    // Register type converters (these now use TypeInfo internally)
+    register_vector_converter<int>(gen);
+    register_vector_converter<double>(gen);
+    register_optional_converter<double>(gen);
 
-    generator.bind_classes<Vector3D, Circle, Rectangle>();
+    // Bind classes
+    gen.bind_classes<Vector3D, DataContainer>();
 
-    TypeConverterRegistry::instance().register_class_wrapper<Vector3D>("Vector3D");
+    // Add custom converter with TypeInfo
+    gen.register_converter<Vector3D>(
+        // C++ to JS
+        [](Napi::Env env, const core::Any &val) -> Napi::Value {
+            const auto  &vec = val.as<Vector3D>();
+            Napi::Object obj = Napi::Object::New(env);
+            obj.Set("x", Napi::Number::New(env, vec.x));
+            obj.Set("y", Napi::Number::New(env, vec.y));
+            obj.Set("z", Napi::Number::New(env, vec.z));
+            return obj;
+        },
+        // JS to C++
+        [](const Napi::Value &val) -> core::Any {
+            if (!val.IsObject())
+                return core::Any();
+            Napi::Object obj = val.As<Napi::Object>();
+            Vector3D     vec;
+            vec.x = obj.Get("x").As<Napi::Number>().DoubleValue();
+            vec.y = obj.Get("y").As<Napi::Number>().DoubleValue();
+            vec.z = obj.Get("z").As<Napi::Number>().DoubleValue();
+            return core::Any(vec);
+        });
 
-    generator.bind_function(calculate_distance, "calculateDistance")
-        .bind_function(generate_sequence, "generateSequence")
-        .bind_function(get_statistics, "getStatistics")
-        .bind_function(apply_function, "applyFunction")
-        .bind_function(transform_values, "transformValues");
+    // Add utility to inspect types
+    auto inspect_type = [](const Napi::CallbackInfo &info) -> Napi::Value {
+        Napi::Env env = info.Env();
 
-    generator.bind_enum<Color>("Color", {{"Red", Color::Red},
-                                         {"Green", Color::Green},
-                                         {"Blue", Color::Blue},
-                                         {"Yellow", Color::Yellow},
-                                         {"Magenta", Color::Magenta},
-                                         {"Cyan", Color::Cyan}});
+        if (info.Length() < 1 || !info[0].IsString()) {
+            Napi::TypeError::New(env, "Expected type name as string").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
 
-    generator.bind_enum<ShapeType>("ShapeType", {{"Circle", ShapeType::Circle},
-                                                 {"Rectangle", ShapeType::Rectangle},
-                                                 {"Triangle", ShapeType::Triangle},
-                                                 {"Polygon", ShapeType::Polygon}});
+        std::string     type_name = info[0].As<Napi::String>().Utf8Value();
+        const TypeInfo *type_info = TypeRegistry::instance().get_by_name(type_name);
 
-    return exports;
+        if (!type_info) {
+            return env.Null();
+        }
+
+        Napi::Object result = Napi::Object::New(env);
+        result.Set("name", Napi::String::New(env, type_info->name));
+        result.Set("fullName", Napi::String::New(env, type_info->full_name()));
+        result.Set("size", Napi::Number::New(env, type_info->size));
+        result.Set("alignment", Napi::Number::New(env, type_info->alignment));
+        result.Set("isTemplate", Napi::Boolean::New(env, type_info->is_template));
+        result.Set("isConst", Napi::Boolean::New(env, type_info->is_const));
+        result.Set("isPointer", Napi::Boolean::New(env, type_info->is_pointer));
+        result.Set("isNumeric", Napi::Boolean::New(env, type_info->is_numeric()));
+
+        return result;
+    };
+
+    gen.exports.Set("inspectType", Napi::Function::New(gen.env, inspect_type, "inspectType"));
+    gen.add_utilities();
 }
-
-END_NAPI_MODULE(geometry)
+END_JS_MODULE();
