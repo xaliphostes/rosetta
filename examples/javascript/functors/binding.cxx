@@ -234,9 +234,9 @@ void register_functors() {
     // Register VectorTransform
     ROSETTA_REGISTER_CLASS(VectorTransform)
         .method("call", &VectorTransform::operator())
-        .field("scale", &VectorTransform::get_scale)
+        .method("get_scale", &VectorTransform::get_scale)
         .method("set_scale", &VectorTransform::set_scale)
-        .field("offset", &VectorTransform::get_offset)
+        .method("get_offset", &VectorTransform::get_offset)
         .method("set_offset", &VectorTransform::set_offset);
 
     // Register RangePredicate
@@ -244,9 +244,9 @@ void register_functors() {
         .method("test",
                 static_cast<bool (RangePredicate::*)(double) const>(&RangePredicate::operator()))
         .method("filter", &RangePredicate::filter)
-        .field("min", &RangePredicate::get_min)
+        .method("get_min", &RangePredicate::get_min)
         .method("set_min", &RangePredicate::set_min)
-        .field("max", &RangePredicate::get_max)
+        .method("get_max", &RangePredicate::get_max)
         .method("set_max", &RangePredicate::set_max);
 
     // Register BinaryOp
@@ -254,7 +254,7 @@ void register_functors() {
         .method("call",
                 static_cast<double (BinaryOp::*)(double, double) const>(&BinaryOp::operator()))
         .method("apply", &BinaryOp::apply)
-        .field("operation", &BinaryOp::get_operation)
+        .method("get_operation", &BinaryOp::get_operation)
         .method("set_operation", &BinaryOp::set_operation)
         .method("get_operation_name", &BinaryOp::get_operation_name);
 
@@ -263,10 +263,10 @@ void register_functors() {
         .method("call", static_cast<double (Compositor::*)(double) const>(&Compositor::operator()))
         .method("set_inner", &Compositor::set_inner)
         .method("set_outer", &Compositor::set_outer)
-        .field("scale1", &Compositor::get_scale1)
-        .field("offset1", &Compositor::get_offset1)
-        .field("scale2", &Compositor::get_scale2)
-        .field("offset2", &Compositor::get_offset2);
+        .method("get_scale1", &Compositor::get_scale1)
+        .method("get_offset1", &Compositor::get_offset1)
+        .method("get_scale2", &Compositor::get_scale2)
+        .method("get_offset2", &Compositor::get_offset2);
 }
 
 // ============================================================================
@@ -274,6 +274,28 @@ void register_functors() {
 // ============================================================================
 
 BEGIN_JS_MODULE(gen) {
+    auto test_squarer = [](const Napi::CallbackInfo &info) -> Napi::Value {
+        Napi::Env env = info.Env();
+
+        std::cerr << "[DEBUG] test_squarer called with " << info.Length() << " arguments"
+                  << std::endl;
+
+        if (info.Length() < 1 || !info[0].IsNumber()) {
+            Napi::TypeError::New(env, "Expected a number").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        double input = info[0].As<Napi::Number>().DoubleValue();
+        std::cerr << "[DEBUG] Input value: " << input << std::endl;
+
+        double result = input * input;
+        std::cerr << "[DEBUG] Result: " << result << std::endl;
+
+        return Napi::Number::New(env, result);
+    };
+
+    gen.exports.Set("testSquarer", Napi::Function::New(gen.env, test_squarer, "testSquarer"));
+
     // Register classes
     register_functors();
 
