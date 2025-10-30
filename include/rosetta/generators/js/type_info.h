@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/generators/js/type_info.h
-//
 // Type information system for JavaScript bindings
 // Provides better type tracking than raw typeid().name()
 // ============================================================================

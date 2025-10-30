@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/generators/js/js_generator.hxx
-//
 // Implementation of JsGenerator template methods with TypeInfo system
 // ============================================================================
 #pragma once
@@ -24,10 +22,14 @@ namespace rosetta::generators::js {
         TypeInfo               type_info;
         JsGenerator           *generator; // Pointer to generator for converter access
 
-        explicit WrappedObject(Class *ptr, JsGenerator *gen = nullptr) 
+        explicit WrappedObject(Class *ptr, JsGenerator *gen = nullptr)
             : instance(ptr), type_info(TypeInfo::create<Class>()), generator(gen) {}
         explicit WrappedObject(std::shared_ptr<Class> ptr, JsGenerator *gen = nullptr)
             : instance(std::move(ptr)), type_info(TypeInfo::create<Class>()), generator(gen) {}
+        
+        ~WrappedObject() {
+            // Shared pointer will handle cleanup automatically
+        }
     };
 
     // ========================================================================
@@ -93,10 +95,11 @@ namespace rosetta::generators::js {
         }
 
         std::type_index idx(typeid(T));
-        
+
         // DEBUG: Print registration
-        // std::cerr << "[DEBUG] Registering converter for type: " << idx.name() << " (T=" << typeid(T).name() << ")" << std::endl;
-        
+        // std::cerr << "[DEBUG] Registering converter for type: " << idx.name() << " (T=" <<
+        // typeid(T).name() << ")" << std::endl;
+
         cpp_to_js_[idx] = std::move(to_js);
         js_to_cpp_[idx] = std::move(from_js);
         return *this;
@@ -127,8 +130,8 @@ namespace rosetta::generators::js {
         return nullptr;
     }
 
-    inline Napi::Value JsGenerator::any_to_js(Napi::Env env_param, const core::Any &value, 
-                                               const TypeInfo *type_info) {
+    inline Napi::Value JsGenerator::any_to_js(Napi::Env env_param, const core::Any &value,
+                                              const TypeInfo *type_info) {
         if (!value.has_value()) {
             return env_param.Undefined();
         }
@@ -141,7 +144,7 @@ namespace rosetta::generators::js {
         if (converter) {
             try {
                 return converter(env_param, value);
-            } catch (const std::exception& e) {
+            } catch (const std::exception &e) {
                 std::cerr << "[ERROR] Converter failed: " << e.what() << std::endl;
                 // Fall through to fallback
             }
@@ -149,111 +152,105 @@ namespace rosetta::generators::js {
 
         // FALLBACK: Direct type conversion using mangled name
         std::string mangled = value.type_name();
-        
-        // std::cerr << "[CONVERT] Type: " << mangled << ", has_value: " << value.has_value() << std::endl;
-        
+
+        // std::cerr << "[CONVERT] Type: " << mangled << ", has_value: " << value.has_value() <<
+        // std::endl;
+
         try {
             // Double
             if (mangled == "d") {
                 return Napi::Number::New(env_param, value.as<double>());
             }
-            
+
             // Float
             if (mangled == "f") {
                 return Napi::Number::New(env_param, static_cast<double>(value.as<float>()));
             }
-            
+
             // Int (various representations)
             if (mangled == "i" || mangled == "l" || mangled == "x") {
                 return Napi::Number::New(env_param, value.as<int>());
             }
-            
+
             // Bool
             if (mangled == "b") {
                 return Napi::Boolean::New(env_param, value.as<bool>());
             }
-            
+
             // String (check for various std::string manglings)
-            if (mangled.find("string") != std::string::npos || 
-                mangled.find("basic_string") != std::string::npos ||
-                mangled == "Ss") {
+            if (mangled.find("string") != std::string::npos ||
+                mangled.find("basic_string") != std::string::npos || mangled == "Ss") {
                 return Napi::String::New(env_param, value.as<std::string>());
             }
-            
+
             // Vector<double> - libc++ (Clang/macOS)
-            if (mangled.find("vectorIdN") != std::string::npos || 
+            if (mangled.find("vectorIdN") != std::string::npos ||
                 mangled.find("6vectorIdN") != std::string::npos) {
-                // std::cerr << "[CONVERT] Attempting vector<double> conversion..." << std::endl;
                 try {
-                    // IMPORTANT: Copy the vector, don't hold a reference!
-                    std::vector<double> vec = value.as<std::vector<double>>();
-                    // std::cerr << "[CONVERT] Vector size: " << vec.size() << std::endl;
-                    Napi::Array arr = Napi::Array::New(env_param, vec.size());
+                    const std::vector<double> &vec = value.as<std::vector<double>>();
+                    Napi::Array                arr = Napi::Array::New(env_param, vec.size());
                     for (size_t i = 0; i < vec.size(); ++i) {
                         arr[i] = Napi::Number::New(env_param, vec[i]);
                     }
-                    // std::cerr << "[CONVERT] Vector conversion successful" << std::endl;
                     return arr;
-                } catch (const std::exception& e) {
-                    std::cerr << "[ERROR] Failed to convert vector<double>: " << e.what() << std::endl;
+                } catch (const std::exception &e) {
+                    std::cerr << "[ERROR] Failed to convert vector<double>: " << e.what()
+                              << std::endl;
                     return Napi::Array::New(env_param, 0);
                 }
             }
-            
+
             // Vector<int> - libc++ (Clang/macOS)
-            if (mangled.find("vectorIiN") != std::string::npos || 
+            if (mangled.find("vectorIiN") != std::string::npos ||
                 mangled.find("6vectorIiN") != std::string::npos) {
-                // std::cerr << "[CONVERT] Attempting vector<int> conversion..." << std::endl;
                 try {
-                    // IMPORTANT: Copy the vector, don't hold a reference!
-                    // The Any might be destroyed before JS uses the array
-                    std::vector<int> vec = value.as<std::vector<int>>();
-                    // std::cerr << "[CONVERT] Vector size: " << vec.size() << std::endl;
-                    Napi::Array arr = Napi::Array::New(env_param, vec.size());
+                    const std::vector<int> &vec = value.as<std::vector<int>>();
+                    Napi::Array             arr = Napi::Array::New(env_param, vec.size());
                     for (size_t i = 0; i < vec.size(); ++i) {
                         arr[i] = Napi::Number::New(env_param, vec[i]);
                     }
-                    // std::cerr << "[CONVERT] Vector conversion successful" << std::endl;
                     return arr;
-                } catch (const std::exception& e) {
+                } catch (const std::exception &e) {
                     std::cerr << "[ERROR] Failed to convert vector<int>: " << e.what() << std::endl;
                     return Napi::Array::New(env_param, 0);
                 }
             }
-            
+
             // Vector<float> - libc++ (Clang/macOS)
-            if (mangled.find("vectorIfN") != std::string::npos || 
+            if (mangled.find("vectorIfN") != std::string::npos ||
                 mangled.find("6vectorIfN") != std::string::npos) {
                 try {
-                    std::vector<float> vec = value.as<std::vector<float>>();
-                    Napi::Array arr = Napi::Array::New(env_param, vec.size());
+                    const std::vector<float> &vec = value.as<std::vector<float>>();
+                    Napi::Array               arr = Napi::Array::New(env_param, vec.size());
                     for (size_t i = 0; i < vec.size(); ++i) {
                         arr[i] = Napi::Number::New(env_param, static_cast<double>(vec[i]));
                     }
                     return arr;
-                } catch (const std::exception& e) {
-                    std::cerr << "[ERROR] Failed to convert vector<float>: " << e.what() << std::endl;
+                } catch (const std::exception &e) {
+                    std::cerr << "[ERROR] Failed to convert vector<float>: " << e.what()
+                              << std::endl;
                     return Napi::Array::New(env_param, 0);
                 }
             }
-            
+
             // Vector<string> - libc++ (Clang/macOS)
-            if ((mangled.find("vector") != std::string::npos && 
+            if ((mangled.find("vector") != std::string::npos &&
                  mangled.find("basic_string") != std::string::npos) ||
                 mangled.find("6vectorINS_12basic_string") != std::string::npos) {
                 try {
-                    std::vector<std::string> vec = value.as<std::vector<std::string>>();
-                    Napi::Array arr = Napi::Array::New(env_param, vec.size());
+                    const std::vector<std::string> &vec = value.as<std::vector<std::string>>();
+                    Napi::Array                     arr = Napi::Array::New(env_param, vec.size());
                     for (size_t i = 0; i < vec.size(); ++i) {
                         arr[i] = Napi::String::New(env_param, vec[i]);
                     }
                     return arr;
-                } catch (const std::exception& e) {
-                    std::cerr << "[ERROR] Failed to convert vector<string>: " << e.what() << std::endl;
+                } catch (const std::exception &e) {
+                    std::cerr << "[ERROR] Failed to convert vector<string>: " << e.what()
+                              << std::endl;
                     return Napi::Array::New(env_param, 0);
                 }
             }
-            
+
             // Optional<double> - libc++ (Clang/macOS)
             if (mangled.find("optionalIdEE") != std::string::npos ||
                 mangled.find("8optionalIdEE") != std::string::npos) {
@@ -263,7 +260,7 @@ namespace rosetta::generators::js {
                 }
                 return env_param.Null();
             }
-            
+
             // Optional<int> - libc++ (Clang/macOS)
             if (mangled.find("optionalIiEE") != std::string::npos ||
                 mangled.find("8optionalIiEE") != std::string::npos) {
@@ -273,7 +270,7 @@ namespace rosetta::generators::js {
                 }
                 return env_param.Null();
             }
-            
+
             // Optional<float> - libc++ (Clang/macOS)
             if (mangled.find("optionalIfEE") != std::string::npos ||
                 mangled.find("8optionalIfEE") != std::string::npos) {
@@ -283,7 +280,7 @@ namespace rosetta::generators::js {
                 }
                 return env_param.Null();
             }
-            
+
             // Optional<bool> - libc++ (Clang/macOS)
             if (mangled.find("optionalIbEE") != std::string::npos ||
                 mangled.find("8optionalIbEE") != std::string::npos) {
@@ -293,9 +290,9 @@ namespace rosetta::generators::js {
                 }
                 return env_param.Null();
             }
-            
+
             // Optional<string> - libc++ (Clang/macOS)
-            if (mangled.find("optional") != std::string::npos && 
+            if (mangled.find("optional") != std::string::npos &&
                 mangled.find("basic_string") != std::string::npos) {
                 std::optional<std::string> opt = value.as<std::optional<std::string>>();
                 if (opt.has_value()) {
@@ -303,31 +300,32 @@ namespace rosetta::generators::js {
                 }
                 return env_param.Null();
             }
-            
+
             // Generic vector fallback (for libstdc++ / MSVC)
             if (mangled.find("vector") != std::string::npos) {
                 std::cerr << "[WARN] Unknown vector type, cannot convert: " << mangled << std::endl;
                 // Could try generic handling here if needed
             }
-            
+
             // Generic optional fallback (for libstdc++ / MSVC)
             if (mangled.find("optional") != std::string::npos) {
-                std::cerr << "[WARN] Unknown optional type, cannot convert: " << mangled << std::endl;
+                std::cerr << "[WARN] Unknown optional type, cannot convert: " << mangled
+                          << std::endl;
                 // Could try generic handling here if needed
             }
-            
-        } catch (const std::bad_cast& e) {
+
+        } catch (const std::bad_cast &e) {
             std::cerr << "[ERROR] Type cast failed for mangled type: " << mangled << std::endl;
             return env_param.Undefined();
-        } catch (const std::exception& e) {
+        } catch (const std::exception &e) {
             std::cerr << "[ERROR] Conversion failed: " << e.what() << std::endl;
             return env_param.Undefined();
         }
 
         // If we get here, we don't know how to convert this type
-        std::cerr << "[ERROR] No converter or fallback for type: " << mangled 
+        std::cerr << "[ERROR] No converter or fallback for type: " << mangled
                   << " (type_index: " << idx.name() << ")" << std::endl;
-        
+
         return env_param.Undefined();
     }
 
@@ -379,38 +377,31 @@ namespace rosetta::generators::js {
         if (value.IsString()) {
             return core::Any(value.As<Napi::String>().Utf8Value());
         }
-        
-        // Handle arrays - try to convert to vector<int> or vector<double>
+
+        // Handle arrays - convert to vector<double> for numeric arrays
         if (value.IsArray()) {
-            // std::cerr << "[CONVERT] Attempting array conversion..." << std::endl;
             Napi::Array arr = value.As<Napi::Array>();
-            
-            // Check if all elements are integers
-            bool all_integers = true;
-            for (uint32_t i = 0; i < arr.Length(); ++i) {
-                Napi::Value elem = arr.Get(i);
-                if (!elem.IsNumber()) {
-                    all_integers = false;
-                    break;
-                }
-                double val = elem.As<Napi::Number>().DoubleValue();
-                if (val != static_cast<int>(val)) {
-                    all_integers = false;
-                    break;
-                }
+
+            if (arr.Length() == 0) {
+                return core::Any(std::vector<double>());
             }
+
+            // Check first element to determine type
+            Napi::Value first_elem = arr.Get(uint32_t(0));
             
-            if (all_integers) {
-                // Convert to vector<int>
-                std::vector<int> vec;
-                vec.reserve(arr.Length());
+            if (first_elem.IsString()) {
+                // String array
+                std::vector<std::string> str_vec;
+                str_vec.reserve(arr.Length());
                 for (uint32_t i = 0; i < arr.Length(); ++i) {
                     Napi::Value elem = arr.Get(i);
-                    vec.push_back(elem.As<Napi::Number>().Int32Value());
+                    if (elem.IsString()) {
+                        str_vec.push_back(elem.As<Napi::String>().Utf8Value());
+                    }
                 }
-                return core::Any(vec);
-            } else {
-                // Convert to vector<double>
+                return core::Any(std::move(str_vec));
+            } else if (first_elem.IsNumber()) {
+                // Numeric array - use vector<double>
                 std::vector<double> vec;
                 vec.reserve(arr.Length());
                 for (uint32_t i = 0; i < arr.Length(); ++i) {
@@ -419,8 +410,11 @@ namespace rosetta::generators::js {
                         vec.push_back(elem.As<Napi::Number>().DoubleValue());
                     }
                 }
-                return core::Any(vec);
+                return core::Any(std::move(vec));
             }
+
+            // Unknown array type
+            return core::Any(std::vector<double>());
         }
 
         return core::Any();
@@ -456,9 +450,19 @@ namespace rosetta::generators::js {
             // Create C++ instance with generator pointer
             auto *wrapped = new WrappedObject<Class>(new Class(), gen_ptr);
 
-            // Wrap in JS object
+            // Wrap in JS object with finalizer
             Napi::Object obj = info.This().As<Napi::Object>();
-            obj.Set("__cpp_instance", Napi::External<WrappedObject<Class>>::New(env, wrapped));
+            
+            // Create external with finalizer to delete wrapped object
+            auto external = Napi::External<WrappedObject<Class>>::New(
+                env, 
+                wrapped,
+                [](Napi::Env env, WrappedObject<Class>* data) {
+                    delete data;
+                }
+            );
+            
+            obj.Set("__cpp_instance", external);
 
             return obj;
         };
@@ -482,7 +486,7 @@ namespace rosetta::generators::js {
         for (const auto &field_name : meta.fields()) {
             // Capture 'this' pointer to access converters
             JsGenerator *gen_ptr = this;
-            
+
             // Getter
             auto getter = [field_name, gen_ptr](const Napi::CallbackInfo &info) -> Napi::Value {
                 Napi::Env    env      = info.Env();
@@ -527,7 +531,7 @@ namespace rosetta::generators::js {
                 }
 
                 Napi::Value js_value = info[0];
-                
+
                 // Use the generator's js_to_any method which uses registered converters
                 core::Any cpp_value = gen_ptr->js_to_any(js_value, nullptr);
 
@@ -559,8 +563,9 @@ namespace rosetta::generators::js {
         for (const auto &method_name : meta.methods()) {
             // Capture 'this' pointer to access converters
             JsGenerator *gen_ptr = this;
-            
-            auto method_wrapper = [method_name, gen_ptr](const Napi::CallbackInfo &info) -> Napi::Value {
+
+            auto method_wrapper = [method_name,
+                                   gen_ptr](const Napi::CallbackInfo &info) -> Napi::Value {
                 Napi::Env    env      = info.Env();
                 Napi::Object this_obj = info.This().As<Napi::Object>();
 
@@ -588,7 +593,7 @@ namespace rosetta::generators::js {
 
                     // Convert result to JS using any_to_js
                     return gen_ptr->any_to_js(env, result, nullptr);
-                    
+
                 } catch (const std::exception &e) {
                     Napi::Error::New(env, std::string("Method invocation failed: ") + e.what())
                         .ThrowAsJavaScriptException();

@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/generators/js/js_generator.h
-//
 // Automatic N-API/JavaScript binding generator for Rosetta introspection
 // Non-intrusive design - uses Registry and ClassMetadata at runtime
 // ============================================================================

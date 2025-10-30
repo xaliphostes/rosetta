@@ -2,11 +2,13 @@
 
 ## JavaScript
 
-Generator based on **napi**
+- Generator based on **napi**
+- Directory: `js`
 
 ## Python
 
-Generator based on **pybind11**
+- Generator based on **pybind11**
+- - Directory: `py`
 
 ## Lua
 

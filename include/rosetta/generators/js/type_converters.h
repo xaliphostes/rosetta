@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/generators/js/type_converters.h
-//
 // Pre-built type converters for common C++ types using TypeInfo system
 // ============================================================================
 #pragma once
@@ -19,41 +17,44 @@ namespace rosetta::generators::js {
      * @brief Register converters for std::vector<T>
      */
     template <typename T> inline void register_vector_converter(JsGenerator &gen) {
-        // Optional: keep your registry entry
+        // Register type in TypeRegistry
         TypeRegistry::instance().register_type<std::vector<T>>();
 
         // C++ vector<T> -> JS Array
         gen.register_converter<std::vector<T>>(
             [](Napi::Env env, const rosetta::core::Any &val) -> Napi::Value {
-                // std::cerr << "[TYPE CONVERTER]: 1-" << std::endl;
-                const auto &vec = val.as<std::vector<T>>();
-                // std::cerr << "[TYPE CONVERTER]: 2-" << std::endl;
-                Napi::Array arr = Napi::Array::New(env, vec.size());
-                // std::cerr << "[TYPE CONVERTER]: " << vec.size() << std::endl;
+                try {
+                    const auto &vec = val.as<std::vector<T>>();
+                    Napi::Array arr = Napi::Array::New(env, vec.size());
 
-                for (size_t i = 0; i < vec.size(); ++i) {
-                    if constexpr (std::is_integral_v<T>) {
-                        arr[i] = Napi::Number::New(env, static_cast<double>(vec[i]));
-                    } else if constexpr (std::is_floating_point_v<T>) {
-                        arr[i] = Napi::Number::New(env, static_cast<double>(vec[i]));
-                    } else if constexpr (std::is_same_v<T, std::string>) {
-                        arr[i] = Napi::String::New(env, vec[i]);
-                    } else if constexpr (std::is_same_v<T, bool>) {
-                        arr[i] = Napi::Boolean::New(env, vec[i]);
-                    } else {
-                        // Unsupported T: fall back to undefined (or throw)
-                        arr[i] = env.Undefined();
+                    for (size_t i = 0; i < vec.size(); ++i) {
+                        if constexpr (std::is_integral_v<T>) {
+                            arr[i] = Napi::Number::New(env, static_cast<double>(vec[i]));
+                        } else if constexpr (std::is_floating_point_v<T>) {
+                            arr[i] = Napi::Number::New(env, static_cast<double>(vec[i]));
+                        } else if constexpr (std::is_same_v<T, std::string>) {
+                            arr[i] = Napi::String::New(env, vec[i]);
+                        } else if constexpr (std::is_same_v<T, bool>) {
+                            arr[i] = Napi::Boolean::New(env, vec[i]);
+                        } else {
+                            // Unsupported T: fall back to undefined (or throw)
+                            arr[i] = env.Undefined();
+                        }
                     }
+                    return arr;
+                } catch (const std::bad_cast &e) {
+                    std::cerr << "[ERROR] vector converter: bad_cast - " << e.what() << std::endl;
+                    return env.Undefined();
+                } catch (const std::exception &e) {
+                    std::cerr << "[ERROR] vector converter: " << e.what() << std::endl;
+                    return env.Undefined();
                 }
-                return arr;
             },
             // JS Array -> C++ vector<T>
             [](const Napi::Value &val) -> rosetta::core::Any {
                 if (!val.IsArray()) {
                     return rosetta::core::Any();
                 }
-
-                // std::cerr << "[TYPE CONVERTER]: 1-" << std::endl;
 
                 Napi::Array    arr = val.As<Napi::Array>();
                 std::vector<T> vec;

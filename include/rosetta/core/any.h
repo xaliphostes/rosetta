@@ -1,13 +1,14 @@
 // ============================================================================
 // rosetta/core/any.hpp
 //
-// Type erasure pour stocker n'importe quel type de manière type-safe
+// Type erasure pour stocker n'importe quel type de maniÃ¨re type-safe
 // ============================================================================
 #pragma once
 #include <memory>
 #include <string>
 #include <typeindex>
 #include <typeinfo>
+#include <type_traits>
 #include <utility>
 
 namespace rosetta::core {
@@ -15,7 +16,7 @@ namespace rosetta::core {
     /**
      * @brief Conteneur type-erased pouvant stocker n'importe quel type
      *
-     * Similaire à std::any mais avec une interface simplifiée pour Rosetta
+     * Similaire Ã  std::any mais avec une interface simplifiÃ©e pour Rosetta
      */
     class Any {
         struct Holder {
@@ -39,14 +40,14 @@ namespace rosetta::core {
 
     public:
         /**
-         * @brief Constructeur par défaut (any vide)
+         * @brief Constructeur par dÃ©faut (any vide)
          */
         Any() = default;
 
         /**
-         * @brief Constructeur à partir d'une valeur
+         * @brief Constructeur Ã  partir d'une valeur
          * @tparam T Type de la valeur
-         * @param value Valeur à stocker
+         * @param value Valeur Ã  stocker
          */
         template <typename T> Any(T value) : holder_(new HolderImpl<T>(std::move(value))) {}
 
@@ -61,7 +62,7 @@ namespace rosetta::core {
         Any(Any &&) = default;
 
         /**
-         * @brief Opérateur d'assignation par copie
+         * @brief OpÃ©rateur d'assignation par copie
          */
         Any &operator=(const Any &other) {
             if (this != &other) {
@@ -71,42 +72,122 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Opérateur d'assignation par move
+         * @brief OpÃ©rateur d'assignation par move
          */
         Any &operator=(Any &&) = default;
 
         /**
-         * @brief Récupère la valeur stockée
+         * @brief RÃ©cupÃ¨re la valeur stockÃ©e
          * @tparam T Type attendu
-         * @return Référence à la valeur
+         * @return RÃ©fÃ©rence Ã  la valeur
          * @throws std::bad_cast si le type ne correspond pas
          */
-        template <typename T> T &as() { return static_cast<HolderImpl<T> *>(holder_.get())->value; }
-
-        /**
-         * @brief Récupère la valeur stockée (version const)
-         * @tparam T Type attendu
-         * @return Référence const à la valeur
-         * @throws std::bad_cast si le type ne correspond pas
-         */
-        template <typename T> const T &as() const {
-            return static_cast<const HolderImpl<T> *>(holder_.get())->value;
+        template <typename T> T &as() { 
+            if (!holder_) {
+                throw std::bad_cast();
+            }
+            
+            std::type_index actual_type = holder_->get_type_index();
+            std::type_index expected_type = std::type_index(typeid(T));
+            
+            // Direct type match - fast path
+            if (actual_type == expected_type) {
+                return static_cast<HolderImpl<T> *>(holder_.get())->value;
+            }
+            
+            // Numeric conversions: allow double <-> int/float conversions
+            if constexpr (std::is_arithmetic_v<T>) {
+                // Try to convert from double
+                if (actual_type == std::type_index(typeid(double))) {
+                    double val = static_cast<HolderImpl<double> *>(holder_.get())->value;
+                    // Store converted value temporarily - this is a workaround
+                    // Create a new Any with the converted value and return its reference
+                    static thread_local T converted;
+                    converted = static_cast<T>(val);
+                    return converted;
+                }
+                // Try to convert from int
+                if (actual_type == std::type_index(typeid(int))) {
+                    int val = static_cast<HolderImpl<int> *>(holder_.get())->value;
+                    static thread_local T converted;
+                    converted = static_cast<T>(val);
+                    return converted;
+                }
+                // Try to convert from float
+                if (actual_type == std::type_index(typeid(float))) {
+                    float val = static_cast<HolderImpl<float> *>(holder_.get())->value;
+                    static thread_local T converted;
+                    converted = static_cast<T>(val);
+                    return converted;
+                }
+            }
+            
+            // Type mismatch
+            throw std::bad_cast();
         }
 
         /**
-         * @brief Obtient le nom du type stocké
+         * @brief RÃ©cupÃ¨re la valeur stockÃ©e (version const)
+         * @tparam T Type attendu
+         * @return RÃ©fÃ©rence const Ã  la valeur
+         * @throws std::bad_cast si le type ne correspond pas
+         */
+        template <typename T> const T &as() const {
+            if (!holder_) {
+                throw std::bad_cast();
+            }
+            
+            std::type_index actual_type = holder_->get_type_index();
+            std::type_index expected_type = std::type_index(typeid(T));
+            
+            // Direct type match - fast path
+            if (actual_type == expected_type) {
+                return static_cast<const HolderImpl<T> *>(holder_.get())->value;
+            }
+            
+            // Numeric conversions: allow double <-> int/float conversions
+            if constexpr (std::is_arithmetic_v<T>) {
+                // Try to convert from double
+                if (actual_type == std::type_index(typeid(double))) {
+                    double val = static_cast<const HolderImpl<double> *>(holder_.get())->value;
+                    static thread_local T converted;
+                    converted = static_cast<T>(val);
+                    return converted;
+                }
+                // Try to convert from int
+                if (actual_type == std::type_index(typeid(int))) {
+                    int val = static_cast<const HolderImpl<int> *>(holder_.get())->value;
+                    static thread_local T converted;
+                    converted = static_cast<T>(val);
+                    return converted;
+                }
+                // Try to convert from float
+                if (actual_type == std::type_index(typeid(float))) {
+                    float val = static_cast<const HolderImpl<float> *>(holder_.get())->value;
+                    static thread_local T converted;
+                    converted = static_cast<T>(val);
+                    return converted;
+                }
+            }
+            
+            // Type mismatch
+            throw std::bad_cast();
+        }
+
+        /**
+         * @brief Obtient le nom du type stockÃ©
          * @return Nom du type (mangled)
          */
         std::string type_name() const { return holder_ ? holder_->type_name() : "empty"; }
 
         /**
-         * @brief Vérifie si l'any contient une valeur
+         * @brief VÃ©rifie si l'any contient une valeur
          * @return true si non vide
          */
         bool has_value() const { return holder_ != nullptr; }
 
         /**
-         * @brief Réinitialise l'any (le vide)
+         * @brief RÃ©initialise l'any (le vide)
          */
         void reset() { holder_.reset(); }
 
