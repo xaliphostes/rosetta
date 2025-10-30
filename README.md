@@ -360,7 +360,7 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📜 License
 
-MIT License — see [LICENSE](LICENSE)
+LGPL 3 License — see [LICENSE](LICENSE)
 
 ---
 
