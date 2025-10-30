@@ -327,12 +327,7 @@ rosetta/
 
 ## 🧪 Examples
 
-See `examples/` for complete projects:
-
-* `examples/basic/` — Simple registration
-* `examples/inheritance/` — Virtual methods and polymorphism
-* `examples/python/` — Full Python binding
-* `examples/validation/` — Constraint validation
+See `examples/` for complete projects
 
 ---
 
@@ -350,7 +345,7 @@ See `examples/` for complete projects:
 
 ## ⚠️ Limitations
 
-* Requires explicit registration
+* Requires explicit registration or IDL description
 * Template classes must be instantiated manually
 * Operator overloading must be declared manually
 
@@ -371,18 +366,8 @@ MIT License — see [LICENSE](LICENSE)
 
 ## 💡 Credits
 
-Created by [Your Name](https://github.com/yourusername)
-
-Inspired by:
-
-* [pybind11](https://github.com/pybind/pybind11)
-* [Boost.PFR](https://github.com/boostorg/pfr)
-* [rttr](https://github.com/rttrorg/rttr)
+Created by [Xaliphostes](https://github.com/xaliphostes)
 
 ---
 
 **One registration, infinite possibilities.** 🚀
-
----
-
-Would you like me to save this reorganized Markdown into your existing `README.md` file (so you can download or commit it directly)?
