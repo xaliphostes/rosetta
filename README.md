@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=very soon&color=informational" alt="Python support">
+  <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=very-soon&color=informational" alt="Python support">
   <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support">
   <img src="https://img.shields.io/static/v1?label=Emscripten&logo=emscripten&logoColor=white&message=support&color=success" alt="Emscripten support">
   <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support">
