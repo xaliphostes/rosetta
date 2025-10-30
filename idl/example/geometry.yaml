@@ -1,0 +1,91 @@
+# Rosetta Interface Language Description (ILD)
+# This file describes which C++ classes, functions, and types to expose to scripting languages
+
+# Module configuration
+module:
+  name: geometry
+  version: "1.0.0"
+  namespace: rosetta  # Optional: C++ namespace
+
+# C++ header files to include
+# System includes: use angle brackets format (vector, string, etc.)
+# User includes: use path format (mylib/Vector3D.h)
+includes:
+  - vector           # Will become: #include <vector>
+  - string           # Will become: #include <string>
+  - optional         # Will become: #include <optional>
+  - mylib/Vector3D.h        # Will become: #include "mylib/Vector3D.h"
+  - mylib/DataContainer.h   # Will become: #include "mylib/DataContainer.h"
+  
+# Type converters to register
+converters:
+  - type: "std::vector<int>"
+    kind: vector
+  - type: "std::vector<double>"
+    kind: vector
+  - type: "std::optional<double>"
+    kind: optional
+
+# Classes to expose
+classes:
+  - name: Vector3D
+    cpp_class: Vector3D  # Optional if same as name
+    description: "3D vector representation"
+    
+    fields:
+      - name: x
+        type: double
+        access: rw  # read-write (default), ro (read-only), wo (write-only)
+      - name: y
+        type: double
+        access: rw
+      - name: z
+        type: double
+        access: rw
+    
+    methods:
+      - name: length
+        returns: double
+        const: true  # const method
+        description: "Calculate vector length"
+      
+      - name: to_array
+        returns: "std::vector<double>"
+        const: true
+        description: "Convert to array representation"
+  
+  - name: DataContainer
+    description: "Container for various data types"
+    
+    fields:
+      - name: name
+        type: std::string
+        access: rw
+      
+      - name: values
+        type: "std::vector<int>"
+        access: rw
+      
+      - name: threshold
+        type: "std::optional<double>"
+        access: rw
+
+# Free functions to expose
+functions:
+  - name: create_vector
+    cpp_name: create_vector  # Optional if same
+    returns: Vector3D
+    parameters:
+      - name: x
+        type: double
+      - name: y
+        type: double
+      - name: z
+        type: double
+    description: "Create a new Vector3D"
+
+# Utilities to include
+utilities:
+  version_info: true
+  list_classes: true
+  type_inspection: true

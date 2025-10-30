@@ -3,3 +3,8 @@ build
 **/.DS_STORE
 node_modules
 package-lock.json
+tmp
+__pycache__
+unittest
+idl/example/bindings
+.venv

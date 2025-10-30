@@ -10,12 +10,12 @@ Go inside each leaf folder, and then type:
 
 - For JavaScript:
     ```sh
-    npm install # first time
+    npm i # first time, it will install (and compile as well)
     ```
     then
     ```sh
-    npm run build
-    node test.js
+    npm run build # (compile)
+    node test.js  #(run)
     ```
 
 - For Lua:
