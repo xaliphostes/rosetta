@@ -80,7 +80,7 @@ module:
   namespace: geom
 
 includes:
-  - vector_math.hpp
+  - vector_math.h
 
 classes:
   - name: Vector3D
@@ -140,7 +140,7 @@ public:
 ### 2. Register with Rosetta
 
 ```cpp
-#include "rosetta/rosetta.hpp"
+#include "rosetta/rosetta.h"
 
 void register_types() {
     ROSETTA_REGISTER_CLASS(Vector3D)
@@ -160,7 +160,7 @@ This registration enables all generators to expose the same interface across lan
 
 ```cpp
 #include <pybind11/pybind11.h>
-#include "rosetta/generators/python_binding_generator.hpp"
+#include "rosetta/generators/python_binding_generator.h"
 
 BEGIN_MODULE(my_module, m) {
     register_types();
@@ -290,7 +290,7 @@ target_link_libraries(your_target rosetta::rosetta)
 Or header-only:
 
 ```cpp
-#include "rosetta/rosetta.hpp"
+#include "rosetta/rosetta.h"
 ```
 
 ---
