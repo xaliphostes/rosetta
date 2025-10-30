@@ -366,7 +366,7 @@ LGPL 3 License — see [LICENSE](LICENSE)
 
 ## 💡 Credits
 
-Created by [Xaliphostes](https://github.com/xaliphostes)
+Created by [Xaliphostes](https://github.com/xaliphostes) (fmaerten@gmail.com)
 
 ---
 
