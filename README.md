@@ -12,8 +12,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/C%2B%2B-20+-blue.svg" alt="Language">
-  <img src="https://img.shields.io/badge/license-LGPL-blue.svg" alt="License">
+  <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=very soon&color=informational" alt="Python support">
+  <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support">
+  <img src="https://img.shields.io/static/v1?label=Emscripten&logo=emscripten&logoColor=white&message=support&color=success" alt="Emscripten support">
+  <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support">
+  <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support">
+  <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/C%2B%2B-20+-green.svg" alt="Language">
+  <img src="https://img.shields.io/badge/license-LGPL-green.svg" alt="License">
 </p>
 
 ---
