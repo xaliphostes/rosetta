@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(WIN32)
-    # Option 1: Set Python path explicitly (uncomment and adjust path)
+    # Option 1: Set Python path explicitly
     # set(Python_EXECUTABLE "C:/Python313/")
     
     # # Option 2: Use py launcher to find Python

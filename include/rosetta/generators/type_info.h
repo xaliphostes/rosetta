@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace rosetta::generators::js {
+namespace rosetta::generators {
 
     /**
      * @brief Type category for better type handling
@@ -318,4 +318,4 @@ namespace rosetta::generators::js {
         }
     };
 
-} // namespace rosetta::generators::js
+} // namespace rosetta::generators

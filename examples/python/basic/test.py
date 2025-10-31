@@ -1,41 +1,48 @@
-import pyrosetta as rosetta
+import basic
 
-# Create objects using constructors
-person = rosetta.Person("Alice", 30, 1.65)
-vehicle = rosetta.Vehicle("Honda", "Civic", 2022)
+# Create a Vector3D
+v1 = basic.Vector3D()
+v1.x = 3.0
+v1.y = 4.0
+v1.z = 0.0
 
-# Use auto-generated properties
-print(f"Person name: {person.name}")
-print(f"Person age: {person.age}")
-print(f"Vehicle brand: {vehicle.brand}")
+print(f"Length: {v1.length()}")  # Output: Length: 5.0
 
-# Modify properties
-person.name = "Bob"
-person.age = 25
-vehicle.mileage = 15000.5
+v1.normalize()
+print(f"After normalize: {v1.to_string()}")
 
-# Call methods
-person.introduce()
-person.celebrate_birthday()  # Note: pybind11 converts camelCase to snake_case
+# Create another vector and add
+v2 = basic.Vector3D()
+v2.x = 1.0
+v2.y = 1.0
+v2.z = 1.0
 
-vehicle.start()
-vehicle.drive(100.5)
-print(vehicle.get_info())
+v3 = v1.add(v2)
+print(f"Sum: {v3.to_string()}")
 
-# Use introspection utilities
-print("Class name:", person.get_class_name())
-print("Members:", person.get_member_names())
-print("Methods:", person.get_method_names())
+# Work with shapes
+circle = basic.Circle()
+circle.radius = 5.0
+print(f"Circle area: {circle.area()}")
+print(f"Circle name: {circle.name()}")
 
-# Dynamic access
-print("Age via introspection:", person.get_member_value("age"))
-person.set_member_value("height", 1.80)
-person.call_method("introduce", [])
+rect = basic.Rectangle()
+rect.width = 3.0
+rect.height = 4.0
+print(f"Rectangle area: {rect.area()}")
 
-# JSON export
-print("Person as JSON:", person.to_json())
+# Work with Person
+person = basic.Person()
+person.name = "Alice"
+person.age = 30
+person.add_hobby("reading")
+person.add_hobby("hiking")
 
-# Module utilities
-print("Available classes:", rosetta.get_all_classes())
-default_person = rosetta.create_person()
-default_vehicle = rosetta.create_vehicle()
+print(person.introduce())
+print(f"Hobbies: {person.get_hobbies()}")
+
+# List all registered classes
+print(f"Available classes: {basic.list_classes()}")
+
+# Get version
+print(f"Rosetta version: {basic.get_version()}")

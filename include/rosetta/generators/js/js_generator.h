@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "type_info.h"
+#include "../type_info.h"
 
 // Forward declarations for Rosetta types
 namespace rosetta::core {
