@@ -13,6 +13,7 @@ if(WIN32)
     execute_process(
         COMMAND py -3 -c "import sys; print(sys.executable)"
         OUTPUT_VARIABLE PYTHON_FROM_PY
+        message("Detected Python executable: ${PYTHON_FROM_PY}" )
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET
     )

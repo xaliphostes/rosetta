@@ -1,5 +1,5 @@
 // ============================================================================
-// Implementation of PyGenerator template methods with TypeInfo system
+// Implementation of PyGenerator - FIXED VERSION for handling C++ objects
 // ============================================================================
 #pragma once
 
@@ -16,9 +16,7 @@ namespace rosetta::generators::python {
     // PYGENERATOR IMPLEMENTATION
     // ========================================================================
 
-    inline PyGenerator::PyGenerator(py::module_ &m) : module(m) {
-        init_default_converters();
-    }
+    inline PyGenerator::PyGenerator(py::module_ &m) : module(m) { init_default_converters(); }
 
     inline void PyGenerator::init_default_converters() {
         // Register basic types in TypeRegistry
@@ -29,8 +27,9 @@ namespace rosetta::generators::python {
         TypeRegistry::instance().register_type<std::string>("string");
 
         // int
-        register_converter<int>([](const core::Any &val) { return py::cast(val.as<int>()); },
-                                [](const py::object &val) { return core::Any(val.cast<int>()); });
+        register_converter<int>(
+            [](const core::Any &val) { return py::cast(val.as<int>()); },
+            [](const py::object &val) { return core::Any(val.cast<int>()); });
 
         // double
         register_converter<double>(
@@ -43,8 +42,9 @@ namespace rosetta::generators::python {
             [](const py::object &val) { return core::Any(val.cast<float>()); });
 
         // bool
-        register_converter<bool>([](const core::Any &val) { return py::cast(val.as<bool>()); },
-                                 [](const py::object &val) { return core::Any(val.cast<bool>()); });
+        register_converter<bool>(
+            [](const core::Any &val) { return py::cast(val.as<bool>()); },
+            [](const py::object &val) { return core::Any(val.cast<bool>()); });
 
         // std::string
         register_converter<std::string>(
@@ -264,6 +264,12 @@ namespace rosetta::generators::python {
             return core::Any();
         }
 
+        // Try to extract as a registered C++ class first using the registry
+        core::Any result;
+        if (ClassExtractorRegistry::instance().try_extract_any(value, result)) {
+            return result;
+        }
+
         // If we have type info, use it to guide conversion
         if (type_info) {
             // Try to find converter by type_index
@@ -366,7 +372,7 @@ namespace rosetta::generators::python {
 
         // Set docstring
         std::string doc = "C++ class: " + class_name;
-        py_class.doc()  = doc.c_str();
+        py_class.doc() = doc.c_str();
 
         // Bind constructor
         bind_constructor<Class>(py_class);
@@ -378,8 +384,9 @@ namespace rosetta::generators::python {
         bind_methods<Class>(py_class, meta);
 
         // Add __repr__
-        py_class.def("__repr__",
-                     [class_name](const Class &) { return "<" + class_name + " object>"; });
+        py_class.def("__repr__", [class_name](const Class &) {
+            return "<" + class_name + " object>";
+        });
     }
 
     template <typename Class>
@@ -391,7 +398,7 @@ namespace rosetta::generators::python {
     }
 
     template <typename Class>
-    inline void PyGenerator::bind_fields(py::class_<Class>                &py_class,
+    inline void PyGenerator::bind_fields(py::class_<Class>           &py_class,
                                          const core::ClassMetadata<Class> &meta) {
         for (const auto &field_name : meta.fields()) {
             // Capture 'this' pointer to access converters
@@ -419,7 +426,7 @@ namespace rosetta::generators::python {
     }
 
     template <typename Class>
-    inline void PyGenerator::bind_methods(py::class_<Class>                &py_class,
+    inline void PyGenerator::bind_methods(py::class_<Class>           &py_class,
                                           const core::ClassMetadata<Class> &meta) {
         for (const auto &method_name : meta.methods()) {
             // Capture 'this' pointer to access converters
@@ -429,9 +436,11 @@ namespace rosetta::generators::python {
                                                                 py::kwargs kwargs) -> py::object {
                 // Convert Python arguments to C++ Any
                 std::vector<core::Any> cpp_args;
-                for (const auto &arg : args) {
-                    cpp_args.push_back(
-                        gen_ptr->py_to_any(py::reinterpret_borrow<py::object>(arg), nullptr));
+                
+                for (size_t i = 0; i < args.size(); ++i) {
+                    py::object arg = py::reinterpret_borrow<py::object>(args[i]);
+                    core::Any converted = gen_ptr->py_to_any(arg, nullptr);
+                    cpp_args.push_back(converted);
                 }
 
                 // Invoke method
@@ -489,7 +498,8 @@ namespace rosetta::generators::python {
 
     inline PyGenerator &PyGenerator::add_utilities() {
         // Add version info
-        module.def("get_version", []() { return "1.0.0"; }, "Get Rosetta version");
+        module.def(
+            "get_version", []() { return "1.0.0"; }, "Get Rosetta version");
 
         // Add class list
         module.def(

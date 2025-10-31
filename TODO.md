@@ -1,5 +1,9 @@
 # TODO list
 
+## Basic
+
+- Rewrite all comments in English, not in French!
+
 ## Enhanced Type System Support
 
 - Smart Pointers

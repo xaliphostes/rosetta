@@ -1,7 +1,7 @@
 // ============================================================================
 // rosetta/core/any.hpp
 //
-// Type erasure pour stocker n'importe quel type de maniÃ¨re type-safe
+// Type erasure to safely store any type in Rosetta
 // ============================================================================
 #pragma once
 #include <memory>
@@ -14,9 +14,8 @@
 namespace rosetta::core {
 
     /**
-     * @brief Conteneur type-erased pouvant stocker n'importe quel type
-     *
-     * Similaire Ã  std::any mais avec une interface simplifiÃ©e pour Rosetta
+     * @brief Conteneur type-erased that can store any type.
+     * Similar to std::any but with a simplified interface for Rosetta
      */
     class Any {
         struct Holder {
@@ -24,7 +23,7 @@ namespace rosetta::core {
             virtual Holder         *clone() const          = 0;
             virtual std::string     type_name() const      = 0;
             virtual const void     *get_void_ptr() const   = 0;
-            virtual std::type_index get_type_index() const = 0; // ADD THIS
+            virtual std::type_index get_type_index() const = 0;
         };
 
         template <typename T> struct HolderImpl : Holder {
@@ -40,29 +39,29 @@ namespace rosetta::core {
 
     public:
         /**
-         * @brief Constructeur par dÃ©faut (any vide)
+         * @brief Default constructor (empty Any)
          */
         Any() = default;
 
         /**
-         * @brief Constructeur Ã  partir d'une valeur
-         * @tparam T Type de la valeur
-         * @param value Valeur Ã  stocker
+         * @brief Constructor with value
+         * @tparam T Type of the value
+         * @param value Value to store
          */
         template <typename T> Any(T value) : holder_(new HolderImpl<T>(std::move(value))) {}
 
         /**
-         * @brief Constructeur de copie
+         * @brief Copy constructeur
          */
         Any(const Any &other) : holder_(other.holder_ ? other.holder_->clone() : nullptr) {}
 
         /**
-         * @brief Constructeur de move
+         * @brief Move constructeur.
          */
         Any(Any &&) = default;
 
         /**
-         * @brief OpÃ©rateur d'assignation par copie
+         * @brief Copy assignment operator
          */
         Any &operator=(const Any &other) {
             if (this != &other) {
@@ -72,15 +71,15 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief OpÃ©rateur d'assignation par move
+         * @brief Move assignment operator
          */
         Any &operator=(Any &&) = default;
 
         /**
-         * @brief RÃ©cupÃ¨re la valeur stockÃ©e
-         * @tparam T Type attendu
-         * @return RÃ©fÃ©rence Ã  la valeur
-         * @throws std::bad_cast si le type ne correspond pas
+         * @brief Get the stored value
+         * @tparam T Expected type
+         * @return Reference to the stored value
+         * @throws std::bad_cast if the type does not match
          */
         template <typename T> T &as() { 
             if (!holder_) {
@@ -127,10 +126,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief RÃ©cupÃ¨re la valeur stockÃ©e (version const)
-         * @tparam T Type attendu
-         * @return RÃ©fÃ©rence const Ã  la valeur
-         * @throws std::bad_cast si le type ne correspond pas
+         * @brief Get the stored value (const version)
          */
         template <typename T> const T &as() const {
             if (!holder_) {
@@ -175,19 +171,19 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Obtient le nom du type stockÃ©
-         * @return Nom du type (mangled)
+         * @brief Get the type name of the stored value
+         * @return Name of teh type (mangled)
          */
         std::string type_name() const { return holder_ ? holder_->type_name() : "empty"; }
 
         /**
-         * @brief VÃ©rifie si l'any contient une valeur
-         * @return true si non vide
+         * @brief Check if the Any contains a value
+         * @return true if a value is stored, false otherwise
          */
         bool has_value() const { return holder_ != nullptr; }
 
         /**
-         * @brief RÃ©initialise l'any (le vide)
+         * @brief Re-initialize the Any to empty state
          */
         void reset() { holder_.reset(); }
 

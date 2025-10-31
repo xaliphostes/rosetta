@@ -1,7 +1,7 @@
 // ============================================================================
 // rosetta/core/class_metadata.hpp
 //
-// MÃƒÆ’Ã‚Â©tadonnÃƒÆ’Ã‚Â©es complÃƒÆ’Ã‚Â¨tes pour une classe : champs, mÃƒÆ’Ã‚Â©thodes, hÃƒÆ’Ã‚Â©ritage
+// Class metadata for Rosetta introspection system.
 // ============================================================================
 #pragma once
 #include "any.h"
@@ -18,8 +18,9 @@
 namespace rosetta::core {
 
     /**
-     * @brief MÃƒÆ’Ã‚Â©tadonnÃƒÆ’Ã‚Â©es complÃƒÆ’Ã‚Â¨tes pour une classe
-     * @tparam Class Type de la classe
+     * @brief MetaData of a class. This class allows to register fields, methods, constructors, etc.
+     * to introspect a any class at runtime.
+     * @tparam Class Type of the class
      */
     template <typename Class> class ClassMetadata {
         std::string     name_;
@@ -30,6 +31,9 @@ namespace rosetta::core {
         std::unordered_map<std::string, std::function<Any(Class &, std::vector<Any>)>> methods_;
         std::unordered_map<std::string, std::function<Any(const Class &, std::vector<Any>)>>
             const_methods_;
+
+        using Constructor = std::function<Any(std::vector<Any>)>;
+        std::vector<Constructor> constructors_;
 
         std::vector<std::string> field_names_;
         std::vector<std::string> method_names_;
@@ -49,29 +53,107 @@ namespace rosetta::core {
         }
 
         /**
+         * @brief Generic dumper for any registered class
+         */
+        void dump(std::ostream &os) const {
+            os << "\n=== Rosetta metadata for class: " << name() << " ===\n";
+
+            // Instantiability
+            os << "Instantiable: " << (is_instantiable() ? "true" : "false") << "\n";
+
+            // Constructors (infer arity by calling the thunk with k args and
+            // distinguishing the size-mismatch error from type mismatch)
+            if constexpr (requires { this->constructors(); }) {
+                const auto &ctors = constructors();
+                os << "Constructors (" << ctors.size() << "):\n";
+
+                auto detect_arity = [](const auto &ctor) -> int {
+                    for (int k = 0; k <= 8; ++k) {
+                        std::vector<Any> args;
+                        args.reserve(k);
+                        for (int i = 0; i < k; ++i)
+                            args.emplace_back(0); // cheap placeholder
+
+                        try {
+                            (void)ctor(args); // success => arity is k
+                            return k;
+                        } catch (const std::runtime_error &e) {
+                            // Your ctor thunk throws this exact message when the count doesn't
+                            // match
+                            if (std::string(e.what()).find("Constructor argument count mismatch") !=
+                                std::string::npos) {
+                                continue; // try next k
+                            }
+                            return k; // type mismatch => count matched, arity is k
+                        } catch (...) {
+                            return k; // conservative: count matched
+                        }
+                    }
+                    return -1;
+                };
+
+                int idx = 0;
+                for (const auto &ctor : ctors) {
+                    int arity = detect_arity(ctor);
+                    if (arity >= 0)
+                        os << "  - [" << idx++ << "] (" << arity << " param"
+                           << (arity == 1 ? "" : "s") << ")\n";
+                    else
+                        os << "  - [" << idx++ << "] (unknown arity)\n";
+                }
+            }
+
+            // Fields
+            const auto &f = fields();
+            os << "Fields (" << f.size() << "):\n";
+            for (const auto &name : f) {
+                std::type_index ti = get_field_type(name); // stored during registration
+                os << "  - " << name << " : " << ti.name() << "\n";
+            }
+
+            // Methods
+            const auto &m = methods();
+            os << "Methods (" << m.size() << "):\n";
+            for (const auto &name : m) {
+                os << "  - " << name << "\n";
+            }
+
+            // Inheritance
+            const auto &inh = inheritance();
+            os << "Inheritance flags:\n";
+            os << "  is_abstract            = " << (inh.is_abstract ? "true" : "false") << "\n";
+            os << "  is_polymorphic         = " << (inh.is_polymorphic ? "true" : "false") << "\n";
+            os << "  has_virtual_destructor = " << (inh.has_virtual_destructor ? "true" : "false")
+               << "\n";
+            os << "  base_count             = " << inh.total_base_count() << "\n";
+
+            os << "===============================================\n";
+        }
+
+        /**
          * @brief Obtient le nom de la classe
          */
         const std::string &name() const { return name_; }
 
         /**
-         * @brief Obtient les informations d'hÃƒÆ’Ã‚Â©ritage
+         * @brief Get inheritance information (const version)
          */
         const InheritanceInfo &inheritance() const { return inheritance_; }
 
         /**
-         * @brief Obtient les informations d'hÃƒÆ’Ã‚Â©ritage (version modifiable)
+         * @brief Get inheritance information (non-const version)
          */
         InheritanceInfo &inheritance() { return inheritance_; }
 
         // ========================================================================
-        // DÃƒÆ’Ã¢â‚¬Â°CLARATION D'HÃƒÆ’Ã¢â‚¬Â°RITAGE
+        // Declare inheritance
         // ========================================================================
 
         /**
-         * @brief DÃƒÆ’Ã‚Â©clare qu'une classe hÃƒÆ’Ã‚Â©rite d'une classe de base
-         * @tparam Base Type de la classe de base
-         * @param base_name Nom de la base (optionnel)
-         * @param access SpÃƒÆ’Ã‚Â©cificateur d'accÃƒÆ’Ã‚Â¨s
+         * @brief Tells that this class inherits from a base class
+         * @tparam Base Type of the base class
+         * @param base_name Name of the base (optional)
+         * @param access Access specifier
          */
         template <typename Base>
         ClassMetadata &inherits_from(const std::string &base_name = "",
@@ -87,10 +169,10 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief DÃƒÆ’Ã‚Â©clare un hÃƒÆ’Ã‚Â©ritage virtuel
-         * @tparam Base Type de la classe de base
-         * @param base_name Nom de la base (optionnel)
-         * @param access SpÃƒÆ’Ã‚Â©cificateur d'accÃƒÆ’Ã‚Â¨s
+         * @brief Tells that this class virtually inherits from a base class
+         * @tparam Base Type of the base class
+         * @param base_name Name of the base (optional)
+         * @param access Access specifier
          */
         template <typename Base>
         ClassMetadata &virtually_inherits_from(const std::string &base_name = "",
@@ -98,7 +180,7 @@ namespace rosetta::core {
             static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
             std::string name   = base_name.empty() ? typeid(Base).name() : base_name;
-            size_t      offset = 0; // Offset dÃƒÆ’Ã‚Â©terminÃƒÆ’Ã‚Â© ÃƒÆ’Ã‚Â  l'exÃƒÆ’Ã‚Â©cution pour hÃƒÆ’Ã‚Â©ritage virtuel
+            size_t      offset = 0;
 
             inheritance_.add_base(name, &typeid(Base), InheritanceType::Virtual, access, offset);
 
@@ -106,14 +188,44 @@ namespace rosetta::core {
         }
 
         // ========================================================================
-        // ENREGISTREMENT DE CHAMPS
+        // Constructor registration
+        // ========================================================================
+        /**
+         * @brief Register a constructor
+         * @example
+         * ```cpp
+         * ROSETTA_REGISTER_CLASS(Vector3D)
+         *   .constructor<>()
+         *   .constructor<double, double, double>();
+         * ```
+         *
+         * @example
+         * ```cpp
+         * auto &meta = ROSETTA_GET_META(Vector3D);
+         *
+         * Vector3D v1 = meta.construct().as<Vector3D>();                    // default
+         * Vector3D v2 = meta.construct(3.0, 4.0, 5.0).as<Vector3D>();       // parametric
+         * ```
+         */
+        template <typename... Args> ClassMetadata &constructor() {
+            constructors_.emplace_back([](const std::vector<Any> &args) -> Any {
+                if (args.size() != sizeof...(Args))
+                    throw std::runtime_error("Constructor argument count mismatch");
+
+                return Any(Class(args[0].as<Args>()...)); // unpack
+            });
+            return *this;
+        }
+
+        // ========================================================================
+        // Field registration
         // ========================================================================
 
         /**
-         * @brief Enregistre un champ de la classe
-         * @tparam T Type du champ
-         * @param name Nom du champ
-         * @param ptr Pointeur vers membre
+         * @brief Register a field
+         * @tparam T Type of the field
+         * @param name Name of the field
+         * @param ptr Pointer to member field
          */
         template <typename T> ClassMetadata &field(const std::string &name, T Class::*ptr) {
             field_names_.push_back(name);
@@ -158,15 +270,15 @@ namespace rosetta::core {
         }
 
         // ========================================================================
-        // ENREGISTREMENT DE MÃƒÆ’Ã¢â‚¬Â°THODES NON-CONST
+        // Register non const methods
         // ========================================================================
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode non-const
-         * @tparam Ret Type de retour
-         * @tparam Args Types des paramÃƒÆ’Ã‚Â¨tres
-         * @param name Nom de la mÃƒÆ’Ã‚Â©thode
-         * @param ptr Pointeur vers la mÃƒÆ’Ã‚Â©thode
+         * @brief Register const method
+         * @tparam Ret return type
+         * @tparam Args Types of parameters
+         * @param name Name of the method
+         * @param ptr Pointer to the method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...)) {
@@ -189,15 +301,11 @@ namespace rosetta::core {
         }
 
         // ========================================================================
-        // ENREGISTREMENT DE MÃƒÆ’Ã¢â‚¬Â°THODES CONST
+        // Register const methods
         // ========================================================================
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode const
-         * @tparam Ret Type de retour
-         * @tparam Args Types des paramÃƒÆ’Ã‚Â¨tres
-         * @param name Nom de la mÃƒÆ’Ã‚Â©thode
-         * @param ptr Pointeur vers la mÃƒÆ’Ã‚Â©thode const
+         * @brief Register const method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
@@ -237,11 +345,11 @@ namespace rosetta::core {
         }
 
         // ========================================================================
-        // MÃƒÆ’Ã¢â‚¬Â°THODES DE CLASSE DE BASE
+        // METHODS FROM BASE CLASSES
         // ========================================================================
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode non-const d'une classe de base
+         * @brief Register non const method from base class
          */
         template <typename Base, typename Ret, typename... Args>
         ClassMetadata &base_method(const std::string &name, Ret (Base::*ptr)(Args...)) {
@@ -267,7 +375,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode const d'une classe de base
+         * @brief Register const method from base class
          */
         template <typename Base, typename Ret, typename... Args>
         ClassMetadata &base_method(const std::string &name, Ret (Base::*ptr)(Args...) const) {
@@ -309,11 +417,11 @@ namespace rosetta::core {
         }
 
         // ========================================================================
-        // MÃƒÆ’Ã¢â‚¬Â°THODES VIRTUELLES
+        // Register virtual methods
         // ========================================================================
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode virtuelle
+         * @brief Register non-const virtual method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &virtual_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
@@ -325,7 +433,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode virtuelle const
+         * @brief register const virtual method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &virtual_method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
@@ -337,7 +445,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode pure virtuelle
+         * @brief Register pure virtual method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &pure_virtual_method(const std::string &name,
@@ -350,7 +458,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode qui override une mÃƒÆ’Ã‚Â©thode de base
+         * @brief Register non-const method that overrides a base virtual method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &override_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
@@ -362,7 +470,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Enregistre une mÃƒÆ’Ã‚Â©thode const qui override
+         * @brief Register const method that overrides a base virtual method
          */
         template <typename Ret, typename... Args>
         ClassMetadata &override_method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
@@ -377,18 +485,20 @@ namespace rosetta::core {
         // ACCESSEURS
         // ========================================================================
 
+        const std::vector<Constructor> &constructors() const { return constructors_; }
+
         /**
          * @brief Liste des noms de champs
          */
         const std::vector<std::string> &fields() const { return field_names_; }
 
         /**
-         * @brief Liste des noms de mÃƒÆ’Ã‚Â©thodes
+         * @brief Liste des noms de methodes
          */
         const std::vector<std::string> &methods() const { return method_names_; }
 
         /**
-         * @brief RÃƒÆ’Ã‚Â©cupÃƒÆ’Ã‚Â¨re la valeur d'un champ
+         * @brief Recuperation de la valeur d'un champs
          */
         Any get_field(Class &obj, const std::string &name) const {
             return field_getters_.at(name)(obj);
@@ -402,14 +512,14 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Invoque une mÃƒÆ’Ã‚Â©thode
+         * @brief Invoke a method on an object
          */
         Any invoke_method(Class &obj, const std::string &name, std::vector<Any> args = {}) const {
             return methods_.at(name)(obj, std::move(args));
         }
 
         /**
-         * @brief Invoque une mÃƒÆ’Ã‚Â©thode sur un objet const
+         * @brief Invoke a method on an object (const version)
          */
         Any invoke_method(const Class &obj, const std::string &name,
                           std::vector<Any> args = {}) const {
@@ -417,7 +527,7 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief VÃƒÆ’Ã‚Â©rifie si la classe peut ÃƒÆ’Ã‚Âªtre instanciÃƒÆ’Ã‚Â©e
+         * @brief Check if the class is instantiable
          */
         bool is_instantiable() const {
             return !inheritance_.is_abstract &&
@@ -425,9 +535,9 @@ namespace rosetta::core {
         }
 
         /**
-         * @brief Obtient le type_index d'un champ
+         * @brief Get the type of a field
          * @param name Nom du champ
-         * @return type_index du champ, ou typeid(void) si non trouvÃƒÂ©
+         * @return type_index of the field, or typeid(void) if not found
          */
         std::type_index get_field_type(const std::string &name) const {
             auto it = field_types_.find(name);
@@ -449,7 +559,7 @@ namespace rosetta::core {
             return 0;
         }
 
-        // GÃƒÆ’Ã‚Â©nÃƒÆ’Ã‚Â¨re une signature de mÃƒÆ’Ã‚Â©thode
+        // Generate a signature of a method
         template <typename Ret, typename... Args> static std::string make_signature() {
             std::string sig = typeid(Ret).name();
             sig += "(";
@@ -460,7 +570,7 @@ namespace rosetta::core {
             return sig;
         }
 
-        // Helper pour invoquer mÃƒÆ’Ã‚Â©thodes non-const
+        // To invoke non-const methods with arguments
         template <typename Ret, typename... Args, size_t... Is>
         static Any invoke_with_args(Class &obj, Ret (Class::*ptr)(Args...), std::vector<Any> &args,
                                     std::index_sequence<Is...>) {
@@ -482,15 +592,15 @@ namespace rosetta::core {
         template <typename T>
         static auto extract_arg(Any &any_val) -> std::remove_cv_t<std::remove_reference_t<T>> {
             using RawType = std::remove_cv_t<std::remove_reference_t<T>>;
-            
-            std::type_index actual_type = any_val.get_type_index();
+
+            std::type_index actual_type   = any_val.get_type_index();
             std::type_index expected_type = std::type_index(typeid(RawType));
-            
+
             // Direct match
             if (actual_type == expected_type) {
                 return any_val.as<RawType>();
             }
-            
+
             // Numeric conversions
             if constexpr (std::is_arithmetic_v<RawType>) {
                 if (actual_type == std::type_index(typeid(double))) {
@@ -503,12 +613,12 @@ namespace rosetta::core {
                     return static_cast<RawType>(any_val.as<float>());
                 }
             }
-            
+
             // Fallback to normal extraction
             return any_val.as<RawType>();
         }
 
-        // Helper pour invoquer mÃƒÆ’Ã‚Â©thodes const
+        // To invoke const methods with arguments
         template <typename Ret, typename... Args, size_t... Is>
         static Any invoke_const_with_args(const Class      &obj, Ret (Class::*ptr)(Args...) const,
                                           std::vector<Any> &args, std::index_sequence<Is...>) {

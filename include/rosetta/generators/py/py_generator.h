@@ -4,6 +4,7 @@
 // ============================================================================
 #pragma once
 
+#include <rosetta/core/any.h>  // for core::Any
 #include <functional>
 #include <memory>
 #include <pybind11/pybind11.h>
@@ -29,6 +30,67 @@ namespace rosetta::generators::python {
     // Type converters between C++ and Python
     using CppToPyConverter = std::function<py::object(const core::Any &)>;
     using PyToCppConverter = std::function<core::Any(const py::object &)>;
+
+    // Class extractor function type
+    using ClassExtractor = std::function<bool(const py::object &, core::Any &)>;
+
+    /**
+     * @brief Registry for class extractors (singleton)
+     * Maps class names to extraction functions
+     */
+    class ClassExtractorRegistry {
+        std::unordered_map<std::string, ClassExtractor> extractors_;
+
+        ClassExtractorRegistry() = default;
+
+    public:
+        static ClassExtractorRegistry &instance() {
+            static ClassExtractorRegistry registry;
+            return registry;
+        }
+
+        void register_extractor(const std::string &class_name, ClassExtractor extractor) {
+            extractors_[class_name] = std::move(extractor);
+        }
+
+        bool try_extract(const std::string &class_name, const py::object &obj,
+                         core::Any &out) const {
+            auto it = extractors_.find(class_name);
+            if (it != extractors_.end()) {
+                return it->second(obj, out);
+            }
+            return false;
+        }
+
+        bool try_extract_any(const py::object &obj, core::Any &out) const {
+            // Try to extract the class name from Python object
+            if (py::hasattr(obj, "__class__")) {
+                try {
+                    py::object  py_class_name = obj.attr("__class__").attr("__name__");
+                    std::string class_name    = py_class_name.cast<std::string>();
+                    return try_extract(class_name, obj, out);
+                } catch (...) {
+                }
+            }
+            return false;
+        }
+    };
+
+    /**
+     * @brief Register a class extractor for a specific type
+     */
+    template <typename T> inline void register_class_extractor(const std::string &class_name) {
+        ClassExtractorRegistry::instance().register_extractor(
+            class_name, [](const py::object &obj, core::Any &out) -> bool {
+                try {
+                    T &cpp_obj = obj.cast<T &>();
+                    out        = core::Any(cpp_obj);
+                    return true;
+                } catch (...) {
+                    return false;
+                }
+            });
+    }
 
     /**
      * @brief Automatic pybind11/Python binding generator
@@ -119,6 +181,11 @@ namespace rosetta::generators::python {
         // Public for convenience
         py::module_ &module;
 
+        // TODO: put in private
+        // Helper: Get converter for a type
+        CppToPyConverter get_to_py_converter(std::type_index idx) const;
+        PyToCppConverter get_from_py_converter(std::type_index idx) const;
+
     private:
         // Track bound classes to avoid duplicates
         std::unordered_set<std::string> bound_classes_;
@@ -149,10 +216,6 @@ namespace rosetta::generators::python {
 
         // Initialize default converters
         void init_default_converters();
-
-        // Helper: Get converter for a type
-        CppToPyConverter get_to_py_converter(std::type_index idx) const;
-        PyToCppConverter get_from_py_converter(std::type_index idx) const;
     };
 
     // ========================================================================
@@ -190,8 +253,8 @@ namespace rosetta::generators::python {
  *   END_PY_MODULE();
  */
 #define BEGIN_MODULE(module_name, doc_string) \
-    PYBIND11_MODULE(module_name, m) {            \
-        m.doc() = doc_string;                    \
+    PYBIND11_MODULE(module_name, m) {         \
+        m.doc() = doc_string;                 \
         rosetta::generators::python::PyGenerator gen(m);
 
 #define END_MODULE() }
@@ -202,7 +265,7 @@ namespace rosetta::generators::python {
 #define REGISTER_COMMON_CONVERTERS() rosetta::generators::python::register_common_converters(gen);
 
 /**
- * 
+ *
  */
 #define REGISTER_UTILITIES() gen.add_utilities()
 

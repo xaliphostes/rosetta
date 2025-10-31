@@ -34,8 +34,8 @@ Write your classes once, and export them everywhere.
 
 Rosetta supports two complementary workflows:
 
-1. **Direct C++ registration** using introspection macros.
-2. **Interface Description Language (IDL)** via YAML or JSON files.
+1. **Direct C++ registration** using introspection macros. This type of registration is fine grained and let you control everything
+2. **Interface Description Language (IDL)** via YAML or JSON files. You do not need to know anything about the underlaying libs that are used (NAPI, Pybind11...)
 
 ---
 
@@ -43,11 +43,13 @@ Rosetta supports two complementary workflows:
 
 * **Zero-intrusion** — No inheritance, no macros inside your classes
 * **Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM
+* **Multiple constructors**
 * **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
 * **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
 * **Inheritance & polymorphism** — Virtual methods, multiple inheritance
 * **Const correctness** — Differentiates const/non-const methods
 * **Validation system** — Runtime constraints and checks
+* **Serialization**
 * **Documentation generation** — Markdown / HTML export
 
 ---

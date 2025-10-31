@@ -1,5 +1,5 @@
 // ============================================================================
-// Example: Using PyGenerator to create Python bindings
+// Example: Using PyGenerator to create Python bindings - FIXED VERSION
 // ============================================================================
 
 #include <iostream>
@@ -131,6 +131,124 @@ void register_classes() {
         .method("introduce", &Person::introduce);
 }
 
+// ============================================================================
+// Register Class Extractors (IMPORTANT - THIS IS THE FIX!)
+// ============================================================================
+
+void register_extractors() {
+    using namespace rosetta::generators::python;
+
+    // Register extractors for each class so py_to_any can properly extract C++ objects
+    register_class_extractor<Vector3D>("Vector3D");
+    // register_class_extractor<Shape>("Shape");
+    register_class_extractor<Circle>("Circle");
+    register_class_extractor<Rectangle>("Rectangle");
+    register_class_extractor<Person>("Person");
+}
+
+void register_class_converters(rosetta::generators::python::PyGenerator &gen) {
+    using namespace rosetta::generators::python;
+
+    // Register converters for Vector3D
+    gen.register_converter<Vector3D>(
+        // C++ to Python - IMPORTANT: Copy the value, don't just take a reference
+        [](const rosetta::core::Any &val) -> py::object {
+            try {
+                // Make a copy to ensure proper object lifetime
+                Vector3D vec = val.as<Vector3D>();
+                return py::cast(vec);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Vector3D to Python: " << e.what()
+                          << std::endl;
+                return py::none();
+            }
+        },
+        // Python to C++
+        [](const py::object &val) -> rosetta::core::Any {
+            try {
+                Vector3D &vec = val.cast<Vector3D &>();
+                return rosetta::core::Any(vec);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Python to Vector3D: " << e.what()
+                          << std::endl;
+                return rosetta::core::Any();
+            }
+        });
+
+    // Register converters for Circle
+    gen.register_converter<Circle>(
+        [](const rosetta::core::Any &val) -> py::object {
+            try {
+                Circle circle = val.as<Circle>(); // Copy
+                return py::cast(circle);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Circle to Python: " << e.what()
+                          << std::endl;
+                return py::none();
+            }
+        },
+        [](const py::object &val) -> rosetta::core::Any {
+            try {
+                Circle &circle = val.cast<Circle &>();
+                return rosetta::core::Any(circle);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Python to Circle: " << e.what()
+                          << std::endl;
+                return rosetta::core::Any();
+            }
+        });
+
+    // Register converters for Rectangle
+    gen.register_converter<Rectangle>(
+        [](const rosetta::core::Any &val) -> py::object {
+            try {
+                Rectangle rect = val.as<Rectangle>(); // Copy
+                return py::cast(rect);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Rectangle to Python: " << e.what()
+                          << std::endl;
+                return py::none();
+            }
+        },
+        [](const py::object &val) -> rosetta::core::Any {
+            try {
+                Rectangle &rect = val.cast<Rectangle &>();
+                return rosetta::core::Any(rect);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Python to Rectangle: " << e.what()
+                          << std::endl;
+                return rosetta::core::Any();
+            }
+        });
+
+    // Register converters for Person
+    gen.register_converter<Person>(
+        [](const rosetta::core::Any &val) -> py::object {
+            try {
+                Person person = val.as<Person>(); // Copy
+                return py::cast(person);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Person to Python: " << e.what()
+                          << std::endl;
+                return py::none();
+            }
+        },
+        [](const py::object &val) -> rosetta::core::Any {
+            try {
+                Person &person = val.cast<Person &>();
+                return rosetta::core::Any(person);
+            } catch (const std::exception &e) {
+                std::cerr << "[ERROR] Failed to convert Python to Person: " << e.what()
+                          << std::endl;
+                return rosetta::core::Any();
+            }
+        });
+}
+
+// ============================================================================
+// Free Functions
+// ============================================================================
+
 double distance(const Vector3D &a, const Vector3D &b) {
     double dx = a.x - b.x;
     double dy = a.y - b.y;
@@ -149,106 +267,58 @@ Vector3D create_unit_vector(double x, double y, double z) {
 // ============================================================================
 
 BEGIN_MODULE(basic, "Example module using PyGenerator - Manual approach") {
-    // Register classes first for Rosetta (introspection)
-    // This will be used for py, js, lua...
-    register_classes();
+    // // Register classes first for Rosetta (introspection)
+    // // This will be used for py, js, lua...
+    // register_classes();
 
-    REGISTER_UTILITIES();
-    REGISTER_COMMON_CONVERTERS();
+    // // CRITICAL: Register extractors so C++ objects can be passed between methods
+    // register_extractors();
 
-    BIND_CLASSES(Vector3D, Circle, Rectangle, Person);
-    
+    // REGISTER_UTILITIES();
+    // REGISTER_COMMON_CONVERTERS();
+
+    // // BIND CLASSES FIRST - pybind11 needs to know about the types before we can cast to them!
+    // BIND_CLASSES(Vector3D, Circle, Rectangle, Person);
+
+    // // NOW register converters (after pybind11 knows about the types)
+    // register_class_converters(gen);
+
+    // BIND_FUNCTION(distance, "Calculate distance between two vectors");
+    // BIND_FUNCTION(create_unit_vector, "Create a normalized vector");
+
+    register_classes();                                                 // 1. Rosetta metadata
+    register_extractors();                                              // 2. Python → C++ extraction
+    REGISTER_UTILITIES();                                               // 3. Built-in utilities
+    REGISTER_COMMON_CONVERTERS();                                       // 4. STL types
+
+    BIND_CLASSES(Vector3D, Circle, Rectangle, Person);                  // 5. pybind11 bindings (FIRST!)
+    register_class_converters(gen);                                     // 6. Converters (AFTER!)
+
     BIND_FUNCTION(distance, "Calculate distance between two vectors");
-    BIND_FUNCTION(create_unit_vector, "Create a normalized vector");
+    BIND_FUNCTION(create_unit_vector, "Create a normalized vector");    // 7. Free functions
 }
 END_MODULE();
 
-// ============================================================================
-// Python Module Definition - Example 3: With custom functions
-// ============================================================================
+// PYBIND11_MODULE(basic, m) {
+//     m.doc() = "Example module using PyGenerator";
 
-/*
-// Free function to bind
-double distance(const Vector3D &a, const Vector3D &b) {
-    double dx = a.x - b.x;
-    double dy = a.y - b.y;
-    double dz = a.z - b.z;
-    return std::sqrt(dx * dx + dy * dy + dz * dz);
-}
+//     // 1. Register classes with Rosetta (for introspection)
+//     register_classes();
 
-Vector3D create_unit_vector(double x, double y, double z) {
-    Vector3D v(x, y, z);
-    v.normalize();
-    return v;
-}
+//     // 2. Register class extractors (IMPORTANT - enables passing C++ objects between methods)
+//     register_extractors();
 
-PYBIND11_MODULE(basic, m) {
-    m.doc() = "Example with custom functions";
+//     // 3. Create generator and bind classes
+//     rosetta::generators::python::PyGenerator gen(m);
+//     rosetta::generators::python::register_common_converters(gen);
 
-    register_classes();
+//     // Bind classes
+//     gen.bind_classes<Vector3D, Circle, Rectangle, Person>();
 
-    rosetta::generators::python::PyGenerator gen(m);
-    rosetta::generators::python::register_common_converters(gen);
+//     // Bind free functions
+//     gen.bind_function("distance", &distance, "Calculate distance between two vectors");
+//     gen.bind_function("create_unit_vector", &create_unit_vector, "Create a normalized vector");
 
-    // Bind classes
-    gen.bind_classes<Vector3D, Circle, Rectangle, Person>();
-
-    // Bind free functions
-    gen.bind_function("distance", &distance, "Calculate distance between two vectors");
-    gen.bind_function("create_unit_vector", &create_unit_vector, "Create a normalized vector");
-
-    gen.add_utilities();
-}
-*/
-
-// ============================================================================
-// Python Module Definition - Example 4: With custom converters
-// ============================================================================
-
-/*
-struct Color {
-    unsigned char r, g, b, a;
-    Color(unsigned char r = 0, unsigned char g = 0, unsigned char b = 0, unsigned char a = 255)
-        : r(r), g(g), b(b), a(a) {}
-};
-
-void register_color_class() {
-    ROSETTA_REGISTER_CLASS(Color)
-        .field("r", &Color::r)
-        .field("g", &Color::g)
-        .field("b", &Color::b)
-        .field("a", &Color::a);
-}
-
-PYBIND11_MODULE(basic, m) {
-    m.doc() = "Example with custom type converter";
-
-    register_color_class();
-
-    rosetta::generators::python::PyGenerator gen(m);
-
-    // Register custom converter for Color
-    gen.register_converter<Color>(
-        // C++ to Python: return as tuple (r, g, b, a)
-        [](const rosetta::core::Any &val) -> py::object {
-            const Color &c = val.as<Color>();
-            return py::make_tuple(c.r, c.g, c.b, c.a);
-        },
-        // Python to C++: accept tuple or list
-        [](const py::object &val) -> rosetta::core::Any {
-            if (PyTuple_Check(val.ptr()) || PyList_Check(val.ptr())) {
-                auto seq = val.cast<py::sequence>();
-                if (seq.size() >= 3) {
-                    unsigned char r = seq[0].cast<unsigned char>();
-                    unsigned char g = seq[1].cast<unsigned char>();
-                    unsigned char b = seq[2].cast<unsigned char>();
-                    unsigned char a = seq.size() >= 4 ? seq[3].cast<unsigned char>() : 255;
-                    return rosetta::core::Any(Color(r, g, b, a));
-                }
-            }
-            return rosetta::core::Any(Color());
-        });
-
-    gen.bind_class<Color>("Color");
-}
-*/
+//     // Add utilities
+//     gen.add_utilities();
+// }
