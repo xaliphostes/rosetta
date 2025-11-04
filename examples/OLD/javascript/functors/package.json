@@ -1,0 +1,32 @@
+{
+    "name": "rosetta-napi-example",
+    "version": "1.0.0",
+    "description": "Example of Rosetta runtime N-API bindings",
+    "main": "index.js",
+    "scripts": {
+        "install": "node-gyp rebuild",
+        "build": "node-gyp configure build",
+        "clean": "node-gyp clean",
+        "test": "node test.js"
+    },
+    "gypfile": true,
+    "keywords": [
+        "rosetta",
+        "napi",
+        "bindings",
+        "cpp",
+        "javascript",
+        "introspection"
+    ],
+    "author": "xaliphostes",
+    "license": "MIT",
+    "dependencies": {
+        "node-addon-api": "^7.0.0"
+    },
+    "devDependencies": {
+        "node-gyp": "^10.0.0"
+    },
+    "engines": {
+        "node": ">=16.0.0"
+    }
+}

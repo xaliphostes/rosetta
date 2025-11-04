@@ -19,7 +19,7 @@ function (auto_discover_tests)
     endforeach()    
 endfunction()
 
-# add_subdirectory(examples/cpp/basic)
-
 enable_testing()
 auto_discover_tests()
+
+add_subdirectory(examples/cpp/basic)

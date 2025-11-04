@@ -1,0 +1,29 @@
+{
+    "name": "rosetta-napi-bindings",
+    "version": "1.0.0",
+    "description": "Automatic N-API bindings for Rosetta C++ introspection system",
+    "main": "index.js",
+    "scripts": {
+        "install": "node-gyp rebuild",
+        "build": "node-gyp configure build",
+        "clean": "node-gyp clean",
+        "test": "node test.js"
+    },
+    "keywords": [
+        "rosetta",
+        "introspection",
+        "napi",
+        "bindings",
+        "cpp",
+        "native"
+    ],
+    "author": "xaliphostes",
+    "license": "MIT",
+    "dependencies": {
+        "node-addon-api": "^7.0.0"
+    },
+    "devDependencies": {
+        "node-gyp": "^10.0.0"
+    },
+    "gypfile": true
+}

@@ -66,6 +66,21 @@ Create a simple YAML file to describe your API, then generate bindings directly 
 
 Register classes in C++, then generate bindings automatically.
 
+## Example with your own class
+
+```cpp
+class Vector3D {
+public:
+    double x, y, z;
+
+    double length() const {
+        return std::sqrt(x*x + y*y + z*z);
+    }
+
+    void normalize();
+};
+```
+
 ---
 
 <a id="using-idl"></a>
@@ -82,7 +97,7 @@ This file serves as a **neutral schema** to generate bindings in multiple target
 
 ---
 
-### Example: `geometry.yaml`
+### 1. Write your IDL `geometry.yaml`
 
 ```yaml
 module:
@@ -113,7 +128,7 @@ functions:
 
 ---
 
-### Generate Bindings
+### 2. Generate Bindings
 
 You can use the same file to generate **JavaScript** or **Python** bindings:
 
@@ -133,22 +148,7 @@ Go to the folder where the binding was generated and compile it (see the generat
 
 If you prefer working directly in C++, Rosetta can automatically introspect your classes via lightweight registration calls.
 
-### 1. Define Your Classes
-
-```cpp
-class Vector3D {
-public:
-    double x, y, z;
-
-    double length() const {
-        return std::sqrt(x*x + y*y + z*z);
-    }
-
-    void normalize();
-};
-```
-
-### 2. Register with Rosetta
+### 1. Register with Rosetta
 
 ```cpp
 #include "rosetta/rosetta.h"
@@ -167,7 +167,7 @@ This registration enables all generators to expose the same interface across lan
 
 ---
 
-### 3. Generate Python Bindings
+### 2. Generate Python Bindings
 
 ```cpp
 #include <pybind11/pybind11.h>
@@ -194,7 +194,7 @@ v.normalize()
 
 ---
 
-### 4. Generate JavaScript Bindings
+### 3. Generate JavaScript Bindings
 
 ```cpp
 BEGIN_MODULE(my_module)

@@ -13,7 +13,7 @@
 #endif
 
 // ============================================================================
-// 1. DÉFINITION DES CLASSES (code utilisateur, AUCUNE modification)
+// 1. Classes definition (user code, NO modification)
 // ============================================================================
 
 class Vector3D {
@@ -90,7 +90,7 @@ public:
 };
 
 // ============================================================================
-// 2. ENREGISTREMENT DES CLASSES
+// 2. Classes registration for introspection
 // ============================================================================
 
 void register_types() {
@@ -148,7 +148,7 @@ void register_types() {
 }
 
 // ============================================================================
-// 3. DÉMONSTRATION DES FONCTIONNALITÉS
+// 3. DEM of functionalities
 // ============================================================================
 
 void demo_introspection() {
@@ -361,7 +361,7 @@ void demo_registry() {
 int main() {
     std::cout << "\n";
     std::cout << "╔════════════════════════════════════════════════════════╗\n";
-    std::cout << "║         ROSETTA - Exemple complet d'utilisation        ║\n";
+    std::cout << "║        ROSETTA - Complete example of demonstration     ║\n";
     std::cout << "╚════════════════════════════════════════════════════════╝\n";
 
     // Afficher les infos
@@ -374,9 +374,9 @@ int main() {
     demo_introspection();
     demo_introspection_A();
     demo_inheritance();
-    demo_serialization();
-    demo_validation();
-    demo_documentation();
+    // demo_serialization();
+    // demo_validation();
+    // demo_documentation();
     demo_registry();
 
     std::cout << "\n" << std::string(60, '=') << "\n";

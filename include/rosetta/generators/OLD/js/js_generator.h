@@ -109,6 +109,12 @@ namespace rosetta::generators::js {
          */
         template <typename T> const TypeInfo &get_type_info() const;
 
+        // Helper: Convert C++ Any to Napi::Value using TypeInfo
+        Napi::Value any_to_js(Napi::Env env, const core::Any &value, const TypeInfo *type_info = nullptr);
+
+        // Helper: Convert Napi::Value to C++ Any using TypeInfo
+        core::Any js_to_any(const Napi::Value &value, const TypeInfo *type_info = nullptr);
+
         // Public for convenience
         Napi::Env    env;
         Napi::Object exports;
@@ -124,11 +130,9 @@ namespace rosetta::generators::js {
         // Store constructors for wrapped objects
         std::unordered_map<std::string, Napi::FunctionReference> constructors_;
 
-        // Helper: Convert C++ Any to Napi::Value using TypeInfo
-        Napi::Value any_to_js(Napi::Env env, const core::Any &value, const TypeInfo *type_info = nullptr);
-
-        // Helper: Convert Napi::Value to C++ Any using TypeInfo
-        core::Any js_to_any(const Napi::Value &value, const TypeInfo *type_info = nullptr);
+        // Unwrapper registry for extracting C++ objects from JS wrappers
+        using Unwrapper = std::function<core::Any(const Napi::Value&)>;
+        std::unordered_map<std::type_index, Unwrapper> unwrappers_;
 
         // Helper: Create wrapper class for a C++ type
         template <typename Class>
@@ -148,6 +152,10 @@ namespace rosetta::generators::js {
         // Helper: Get converter for a type
         CppToJsConverter get_to_js_converter(std::type_index idx) const;
         JsToCppConverter get_from_js_converter(std::type_index idx) const;
+        
+        // Helper: Register unwrapper for a class type
+        template <typename Class>
+        void register_unwrapper();
     };
 
     // ========================================================================

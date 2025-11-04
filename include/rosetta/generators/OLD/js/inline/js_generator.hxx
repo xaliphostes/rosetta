@@ -26,7 +26,7 @@ namespace rosetta::generators::js {
             : instance(ptr), type_info(TypeInfo::create<Class>()), generator(gen) {}
         explicit WrappedObject(std::shared_ptr<Class> ptr, JsGenerator *gen = nullptr)
             : instance(std::move(ptr)), type_info(TypeInfo::create<Class>()), generator(gen) {}
-        
+
         ~WrappedObject() {
             // Shared pointer will handle cleanup automatically
         }
@@ -334,6 +334,30 @@ namespace rosetta::generators::js {
             return core::Any();
         }
 
+        // Check if this is a wrapped C++ object FIRST
+        if (value.IsObject()) {
+            Napi::Object obj = value.As<Napi::Object>();
+
+            // Check if it has our special __cpp_instance property
+            if (obj.Has("__cpp_instance")) {
+                // Try all registered unwrappers
+                for (const auto &[type_idx, unwrapper] : unwrappers_) {
+                    core::Any result = unwrapper(value);
+                    if (result.has_value()) {
+                        return result;
+                    }
+                }
+
+                // If we have type_info, try to use it
+                if (type_info) {
+                    auto it = unwrappers_.find(type_info->type_index);
+                    if (it != unwrappers_.end()) {
+                        return it->second(value);
+                    }
+                }
+            }
+        }
+
         // If we have type info, use it to guide conversion
         if (type_info) {
             // Try to find converter by type_index
@@ -388,7 +412,7 @@ namespace rosetta::generators::js {
 
             // Check first element to determine type
             Napi::Value first_elem = arr.Get(uint32_t(0));
-            
+
             if (first_elem.IsString()) {
                 // String array
                 std::vector<std::string> str_vec;
@@ -452,16 +476,11 @@ namespace rosetta::generators::js {
 
             // Wrap in JS object with finalizer
             Napi::Object obj = info.This().As<Napi::Object>();
-            
+
             // Create external with finalizer to delete wrapped object
             auto external = Napi::External<WrappedObject<Class>>::New(
-                env, 
-                wrapped,
-                [](Napi::Env env, WrappedObject<Class>* data) {
-                    delete data;
-                }
-            );
-            
+                env, wrapped, [](Napi::Env env, WrappedObject<Class> *data) { delete data; });
+
             obj.Set("__cpp_instance", external);
 
             return obj;
@@ -605,6 +624,35 @@ namespace rosetta::generators::js {
         }
     }
 
+    template <typename Class> inline void JsGenerator::register_unwrapper() {
+        std::type_index idx(typeid(Class));
+
+        unwrappers_[idx] = [](const Napi::Value &value) -> core::Any {
+            if (!value.IsObject()) {
+                return core::Any();
+            }
+
+            Napi::Object obj = value.As<Napi::Object>();
+            if (!obj.Has("__cpp_instance")) {
+                return core::Any();
+            }
+
+            try {
+                Napi::Value external_val = obj.Get("__cpp_instance");
+                if (external_val.IsExternal()) {
+                    auto *wrapped = external_val.As<Napi::External<WrappedObject<Class>>>().Data();
+                    if (wrapped && wrapped->instance) {
+                        return core::Any(*wrapped->instance);
+                    }
+                }
+            } catch (...) {
+                // Type mismatch
+            }
+
+            return core::Any();
+        };
+    }
+
     template <typename Class>
     inline JsGenerator &JsGenerator::bind_class(const std::string &custom_name) {
         auto &registry = core::Registry::instance();
@@ -621,6 +669,9 @@ namespace rosetta::generators::js {
         if (bound_classes_.count(class_name)) {
             return *this;
         }
+
+        // Register unwrapper for this class type
+        register_unwrapper<Class>();
 
         // Create wrapper class
         Napi::Function          ctor     = create_wrapper_class<Class>(class_name);

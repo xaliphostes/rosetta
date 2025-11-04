@@ -5,6 +5,7 @@
 // ============================================================================
 #pragma once
 #include "any.h"
+#include "demangler.h"
 #include "inheritance_info.h"
 #include "virtual_method_registry.h"
 #include <functional>
@@ -15,7 +16,17 @@
 #include <utility>
 #include <vector>
 
+#ifdef __GNUG__
+#include <cstdlib>
+#include <cxxabi.h>
+#include <memory>
+#endif
+
 namespace rosetta::core {
+
+    // ============================================================================
+    // ClassMetadata
+    // ============================================================================
 
     /**
      * @brief MetaData of a class. This class allows to register fields, methods, constructors, etc.
@@ -32,14 +43,30 @@ namespace rosetta::core {
         std::unordered_map<std::string, std::function<Any(const Class &, std::vector<Any>)>>
             const_methods_;
 
+        // ----------------------------------------
+
         using Constructor = std::function<Any(std::vector<Any>)>;
         std::vector<Constructor> constructors_;
 
-        std::vector<std::string> field_names_;
-        std::vector<std::string> method_names_;
+        // ----------------------------------------
 
+        std::vector<std::string> field_names_;
         // Store type information for fields (for JS binding)
         std::unordered_map<std::string, std::type_index> field_types_;
+
+        // ----------------------------------------
+
+        std::vector<std::string> method_names_;
+
+        struct MethodInfo {
+            std::function<Any(Class &, std::vector<Any>)> invoker;
+            std::vector<std::type_index>                  arg_types;
+            std::type_index return_type = std::type_index(typeid(void));
+            size_t          arity       = 0;
+        };
+        std::unordered_map<std::string, MethodInfo> method_info_;
+
+        // ----------------------------------------
 
     public:
         /**
@@ -107,15 +134,39 @@ namespace rosetta::core {
             const auto &f = fields();
             os << "Fields (" << f.size() << "):\n";
             for (const auto &name : f) {
-                std::type_index ti = get_field_type(name); // stored during registration
-                os << "  - " << name << " : " << ti.name() << "\n";
+                std::type_index ti        = get_field_type(name);
+                std::string     type_name = get_readable_type_name(ti);
+                os << "  - " << name << " : " << type_name << "\n";
             }
 
-            // Methods
+            // Methods - now with argument types and count (demangled)
             const auto &m = methods();
             os << "Methods (" << m.size() << "):\n";
             for (const auto &name : m) {
-                os << "  - " << name << "\n";
+                auto it = method_info_.find(name);
+                if (it != method_info_.end()) {
+                    const MethodInfo &info = it->second;
+
+                    // Display return type (demangled)
+                    std::string return_type = get_readable_type_name(info.return_type);
+                    os << "  - " << return_type << " " << name << "(";
+
+                    // Display argument types (demangled)
+                    for (size_t i = 0; i < info.arg_types.size(); ++i) {
+                        std::string arg_type = get_readable_type_name(info.arg_types[i]);
+                        os << arg_type;
+                        if (i < info.arg_types.size() - 1) {
+                            os << ", ";
+                        }
+                    }
+                    os << ")";
+
+                    // Display arity
+                    os << " [" << info.arity << " arg" << (info.arity == 1 ? "" : "s") << "]\n";
+                } else {
+                    // Fallback for methods without stored info
+                    os << "  - " << name << " (no type info available)\n";
+                }
             }
 
             // Inheritance
@@ -144,6 +195,212 @@ namespace rosetta::core {
          * @brief Get inheritance information (non-const version)
          */
         InheritanceInfo &inheritance() { return inheritance_; }
+
+        // ========================================================================
+        // Virtual field registration (properties with getter/setter)
+        // ========================================================================
+
+        /**
+         * @brief Register a virtual field using getter and setter methods
+         * @tparam T Type of the field
+         * @param name Name of the virtual field
+         * @param getter Pointer to const getter method (returns by const reference)
+         * @param setter Pointer to setter method
+         *
+         * This allows registering a "field" even when the underlying member is private,
+         * as long as you have public getter/setter methods.
+         *
+         * Example:
+         * ```cpp
+         * class Model {
+         *     std::vector<Surface> surfaces_;  // private!
+         * public:
+         *     const std::vector<Surface>& getSurfaces() const { return surfaces_; }
+         *     void setSurfaces(const std::vector<Surface>& s) { surfaces_ = s; }
+         * };
+         *
+         * ROSETTA_REGISTER_CLASS(Model)
+         *     .property<std::vector<Surface>>("surfaces",
+         *                                     &Model::getSurfaces,
+         *                                     &Model::setSurfaces);
+         * ```
+         */
+        template <typename T>
+        ClassMetadata &property(const std::string &name, const T &(Class::*getter)() const,
+                                void (Class::*setter)(const T &)) {
+            field_names_.push_back(name);
+
+            // Store type information
+            field_types_.emplace(name, std::type_index(typeid(T)));
+
+            // Getter: invoke the getter method and wrap result in Any
+            field_getters_[name] = [getter](Class &obj) -> Any {
+                const Class &const_obj = obj;
+                return Any((const_obj.*getter)());
+            };
+
+            // Setter: extract value from Any and invoke the setter method
+            field_setters_[name] = [setter](Class &obj, Any value) {
+                (obj.*setter)(value.as<T>());
+            };
+
+            return *this;
+        }
+
+        /**
+         * @brief Register a virtual field - variant with getter returning by value
+         *
+         * This overload handles getters that return by value instead of const reference.
+         *
+         * Example:
+         * ```cpp
+         * class Rectangle {
+         *     double width_;
+         * public:
+         *     double getWidth() const { return width_; }  // Returns by value
+         *     void setWidth(double w) { width_ = w; }
+         * };
+         *
+         * ROSETTA_REGISTER_CLASS(Rectangle)
+         *     .property<double>("width", &Rectangle::getWidth, &Rectangle::setWidth);
+         * ```
+         */
+        template <typename T>
+        ClassMetadata &property(const std::string &name, T (Class::*getter)() const,
+                                void (Class::*setter)(const T &)) {
+            field_names_.push_back(name);
+
+            // Store type information
+            field_types_.emplace(name, std::type_index(typeid(T)));
+
+            // Getter: invoke the getter method and wrap result in Any
+            field_getters_[name] = [getter](Class &obj) -> Any {
+                const Class &const_obj = obj;
+                return Any((const_obj.*getter)());
+            };
+
+            // Setter: extract value from Any and invoke the setter method
+            field_setters_[name] = [setter](Class &obj, Any value) {
+                (obj.*setter)(value.as<T>());
+            };
+
+            return *this;
+        }
+
+        /**
+         * @brief Register a virtual field - variant with non-const reference getter
+         *
+         * This overload handles getters that return a non-const reference.
+         */
+        template <typename T>
+        ClassMetadata &property(const std::string &name, T &(Class::*getter)(),
+                                void (Class::*setter)(const T &)) {
+            field_names_.push_back(name);
+
+            // Store type information
+            field_types_.emplace(name, std::type_index(typeid(T)));
+
+            // Getter: invoke the getter method and wrap result in Any
+            field_getters_[name] = [getter](Class &obj) -> Any { return Any((obj.*getter)()); };
+
+            // Setter: extract value from Any and invoke the setter method
+            field_setters_[name] = [setter](Class &obj, Any value) {
+                (obj.*setter)(value.as<T>());
+            };
+
+            return *this;
+        }
+
+        /**
+         * @brief Register a read-only virtual field (getter only, no setter)
+         *
+         * For getters returning by const reference.
+         *
+         * Example:
+         * ```cpp
+         * class Rectangle {
+         *     double width_, height_;
+         * public:
+         *     double getArea() const { return width_ * height_; }  // Computed, no setter
+         * };
+         *
+         * ROSETTA_REGISTER_CLASS(Rectangle)
+         *     .readonly_property<double>("area", &Rectangle::getArea);
+         * ```
+         */
+        template <typename T>
+        ClassMetadata &readonly_property(const std::string &name,
+                                         const T &(Class::*getter)() const) {
+            field_names_.push_back(name);
+
+            // Store type information
+            field_types_.emplace(name, std::type_index(typeid(T)));
+
+            // Getter: invoke the getter method and wrap result in Any
+            field_getters_[name] = [getter](Class &obj) -> Any {
+                const Class &const_obj = obj;
+                return Any((const_obj.*getter)());
+            };
+
+            // No setter - will throw if someone tries to set this field
+            field_setters_[name] = [name](Class &, Any) {
+                throw std::runtime_error("Cannot set read-only property: " + name);
+            };
+
+            return *this;
+        }
+
+        /**
+         * @brief Register a read-only virtual field - variant returning by value
+         *
+         * This is the most common case for computed properties with primitive types.
+         */
+        template <typename T>
+        ClassMetadata &readonly_property(const std::string &name, T (Class::*getter)() const) {
+            field_names_.push_back(name);
+
+            // Store type information
+            field_types_.emplace(name, std::type_index(typeid(T)));
+
+            // Getter: invoke the getter method and wrap result in Any
+            field_getters_[name] = [getter](Class &obj) -> Any {
+                const Class &const_obj = obj;
+                return Any((const_obj.*getter)());
+            };
+
+            // No setter - will throw if someone tries to set this field
+            field_setters_[name] = [name](Class &, Any) {
+                throw std::runtime_error("Cannot set read-only property: " + name);
+            };
+
+            return *this;
+        }
+
+        /**
+         * @brief Register a write-only virtual field (setter only, no getter)
+         *
+         * Useful for write-only properties or when the getter isn't const.
+         */
+        template <typename T>
+        ClassMetadata &writeonly_property(const std::string &name,
+                                          void (Class::*setter)(const T &)) {
+            field_names_.push_back(name);
+
+            // Store type information
+            field_types_.emplace(name, std::type_index(typeid(T)));
+
+            // No getter - will throw if someone tries to get this field
+            field_getters_[name] = [name](Class &) -> Any {
+                throw std::runtime_error("Cannot get write-only property: " + name);
+            };
+
+            // Setter: extract value from Any and invoke the setter method
+            field_setters_[name] = [setter](Class &obj, Any value) {
+                (obj.*setter)(value.as<T>());
+            };
+
+            return *this;
+        }
 
         // ========================================================================
         // Declare inheritance
@@ -190,6 +447,7 @@ namespace rosetta::core {
         // ========================================================================
         // Constructor registration
         // ========================================================================
+        
         /**
          * @brief Register a constructor
          * @example
@@ -274,7 +532,7 @@ namespace rosetta::core {
         // ========================================================================
 
         /**
-         * @brief Register const method
+         * @brief Register non-const method
          * @tparam Ret return type
          * @tparam Args Types of parameters
          * @param name Name of the method
@@ -284,7 +542,13 @@ namespace rosetta::core {
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...)) {
             method_names_.push_back(name);
 
-            methods_[name] = [ptr](Class &obj, std::vector<Any> args) -> Any {
+            // Create and store method info
+            MethodInfo info;
+            info.arity       = sizeof...(Args);
+            info.return_type = std::type_index(typeid(Ret));
+            info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+
+            info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
                 if constexpr (sizeof...(Args) == 0) {
                     if constexpr (std::is_void_v<Ret>) {
                         (obj.*ptr)();
@@ -296,6 +560,9 @@ namespace rosetta::core {
                     return invoke_with_args(obj, ptr, args, std::index_sequence_for<Args...>{});
                 }
             };
+
+            method_info_[name] = info;
+            methods_[name]     = info.invoker;
 
             return *this;
         }
@@ -310,6 +577,12 @@ namespace rosetta::core {
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
             method_names_.push_back(name);
+
+            // Create and store method info
+            MethodInfo info;
+            info.arity       = sizeof...(Args);
+            info.return_type = std::type_index(typeid(Ret));
+            info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
 
             const_methods_[name] = [ptr](const Class &obj, std::vector<Any> args) -> Any {
                 if constexpr (sizeof...(Args) == 0) {
@@ -326,7 +599,7 @@ namespace rosetta::core {
             };
 
             // Wrapper pour appel depuis objet non-const
-            methods_[name] = [ptr](Class &obj, std::vector<Any> args) -> Any {
+            info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
                 const Class &const_obj = obj;
                 if constexpr (sizeof...(Args) == 0) {
                     if constexpr (std::is_void_v<Ret>) {
@@ -341,12 +614,27 @@ namespace rosetta::core {
                 }
             };
 
+            method_info_[name] = info;
+            methods_[name]     = info.invoker;
+
             return *this;
         }
 
         // ========================================================================
         // METHODS FROM BASE CLASSES
         // ========================================================================
+
+        size_t get_method_arity(const std::string &name) const {
+            return method_info_.at(name).arity;
+        }
+
+        const std::vector<std::type_index> &get_method_arg_types(const std::string &name) const {
+            return method_info_.at(name).arg_types;
+        }
+
+        std::type_index get_method_return_type(const std::string &name) const {
+            return method_info_.at(name).return_type;
+        }
 
         /**
          * @brief Register non const method from base class
@@ -357,7 +645,12 @@ namespace rosetta::core {
 
             method_names_.push_back(name);
 
-            methods_[name] = [ptr](Class &obj, std::vector<Any> args) -> Any {
+            MethodInfo info;
+            info.arity       = sizeof...(Args);
+            info.return_type = std::type_index(typeid(Ret));
+            info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+
+            info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
                 Base &base = static_cast<Base &>(obj);
                 if constexpr (sizeof...(Args) == 0) {
                     if constexpr (std::is_void_v<Ret>) {
@@ -371,6 +664,9 @@ namespace rosetta::core {
                 }
             };
 
+            method_info_[name] = std::move(info);
+            methods_[name]     = info.invoker; // Keep backward compatibility
+
             return *this;
         }
 
@@ -383,7 +679,12 @@ namespace rosetta::core {
 
             method_names_.push_back(name);
 
-            const_methods_[name] = [ptr](const Class &obj, std::vector<Any> args) -> Any {
+            MethodInfo info;
+            info.arity       = sizeof...(Args);
+            info.return_type = std::type_index(typeid(Ret));
+            info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+
+            info.invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
                 const Base &base = static_cast<const Base &>(obj);
                 if constexpr (sizeof...(Args) == 0) {
                     if constexpr (std::is_void_v<Ret>) {
@@ -398,20 +699,9 @@ namespace rosetta::core {
                 }
             };
 
-            methods_[name] = [ptr](Class &obj, std::vector<Any> args) -> Any {
-                const Base &base = static_cast<const Base &>(obj);
-                if constexpr (sizeof...(Args) == 0) {
-                    if constexpr (std::is_void_v<Ret>) {
-                        (base.*ptr)();
-                        return Any(0);
-                    } else {
-                        return Any((base.*ptr)());
-                    }
-                } else {
-                    return invoke_const_with_args(base, ptr, args,
-                                                  std::index_sequence_for<Args...>{});
-                }
-            };
+            method_info_[name]   = std::move(info);
+            methods_[name]       = info.invoker; // Keep backward compatibility
+            const_methods_[name] = info.invoker; // Keep backward compatibility
 
             return *this;
         }
