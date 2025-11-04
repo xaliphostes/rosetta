@@ -100,6 +100,10 @@ namespace rosetta::bindings {
     class JsClassWrapper : public Napi::ObjectWrap<JsClassWrapper<T>> {
     public:
         static Napi::FunctionReference constructor;
+        
+        // Static storage for field and method names (to avoid lambda captures)
+        static std::vector<std::string> field_names_;
+        static std::vector<std::string> method_names_;
 
         /**
          * @brief Initialize and export the class to JavaScript
@@ -109,51 +113,70 @@ namespace rosetta::bindings {
             // Get metadata from registry
             const auto &meta = core::Registry::instance().get<T>();
 
-            // Build property descriptors
+            std::cerr << "doing class " << meta.name() << std::endl; 
+
+            // Store field and method names in static storage
+            field_names_ = meta.fields();
+            method_names_ = meta.methods();
+
+            // Build property descriptors - empty for now, we'll add properties later
             std::vector<typename Napi::ObjectWrap<JsClassWrapper<T>>::PropertyDescriptor> properties;
 
-            // Add fields as properties
-            for (const auto &field_name : meta.fields()) {
-                // Capture field_name by value in the lambda
-                auto getter = [field_name](const Napi::CallbackInfo &info) -> Napi::Value {
+            // Define the class with just the constructor
+            Napi::Function func = Napi::ObjectWrap<JsClassWrapper<T>>::DefineClass(
+                env, js_name.c_str(), properties
+            );
+
+            // Get the prototype to add properties dynamically
+            Napi::Object prototype = func.Get("prototype").As<Napi::Object>();
+            
+            // Add field accessors to prototype
+            for (size_t i = 0; i < field_names_.size(); ++i) {
+                const std::string& field_name = field_names_[i];
+                std::cerr << "  add field " << field_name << std::endl;
+                
+                // Create getter lambda - capture index by value
+                auto getter_lambda = [i](const Napi::CallbackInfo& info) -> Napi::Value {
+                    const std::string& field_name = field_names_[i];
                     auto* wrapper = Napi::ObjectWrap<JsClassWrapper<T>>::Unwrap(info.This().As<Napi::Object>());
                     return wrapper->GetField(info.Env(), field_name);
                 };
                 
-                auto setter = [field_name](const Napi::CallbackInfo &info, const Napi::Value &value) {
+                // Create setter lambda - capture index by value
+                auto setter_lambda = [i](const Napi::CallbackInfo& info) {
+                    const std::string& field_name = field_names_[i];
                     auto* wrapper = Napi::ObjectWrap<JsClassWrapper<T>>::Unwrap(info.This().As<Napi::Object>());
-                    wrapper->SetField(info.Env(), field_name, value);
+                    if (info.Length() > 0) {
+                        wrapper->SetField(info.Env(), field_name, info[0]);
+                    }
                 };
                 
-                properties.push_back(
-                    Napi::ObjectWrap<JsClassWrapper<T>>::InstanceAccessor(
-                        field_name.c_str(),
-                        getter,
-                        setter
-                    )
+                // Define property with accessors
+                auto getter_func = Napi::Function::New(env, getter_lambda, field_name);
+                auto setter_func = Napi::Function::New(env, setter_lambda, field_name);
+                
+                Napi::PropertyDescriptor desc = Napi::PropertyDescriptor::Accessor(
+                    field_name,
+                    getter_func,
+                    setter_func
                 );
+                prototype.DefineProperty(desc);
             }
-
-            // Add methods
-            for (const auto &method_name : meta.methods()) {
-                // Capture method_name by value in the lambda
-                auto method = [method_name](const Napi::CallbackInfo &info) -> Napi::Value {
+            
+            // Add methods to prototype
+            for (size_t i = 0; i < method_names_.size(); ++i) {
+                const std::string& method_name = method_names_[i];
+                std::cerr << "  add method " << method_name << std::endl;
+                
+                auto method_lambda = [i](const Napi::CallbackInfo& info) -> Napi::Value {
+                    const std::string& method_name = method_names_[i];
                     auto* wrapper = Napi::ObjectWrap<JsClassWrapper<T>>::Unwrap(info.This().As<Napi::Object>());
                     return wrapper->CallMethod(info.Env(), method_name, info);
                 };
                 
-                properties.push_back(
-                    Napi::ObjectWrap<JsClassWrapper<T>>::InstanceMethod(
-                        method_name.c_str(),
-                        method
-                    )
-                );
+                auto method_func = Napi::Function::New(env, method_lambda, method_name);
+                prototype.Set(method_name, method_func);
             }
-
-            // Define the class
-            Napi::Function func = Napi::ObjectWrap<JsClassWrapper<T>>::DefineClass(
-                env, js_name.c_str(), properties
-            );
 
             constructor = Napi::Persistent(func);
             constructor.SuppressDestruct();
@@ -268,6 +291,12 @@ namespace rosetta::bindings {
     // Static member initialization
     template <typename T>
     Napi::FunctionReference JsClassWrapper<T>::constructor;
+    
+    template <typename T>
+    std::vector<std::string> JsClassWrapper<T>::field_names_;
+    
+    template <typename T>
+    std::vector<std::string> JsClassWrapper<T>::method_names_;
 
     // ============================================================================
     // JavaScript Binding Generator

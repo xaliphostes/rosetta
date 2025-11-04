@@ -73,7 +73,7 @@ public:
 // Registration with Rosetta (done once, typically in a registration file)
 // ============================================================================
 
-void register_classes() {
+void register_rosetta_classes() {
     // Register Vector3D
     ROSETTA_REGISTER_CLASS(Vector3D)
         .constructor<>()
@@ -109,112 +109,20 @@ void register_classes() {
 
 Napi::Object InitModule(Napi::Env env, Napi::Object exports) {
     // Register classes with Rosetta (if not already done)
-    register_classes();
+    register_rosetta_classes();
 
     // Create the JavaScript binding generator
     rosetta::bindings::JsBindingGenerator generator(env, exports);
 
     // Bind classes - that's it!
     generator
-        .bind_class<Vector3D>()
-        .bind_class<Rectangle>()
-        .bind_class<Person>()
-        .add_utilities();
+        .bind_class<Vector3D>();
+        // .bind_class<Rectangle>()
+        // .bind_class<Person>()
+        // .add_utilities();
 
     return exports;
 }
 
 // Register the Node.js module
 NODE_API_MODULE(mymodule, InitModule)
-
-// ============================================================================
-// JavaScript Usage Example (from Node.js)
-// ============================================================================
-
-/*
-// In JavaScript/Node.js:
-
-const mymodule = require('./build/Release/mymodule');
-
-// Create a Vector3D
-const v1 = new mymodule.Vector3D(3, 4, 5);
-console.log('x:', v1.x);  // 3
-console.log('y:', v1.y);  // 4
-console.log('z:', v1.z);  // 5
-console.log('length:', v1.length());  // 7.071...
-
-// Modify fields
-v1.x = 10;
-v1.normalize();
-console.log('After normalize:', v1.x, v1.y, v1.z);
-
-// Create another vector and add
-const v2 = new mymodule.Vector3D(1, 1, 1);
-const v3 = v1.add(v2);
-console.log('Sum:', v3.x, v3.y, v3.z);
-
-// Create a Rectangle
-const rect = new mymodule.Rectangle(10, 20);
-console.log('Width:', rect.width);   // 10
-console.log('Height:', rect.height); // 20
-console.log('Area:', rect.area());   // 200
-
-// Modify fields
-rect.width = 15;
-console.log('New area:', rect.area()); // 300
-
-// Create a Person (demonstrates properties)
-const person = new mymodule.Person("Alice", 30);
-console.log('Name:', person.name);    // "Alice" (via getName)
-console.log('Age:', person.age);      // 30 (via getAge)
-console.log(person.greet());          // "Hello, I'm Alice and I'm 30 years old"
-
-// Modify through properties
-person.name = "Bob";                   // Calls setName
-person.age = 25;                       // Calls setAge
-console.log(person.greet());          // "Hello, I'm Bob and I'm 25 years old"
-
-// List all available classes
-console.log('Available classes:', mymodule.listClasses());
-// Output: ['Vector3D', 'Rectangle', 'Person']
-*/
-
-// ============================================================================
-// Alternative: Bind multiple classes at once
-// ============================================================================
-
-Napi::Object InitModuleSimpler(Napi::Env env, Napi::Object exports) {
-    register_classes();
-
-    rosetta::bindings::JsBindingGenerator generator(env, exports);
-    
-    // Bind multiple classes in one call
-    rosetta::bindings::bind_classes<Vector3D, Rectangle, Person>(generator);
-    
-    generator.add_utilities();
-    
-    return exports;
-}
-
-// ============================================================================
-// What makes this better than the old approach:
-//
-// 1. NO INHERITANCE: Classes don't need to inherit from Introspectable
-// 2. NON-INTRUSIVE: Works with any class registered in Rosetta
-// 3. SIMPLER: Just register with Rosetta, then bind - that's it!
-// 4. AUTOMATIC: All fields, properties, and methods are automatically bound
-// 5. TYPE-SAFE: Uses Rosetta's type information for conversions
-// 6. MAINTAINABLE: Single source of truth in Rosetta registration
-// 7. FLEXIBLE: Can bind private members via property accessors
-//
-// Old approach required:
-// - Class inherits from Introspectable ❌
-// - Complex ObjectWrapper machinery ❌
-// - Manual type converter registration ❌
-// - TypeInfo member variables ❌
-//
-// New approach requires:
-// - Register class with Rosetta ✓
-// - Call bind_class<T>() ✓
-// - Done! ✓
-// ============================================================================

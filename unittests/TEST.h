@@ -74,7 +74,7 @@ namespace test {
     void name##_##fixture()
 
 // Declare a weak symbol
-void initFct() __attribute__((weak));
+//void initFct() __attribute__((weak));
 
 #define RUN_TESTS()                                                                                \
     int main() {                                                                                   \

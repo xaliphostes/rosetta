@@ -57,10 +57,10 @@ public:
     // No setArea - it's computed from width and height
 
     void                       run1(double) {}
-    double                     run2(double, int) {}
-    const std::vector<double> &run3(double, int, bool) {}
-    bool                       run4(double, int, bool, const std::vector<double> &) {}
-    std::string                run5(const std::string &) {}
+    double                     run2(double, int) {return 0.;}
+    const std::vector<double> &run3(double, int, bool) {return {};}
+    bool                       run4(double, int, bool, const std::vector<double> &) {return false;}
+    std::string                run5(const std::string &) {return "";}
 };
 
 // ============================================================================
