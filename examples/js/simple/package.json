@@ -3,6 +3,8 @@
     "version": "1.0.0",
     "description": "Automatic N-API bindings for Rosetta C++ introspection system",
     "main": "index.js",
+    "type_": "commonjs",
+    "type": "module",
     "scripts": {
         "install": "node-gyp rebuild",
         "build": "node-gyp configure build",
@@ -14,8 +16,7 @@
         "introspection",
         "napi",
         "bindings",
-        "cpp",
-        "native"
+        "cpp"
     ],
     "author": "xaliphostes",
     "license": "MIT",

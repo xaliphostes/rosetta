@@ -919,7 +919,7 @@ namespace rosetta::core {
                 } else {
                     return Any((obj.*ptr)(extract_arg<Args>(args[Is])...));
                 }
-            } catch (const std::bad_cast &e) {
+            } catch (const std::bad_cast &) {
                 std::string error = "Type mismatch in method arguments. Expected types: ";
                 ((error += typeid(Args).name(), error += " "), ...);
                 throw std::runtime_error(error);

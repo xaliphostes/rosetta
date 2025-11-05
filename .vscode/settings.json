@@ -1,0 +1,12 @@
+{
+  "terminal.integrated.profiles.windows": {
+    "VS 2022 ARM64 Dev Cmd": {
+      "path": "C:\\Windows\\System32\\cmd.exe",
+      "args": [
+        "/k",
+        "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat\" -arch=arm64 -host_arch=arm64"
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "VS 2022 ARM64 Dev Cmd"
+}
