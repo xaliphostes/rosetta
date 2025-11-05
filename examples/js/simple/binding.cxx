@@ -116,10 +116,10 @@ Napi::Object InitModule(Napi::Env env, Napi::Object exports) {
 
     // Bind classes - that's it!
     generator
-        .bind_class<Vector3D>();
-        // .bind_class<Rectangle>()
-        // .bind_class<Person>()
-        // .add_utilities();
+        .bind_class<Vector3D>()
+        .bind_class<Rectangle>()
+        .bind_class<Person>()
+        .add_utilities();
 
     return exports;
 }

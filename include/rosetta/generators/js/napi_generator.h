@@ -113,69 +113,70 @@ namespace rosetta::bindings {
             // Get metadata from registry
             const auto &meta = core::Registry::instance().get<T>();
 
-            std::cerr << "doing class " << meta.name() << std::endl; 
+            // std::cerr << "doing class " << meta.name() << std::endl; 
 
             // Store field and method names in static storage
             field_names_ = meta.fields();
             method_names_ = meta.methods();
 
-            // Build property descriptors - empty for now, we'll add properties later
+            // Build property descriptors for DefineClass
             std::vector<typename Napi::ObjectWrap<JsClassWrapper<T>>::PropertyDescriptor> properties;
-
+            
+            // We need to use InstanceValue or a different approach
+            // InstanceAccessor requires knowing the specific method at compile time
+            // So we'll define the class first, then add properties dynamically
+            
             // Define the class with just the constructor
             Napi::Function func = Napi::ObjectWrap<JsClassWrapper<T>>::DefineClass(
                 env, js_name.c_str(), properties
             );
 
-            // Get the prototype to add properties dynamically
+            // Get the prototype to add properties
             Napi::Object prototype = func.Get("prototype").As<Napi::Object>();
             
-            // Add field accessors to prototype
+            // Add field accessors using napi_define_properties directly
             for (size_t i = 0; i < field_names_.size(); ++i) {
                 const std::string& field_name = field_names_[i];
                 std::cerr << "  add field " << field_name << std::endl;
                 
-                // Create getter lambda - capture index by value
-                auto getter_lambda = [i](const Napi::CallbackInfo& info) -> Napi::Value {
-                    const std::string& field_name = field_names_[i];
-                    auto* wrapper = Napi::ObjectWrap<JsClassWrapper<T>>::Unwrap(info.This().As<Napi::Object>());
-                    return wrapper->GetField(info.Env(), field_name);
+                // Create a property descriptor for this field
+                napi_property_descriptor desc = {
+                    field_name.c_str(),
+                    nullptr,
+                    nullptr,
+                    FieldGetter,
+                    FieldSetter,
+                    nullptr,
+                    napi_default,
+                    reinterpret_cast<void*>(i)
                 };
                 
-                // Create setter lambda - capture index by value
-                auto setter_lambda = [i](const Napi::CallbackInfo& info) {
-                    const std::string& field_name = field_names_[i];
-                    auto* wrapper = Napi::ObjectWrap<JsClassWrapper<T>>::Unwrap(info.This().As<Napi::Object>());
-                    if (info.Length() > 0) {
-                        wrapper->SetField(info.Env(), field_name, info[0]);
-                    }
-                };
-                
-                // Define property with accessors
-                auto getter_func = Napi::Function::New(env, getter_lambda, field_name);
-                auto setter_func = Napi::Function::New(env, setter_lambda, field_name);
-                
-                Napi::PropertyDescriptor desc = Napi::PropertyDescriptor::Accessor(
-                    field_name,
-                    getter_func,
-                    setter_func
-                );
-                prototype.DefineProperty(desc);
+                napi_status status = napi_define_properties(env, prototype, 1, &desc);
+                if (status != napi_ok) {
+                    Napi::Error::New(env, "Failed to define property").ThrowAsJavaScriptException();
+                }
             }
             
-            // Add methods to prototype
+            // Add methods
             for (size_t i = 0; i < method_names_.size(); ++i) {
                 const std::string& method_name = method_names_[i];
                 std::cerr << "  add method " << method_name << std::endl;
                 
-                auto method_lambda = [i](const Napi::CallbackInfo& info) -> Napi::Value {
-                    const std::string& method_name = method_names_[i];
-                    auto* wrapper = Napi::ObjectWrap<JsClassWrapper<T>>::Unwrap(info.This().As<Napi::Object>());
-                    return wrapper->CallMethod(info.Env(), method_name, info);
+                napi_property_descriptor desc = {
+                    method_name.c_str(),
+                    nullptr,
+                    MethodCaller,
+                    nullptr,
+                    nullptr,
+                    nullptr,
+                    napi_default,
+                    reinterpret_cast<void*>(i)
                 };
                 
-                auto method_func = Napi::Function::New(env, method_lambda, method_name);
-                prototype.Set(method_name, method_func);
+                napi_status status = napi_define_properties(env, prototype, 1, &desc);
+                if (status != napi_ok) {
+                    Napi::Error::New(env, "Failed to define method").ThrowAsJavaScriptException();
+                }
             }
 
             constructor = Napi::Persistent(func);
@@ -228,6 +229,103 @@ namespace rosetta::bindings {
 
     private:
         T cpp_object_;
+        
+        /**
+         * @brief C-style getter callback for fields (raw napi)
+         */
+        static napi_value FieldGetter(napi_env env, napi_callback_info info) {
+            size_t argc = 0;
+            napi_value this_arg;
+            void* data;
+            
+            napi_get_cb_info(env, info, &argc, nullptr, &this_arg, &data);
+            
+            size_t field_index = reinterpret_cast<size_t>(data);
+            const std::string& field_name = field_names_[field_index];
+            
+            // Unwrap the C++ object
+            void* instance_data;
+            napi_unwrap(env, this_arg, &instance_data);
+            auto* wrapper = static_cast<JsClassWrapper<T>*>(instance_data);
+            
+            try {
+                Napi::Env napi_env(env);
+                Napi::Value result = wrapper->GetField(napi_env, field_name);
+                return result;
+            } catch (const std::exception& e) {
+                napi_throw_error(env, nullptr, e.what());
+                return nullptr;
+            }
+        }
+        
+        /**
+         * @brief C-style setter callback for fields (raw napi)
+         */
+        static napi_value FieldSetter(napi_env env, napi_callback_info info) {
+            size_t argc = 1;
+            napi_value args[1];
+            napi_value this_arg;
+            void* data;
+            
+            napi_get_cb_info(env, info, &argc, args, &this_arg, &data);
+            
+            if (argc < 1) {
+                napi_throw_error(env, nullptr, "Setter requires a value");
+                return nullptr;
+            }
+            
+            size_t field_index = reinterpret_cast<size_t>(data);
+            const std::string& field_name = field_names_[field_index];
+            
+            // Unwrap the C++ object
+            void* instance_data;
+            napi_unwrap(env, this_arg, &instance_data);
+            auto* wrapper = static_cast<JsClassWrapper<T>*>(instance_data);
+            
+            try {
+                Napi::Env napi_env(env);
+                Napi::Value value(napi_env, args[0]);
+                wrapper->SetField(napi_env, field_name, value);
+                return nullptr;
+            } catch (const std::exception& e) {
+                napi_throw_error(env, nullptr, e.what());
+                return nullptr;
+            }
+        }
+        
+        /**
+         * @brief C-style method callback (raw napi)
+         */
+        static napi_value MethodCaller(napi_env env, napi_callback_info info) {
+            size_t argc = 10;  // Max args we'll accept
+            napi_value args[10];
+            napi_value this_arg;
+            void* data;
+            
+            napi_get_cb_info(env, info, &argc, args, &this_arg, &data);
+            
+            size_t method_index = reinterpret_cast<size_t>(data);
+            const std::string& method_name = method_names_[method_index];
+            
+            // Unwrap the C++ object
+            void* instance_data;
+            napi_unwrap(env, this_arg, &instance_data);
+            auto* wrapper = static_cast<JsClassWrapper<T>*>(instance_data);
+            
+            try {
+                Napi::Env napi_env(env);
+                
+                // Build CallbackInfo
+                std::vector<napi_value> arg_vec(args, args + argc);
+                Napi::CallbackInfo callback_info(napi_env, info);
+                
+                Napi::Value result = wrapper->CallMethod(napi_env, method_name, callback_info);
+                return result;
+            } catch (const std::exception& e) {
+                napi_throw_error(env, nullptr, e.what());
+                return nullptr;
+            }
+        }
 
         /**
          * @brief Property getter callback

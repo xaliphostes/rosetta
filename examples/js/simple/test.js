@@ -7,7 +7,7 @@ const rosetta = require('./build/Release/rosetta');
 
 console.log('='.repeat(60));
 console.log('Rosetta N-API Bindings Test');
-console.log('Version:', rosetta.version());
+// console.log('Version:', rosetta.version());
 console.log('='.repeat(60));
 
 // ============================================================================
@@ -31,7 +31,7 @@ vec.normalize();
 console.log('After normalize:', { x: vec.x, y: vec.y, z: vec.z });
 console.log('Normalized length:', vec.length());
 
-console.log('toString:', vec.to_string());
+// console.log('toString:', vec.to_string());
 
 // ============================================================================
 // Test 2: Inheritance with Sphere
