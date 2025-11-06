@@ -43,7 +43,7 @@ Rosetta supports two complementary workflows:
 
 1. **Zero-intrusion** — No inheritance, no macros inside your classes, no wrapper
 2. **Simple to use**
-3. **Samer API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM, C#
+3. **One API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM, C#
 4. **Multiple constructors**
 5. **Free functions support**
 6. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
