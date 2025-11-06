@@ -14,7 +14,7 @@ public:
 };
 ```
 
-## Resiter (introspection) once with Rosetta
+## Register (introspection) once with Rosetta
 ```cpp
 #include "rosetta/rosetta.h"
 
