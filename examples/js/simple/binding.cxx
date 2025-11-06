@@ -2,7 +2,7 @@
 // Example: Using the non-intrusive JavaScript binding generator
 // ============================================================================
 
-#include <rosetta/generators/js/napi_generator.h>
+#include <rosetta/extensions/generators/js_generator.h>
 #include <rosetta/rosetta.h>
 
 // ============================================================================
@@ -112,7 +112,7 @@ Napi::Object InitModule(Napi::Env env, Napi::Object exports) {
     register_rosetta_classes();
 
     // Create the JavaScript binding generator
-    rosetta::bindings::JsBindingGenerator generator(env, exports);
+    rosetta::js::JsGenerator generator(env, exports);
 
     // Bind classes - that's it!
     generator

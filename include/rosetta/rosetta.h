@@ -29,17 +29,9 @@
 #include "extensions/serialization/json_serializer.h"
 #include "extensions/serialization/xml_serializer.h"
 #include "extensions/validation/constraint_validator.h"
+// DO NOT INCLUDE "generators"!!!
+// (as we will have to include the tird party libs for the generators)
 
-/**
- * @brief Main Rosetta namespace
- *
- * Roseta is a C++ introspection library that enables:
- * - Non-intrusive class registration
- * - Automatic binding generation (Python, JavaScript, etc.)
- * - Automatic serialization (JSON, XML)
- * - Validation with constraints
- * - Documentation generation
- */
 namespace rosetta {
 
     // ============================================================================

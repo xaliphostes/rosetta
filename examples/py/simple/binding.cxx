@@ -3,7 +3,7 @@
 // ============================================================================
 
 #include <cmath>
-#include <rosetta/generators/py_generator.h>
+#include <rosetta/extensions/generators/py_generator.h>
 #include <rosetta/rosetta.h>
 
 #ifndef M_PI

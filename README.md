@@ -41,16 +41,18 @@ Rosetta supports two complementary workflows:
 
 ## ✨ Features
 
-* **Zero-intrusion** — No inheritance, no macros inside your classes
-* **Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM
-* **Multiple constructors**
-* **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
-* **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
-* **Inheritance & polymorphism** — Virtual methods, multiple inheritance
-* **Const correctness** — Differentiates const/non-const methods
-* **Validation system** — Runtime constraints and checks
-* **Serialization**
-* **Documentation generation** — Markdown / HTML export
+1. **Zero-intrusion** — No inheritance, no macros inside your classes, no wrapper
+2. **Simple to use**
+3. **Samer API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM, C#
+4. **Multiple constructors**
+5. **Free functions support**
+6. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
+7. **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
+8. **Inheritance & polymorphism** — Virtual methods, multiple inheritance
+9. **Const correctness** — Differentiates const/non-const methods
+10. **Validation system** — Runtime constraints and checks
+11. **Serialization**
+12. **Documentation generation** — Markdown / HTML export
 
 ---
 

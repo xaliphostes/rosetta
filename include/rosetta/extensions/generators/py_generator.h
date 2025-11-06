@@ -13,16 +13,16 @@
 #include <unordered_map>
 #include <vector>
 
-namespace py = pybind11;
+namespace pyb11 = pybind11;
 
-namespace rosetta::bindings {
+namespace rosetta::py {
 
     /**
-     * @brief Main generator class for Python bindings.
+     * @brief Generator for Python bindings.
      */
     class PyGenerator {
     public:
-        explicit PyGenerator(py::module_ &m);
+        explicit PyGenerator(pyb11::module_ &m);
 
         /**
          * @brief Bind a class that's registered with Rosetta
@@ -55,7 +55,7 @@ namespace rosetta::bindings {
         PyGenerator &set_doc(const std::string &doc);
 
     private:
-        py::module_ &module_;
+        pyb11::module_ &module_;
     };
 
     /**
@@ -72,9 +72,9 @@ namespace rosetta::bindings {
      * @param m The pybind11 module
      * @return A binding generator ready to use
      */
-    PyGenerator create_bindings(py::module_ &m);
+    PyGenerator create_bindings(pyb11::module_ &m);
 
-} // namespace rosetta::bindings
+} // namespace rosetta::py
 
 // ============================================================================
 // Helper Macros
@@ -91,7 +91,7 @@ namespace rosetta::bindings {
 #define BEGIN_PY_MODULE(module_name, doc_string) \
     PYBIND11_MODULE(module_name, m) {            \
         m.doc()        = doc_string;             \
-        auto generator = rosetta::bindings::create_bindings(m);
+        auto generator = rosetta::py::create_bindings(m);
 
 /**
  * @brief Bind a class to Python (simplified macro)

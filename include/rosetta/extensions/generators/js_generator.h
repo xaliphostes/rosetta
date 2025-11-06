@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace rosetta::bindings {
+namespace rosetta::js {
 
     // ============================================================================
     // Type Converters - Convert between C++ Any and Napi::Value
@@ -403,9 +403,9 @@ namespace rosetta::bindings {
     /**
      * @brief Main generator class for JavaScript bindings
      */
-    class JsBindingGenerator {
+    class JsGenerator {
     public:
-        JsBindingGenerator(Napi::Env env, Napi::Object exports)
+        JsGenerator(Napi::Env env, Napi::Object exports)
             : env_(env), exports_(exports) {}
 
         /**
@@ -414,7 +414,7 @@ namespace rosetta::bindings {
          * @param js_name Optional JavaScript name (uses C++ name if empty)
          */
         template <typename T>
-        JsBindingGenerator &bind_class(const std::string &js_name = "") {
+        JsGenerator &bind_class(const std::string &js_name = "") {
             // Get metadata from registry
             const auto &meta = core::Registry::instance().get<T>();
             std::string final_name = js_name.empty() ? meta.name() : js_name;
@@ -428,7 +428,7 @@ namespace rosetta::bindings {
         /**
          * @brief Add utility functions
          */
-        JsBindingGenerator &add_utilities() {
+        JsGenerator &add_utilities() {
             // List all registered classes
             exports_.Set("listClasses",
                 Napi::Function::New(env_, [](const Napi::CallbackInfo &info) {
@@ -463,8 +463,8 @@ namespace rosetta::bindings {
      * @brief Bind multiple classes at once
      */
     template <typename... Classes>
-    void bind_classes(JsBindingGenerator &gen) {
+    void bind_classes(JsGenerator &gen) {
         (gen.bind_class<Classes>(), ...);
     }
 
-} // namespace rosetta::bindings
+} // namespace rosetta::js
