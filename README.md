@@ -18,6 +18,7 @@
   <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support">
   <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support">
   <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support">
+  <img src="https://img.shields.io/static/v1?label=C%23&logo=unity&logoColor=white&message=soon&color=informational" alt="C# support">
 </p>
 
 <p align="center">
@@ -34,8 +35,8 @@ Write your classes once, and export them everywhere.
 
 Rosetta supports two complementary workflows:
 
-1. **Direct C++ registration** using introspection macros. This type of registration is fine grained and let you control everything
-2. **Interface Description Language (IDL)** via YAML or JSON files. You do not need to know anything about the underlaying libs that are used (NAPI, Pybind11...)
+1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
+2. **Interface Description Language (IDL)** via YAML or JSON files. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11...)
 
 ---
 
@@ -66,8 +67,8 @@ LGPL 3 License — see [LICENSE](LICENSE)
 
 ## 💡 Credits
 
-Created by [Xaliphostes](https://github.com/xaliphostes) (fmaerten@gmail.com)
+[Xaliphostes](https://github.com/xaliphostes) (fmaerten@gmail.com)
 
 ---
 
-**One registration, infinite possibilities.** 🚀
+# **One registration, infinite possibilities** 🚀

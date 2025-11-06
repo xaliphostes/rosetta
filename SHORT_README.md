@@ -14,7 +14,7 @@ public:
 };
 ```
 
-## Register (introspection) once with Rosetta
+## Introspection: register once with Rosetta (pure C++)
 ```cpp
 #include "rosetta/rosetta.h"
 
@@ -48,10 +48,13 @@ void register_classes() {
     END_JS_MODULE()
     ```
 
+3. For...
+   Just ask.
+
 ## Consequences
 
-- Bind what you want (only the necessary classes and functions)
-- Bind where you want (for Python, JavaScript, Lua, C#...)
+- Bind what you want (only the necessary C++ classes and functions)
+- Bind for the language you want (Python, JavaScript, Lua, C#...)
 - All bindings shared the same API
 - C++ API changes? Recompile for all bindings in one go
 
