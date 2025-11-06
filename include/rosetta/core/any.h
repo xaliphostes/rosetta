@@ -6,9 +6,9 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <typeindex>
 #include <typeinfo>
-#include <type_traits>
 #include <utility>
 
 namespace rosetta::core {
@@ -48,7 +48,10 @@ namespace rosetta::core {
          * @tparam T Type of the value
          * @param value Value to store
          */
-        template <typename T> Any(T value) : holder_(new HolderImpl<T>(std::move(value))) {}
+        template <typename T>
+        Any(T value)
+            : holder_(
+                  new HolderImpl<std::remove_cv_t<std::remove_reference_t<T>>>(std::move(value))) {}
 
         /**
          * @brief Copy constructeur
@@ -81,46 +84,49 @@ namespace rosetta::core {
          * @return Reference to the stored value
          * @throws std::bad_cast if the type does not match
          */
-        template <typename T> T &as() { 
+        template <typename T> T &as() {
+            // Strip cv-qualifiers and references to get the base type
+            using BaseType = std::remove_cv_t<std::remove_reference_t<T>>;
+
             if (!holder_) {
                 throw std::bad_cast();
             }
-            
-            std::type_index actual_type = holder_->get_type_index();
-            std::type_index expected_type = std::type_index(typeid(T));
-            
+
+            std::type_index actual_type   = holder_->get_type_index();
+            std::type_index expected_type = std::type_index(typeid(BaseType));
+
             // Direct type match - fast path
             if (actual_type == expected_type) {
-                return static_cast<HolderImpl<T> *>(holder_.get())->value;
+                return static_cast<HolderImpl<BaseType> *>(holder_.get())->value;
             }
-            
+
             // Numeric conversions: allow double <-> int/float conversions
-            if constexpr (std::is_arithmetic_v<T>) {
+            if constexpr (std::is_arithmetic_v<BaseType>) {
                 // Try to convert from double
                 if (actual_type == std::type_index(typeid(double))) {
                     double val = static_cast<HolderImpl<double> *>(holder_.get())->value;
                     // Store converted value temporarily - this is a workaround
                     // Create a new Any with the converted value and return its reference
-                    static thread_local T converted;
-                    converted = static_cast<T>(val);
+                    static thread_local BaseType converted;
+                    converted = static_cast<BaseType>(val);
                     return converted;
                 }
                 // Try to convert from int
                 if (actual_type == std::type_index(typeid(int))) {
                     int val = static_cast<HolderImpl<int> *>(holder_.get())->value;
-                    static thread_local T converted;
-                    converted = static_cast<T>(val);
+                    static thread_local BaseType converted;
+                    converted = static_cast<BaseType>(val);
                     return converted;
                 }
                 // Try to convert from float
                 if (actual_type == std::type_index(typeid(float))) {
                     float val = static_cast<HolderImpl<float> *>(holder_.get())->value;
-                    static thread_local T converted;
-                    converted = static_cast<T>(val);
+                    static thread_local BaseType converted;
+                    converted = static_cast<BaseType>(val);
                     return converted;
                 }
             }
-            
+
             // Type mismatch
             throw std::bad_cast();
         }
@@ -129,43 +135,46 @@ namespace rosetta::core {
          * @brief Get the stored value (const version)
          */
         template <typename T> const T &as() const {
+            // Strip cv-qualifiers and references to get the base type
+            using BaseType = std::remove_cv_t<std::remove_reference_t<T>>;
+
             if (!holder_) {
                 throw std::bad_cast();
             }
-            
-            std::type_index actual_type = holder_->get_type_index();
-            std::type_index expected_type = std::type_index(typeid(T));
-            
+
+            std::type_index actual_type   = holder_->get_type_index();
+            std::type_index expected_type = std::type_index(typeid(BaseType));
+
             // Direct type match - fast path
             if (actual_type == expected_type) {
-                return static_cast<const HolderImpl<T> *>(holder_.get())->value;
+                return static_cast<const HolderImpl<BaseType> *>(holder_.get())->value;
             }
-            
+
             // Numeric conversions: allow double <-> int/float conversions
-            if constexpr (std::is_arithmetic_v<T>) {
+            if constexpr (std::is_arithmetic_v<BaseType>) {
                 // Try to convert from double
                 if (actual_type == std::type_index(typeid(double))) {
                     double val = static_cast<const HolderImpl<double> *>(holder_.get())->value;
-                    static thread_local T converted;
-                    converted = static_cast<T>(val);
+                    static thread_local BaseType converted;
+                    converted = static_cast<BaseType>(val);
                     return converted;
                 }
                 // Try to convert from int
                 if (actual_type == std::type_index(typeid(int))) {
                     int val = static_cast<const HolderImpl<int> *>(holder_.get())->value;
-                    static thread_local T converted;
-                    converted = static_cast<T>(val);
+                    static thread_local BaseType converted;
+                    converted = static_cast<BaseType>(val);
                     return converted;
                 }
                 // Try to convert from float
                 if (actual_type == std::type_index(typeid(float))) {
                     float val = static_cast<const HolderImpl<float> *>(holder_.get())->value;
-                    static thread_local T converted;
-                    converted = static_cast<T>(val);
+                    static thread_local BaseType converted;
+                    converted = static_cast<BaseType>(val);
                     return converted;
                 }
             }
-            
+
             // Type mismatch
             throw std::bad_cast();
         }

@@ -1,20 +1,105 @@
-// ============================================================================
-// Python binding generator using Rosetta introspection and pybind11
-// No inheritance or wrapping required - pure non-intrusive approach
-// ============================================================================
-#pragma once
-
-#include <functional>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <rosetta/rosetta.h>
-#include <string>
-#include <typeindex>
-#include <vector>
-
 namespace py = pybind11;
 
 namespace rosetta::bindings {
+
+    // Forward declarations
+    class TypeConverterRegistry;
+    class TypeCastRegistry;
+
+    // ============================================================================
+    // Type Converter Registry - Python to C++
+    // ============================================================================
+
+    /**
+     * @brief Type converter registry for custom classes
+     * Maps type_index to converter functions that convert Python objects to C++ Any
+     */
+    class TypeConverterRegistry {
+    private:
+        using ConverterFunc = std::function<core::Any(const py::object &)>;
+        std::unordered_map<std::type_index, ConverterFunc> converters_;
+
+        TypeConverterRegistry() = default;
+
+    public:
+        static TypeConverterRegistry &instance() {
+            static TypeConverterRegistry registry;
+            return registry;
+        }
+
+        template <typename T> void register_converter() {
+            converters_[std::type_index(typeid(T))] = [](const py::object &obj) -> core::Any {
+                try {
+                    // Try to cast the Python object to the C++ type
+                    // pybind11 will handle the conversion for registered types
+                    T cpp_obj = obj.cast<T>();
+                    return core::Any(cpp_obj);
+                } catch (const py::cast_error &e) {
+                    throw std::runtime_error(
+                        std::string("Failed to convert Python object to C++ type: ") + e.what());
+                }
+            };
+        }
+
+        bool has_converter(std::type_index type) const {
+            return converters_.find(type) != converters_.end();
+        }
+
+        core::Any convert(const py::object &obj, std::type_index type) const {
+            auto it = converters_.find(type);
+            if (it != converters_.end()) {
+                return it->second(obj);
+            }
+            return core::Any();
+        }
+    };
+
+    // ============================================================================
+    // Type Cast Registry - C++ to Python
+    // ============================================================================
+
+    /**
+     * @brief Registry for type casting functions from C++ Any to Python
+     * Maps type_index to functions that convert C++ objects (stored in Any) to py::object
+     */
+    class TypeCastRegistry {
+    private:
+        using CastFunc = std::function<py::object(const core::Any &)>;
+        std::unordered_map<std::type_index, CastFunc> cast_funcs_;
+
+        TypeCastRegistry() = default;
+
+    public:
+        static TypeCastRegistry &instance() {
+            static TypeCastRegistry registry;
+            return registry;
+        }
+
+        template <typename T> void register_cast() {
+            cast_funcs_[std::type_index(typeid(T))] = [](const core::Any &value) -> py::object {
+                try {
+                    T obj = value.as<T>();
+                    return py::cast(obj);
+                } catch (const std::exception &e) {
+                    throw std::runtime_error(std::string("Failed to cast C++ object to Python: ") +
+                                             e.what());
+                }
+            };
+        }
+
+        bool has_cast(std::type_index type) const {
+            return cast_funcs_.find(type) != cast_funcs_.end();
+        }
+
+        py::object cast_to_python(const core::Any &value) const {
+            auto type = value.get_type_index();
+            auto it   = cast_funcs_.find(type);
+            if (it != cast_funcs_.end()) {
+                return it->second(value);
+            }
+            return py::none();
+        }
+    };
 
     // ============================================================================
     // Type Converters - Convert between C++ Any and Python objects
@@ -61,7 +146,13 @@ namespace rosetta::bindings {
             return py::none();
         }
 
-        // For complex types, return None or handle specially
+        // Try custom type cast registry
+        auto &registry = TypeCastRegistry::instance();
+        if (registry.has_cast(type)) {
+            return registry.cast_to_python(value);
+        }
+
+        // For types we can't convert, return None
         return py::none();
     }
 
@@ -74,7 +165,7 @@ namespace rosetta::bindings {
             return core::Any();
         }
 
-        // Handle primitives
+        // Handle primitives first
         if (expected_type == std::type_index(typeid(int))) {
             if (py::isinstance<py::int_>(py_obj)) {
                 return core::Any(py_obj.cast<int>());
@@ -123,6 +214,12 @@ namespace rosetta::bindings {
             }
         }
 
+        // Try custom type converters for registered classes
+        auto &registry = TypeConverterRegistry::instance();
+        if (registry.has_converter(expected_type)) {
+            return registry.convert(py_obj, expected_type);
+        }
+
         return core::Any(); // Empty
     }
 
@@ -142,6 +239,12 @@ namespace rosetta::bindings {
             // Get metadata from registry
             const auto &meta       = core::Registry::instance().get<T>();
             std::string final_name = py_name.empty() ? meta.name() : py_name;
+
+            // Register type converter for this class (Python -> C++)
+            TypeConverterRegistry::instance().register_converter<T>();
+
+            // Register type cast function for this class (C++ -> Python)
+            TypeCastRegistry::instance().register_cast<T>();
 
             // Create the pybind11 class
             py::class_<T> py_class(m, final_name.c_str());
@@ -165,36 +268,81 @@ namespace rosetta::bindings {
          * @brief Bind all constructors
          */
         static void bind_constructors(py::class_<T> &py_class, const core::ClassMetadata<T> &meta) {
-            const auto &ctors = meta.constructors();
+            // Check if we have constructor_infos() method (new API)
+            if constexpr (requires { meta.constructor_infos(); }) {
+                const auto &ctor_infos = meta.constructor_infos();
 
-            if (ctors.empty()) {
-                // No registered constructors, try default
-                if constexpr (std::is_default_constructible_v<T>) {
-                    py_class.def(py::init<>());
+                if (ctor_infos.empty()) {
+                    // No registered constructors, try default
+                    if constexpr (std::is_default_constructible_v<T>) {
+                        py_class.def(py::init<>());
+                    }
+                    return;
                 }
-                return;
-            }
 
-            // Try to detect constructor signatures by calling with different arg counts
-            for (size_t ctor_idx = 0; ctor_idx < ctors.size(); ++ctor_idx) {
-                const auto &ctor = ctors[ctor_idx];
+                // Bind each constructor with known parameter types
+                for (const auto &ctor_info : ctor_infos) {
+                    if (ctor_info.arity == 0) {
+                        // Default constructor
+                        py_class.def(py::init([ctor = ctor_info.invoker]() {
+                            std::vector<core::Any> args;
+                            core::Any              result = ctor(args);
+                            return result.as<T>();
+                        }));
+                    } else {
+                        // Parametric constructor with known types
+                        bind_typed_constructor(py_class, ctor_info);
+                    }
+                }
+            } else {
+                // Fallback to old API without type information
+                const auto &ctors = meta.constructors();
 
-                // Detect arity (number of parameters)
-                int arity = detect_constructor_arity(ctor);
+                if (ctors.empty()) {
+                    if constexpr (std::is_default_constructible_v<T>) {
+                        py_class.def(py::init<>());
+                    }
+                    return;
+                }
 
-                if (arity == 0) {
-                    // Default constructor
-                    py_class.def(py::init([ctor]() {
-                        std::vector<core::Any> args;
-                        core::Any              result = ctor(args);
-                        return result.as<T>();
-                    }));
-                } else if (arity > 0) {
-                    // Parametric constructor - we'll create a generic version
-                    // that accepts Python objects and tries to convert them
-                    bind_parametric_constructor(py_class, ctor, arity);
+                for (const auto &ctor : ctors) {
+                    int arity = detect_constructor_arity(ctor);
+                    if (arity == 0) {
+                        py_class.def(py::init([ctor]() {
+                            std::vector<core::Any> args;
+                            core::Any              result = ctor(args);
+                            return result.as<T>();
+                        }));
+                    } else if (arity > 0) {
+                        bind_parametric_constructor(py_class, ctor, arity);
+                    }
                 }
             }
+        }
+
+        /**
+         * @brief Bind a constructor with known parameter types
+         */
+        template <typename CtorInfo>
+        static void bind_typed_constructor(py::class_<T> &py_class, const CtorInfo &ctor_info) {
+            py_class.def(py::init([ctor = ctor_info.invoker, param_types = ctor_info.param_types,
+                                   arity = ctor_info.arity](py::args args) {
+                if (args.size() != arity) {
+                    throw std::runtime_error("Constructor expects " + std::to_string(arity) +
+                                             " arguments, got " + std::to_string(args.size()));
+                }
+
+                // Convert Python args to C++ Any using the actual parameter types
+                std::vector<core::Any> cpp_args;
+                for (size_t i = 0; i < args.size(); ++i) {
+                    py::object arg = args[i];
+                    // Use the actual expected type from constructor signature
+                    cpp_args.push_back(python_to_any(arg, param_types[i]));
+                }
+
+                core::Any result = ctor(cpp_args);
+                return result.as<T>();
+            }));
         }
 
         /**
@@ -347,85 +495,58 @@ namespace rosetta::bindings {
     // Python Binding Generator
     // ============================================================================
 
-    /**
-     * @brief Main generator class for Python bindings
-     */
-    class PyBindingGenerator {
-    public:
-        explicit PyBindingGenerator(py::module_ &m) : module_(m) {}
+    inline PyBindingGenerator::PyBindingGenerator(py::module_ &m) : module_(m) {
+    }
 
-        /**
-         * @brief Bind a class that's registered with Rosetta
-         * @tparam T The C++ class type
-         * @param py_name Optional Python name (uses C++ name if empty)
-         */
-        template <typename T> PyBindingGenerator &bind_class(const std::string &py_name = "") {
-            PyClassBinder<T>::bind(module_, py_name);
-            return *this;
-        }
+    template <typename T>
+    inline PyBindingGenerator &PyBindingGenerator::bind_class(const std::string &py_name) {
+        PyClassBinder<T>::bind(module_, py_name);
+        return *this;
+    }
 
-        /**
-         * @brief Add utility functions to the module
-         */
-        PyBindingGenerator &add_utilities() {
-            // List all registered classes
-            module_.def(
-                "list_classes", []() { return core::Registry::instance().list_classes(); },
-                "List all registered classes");
+    inline PyBindingGenerator &PyBindingGenerator::add_utilities() {
+        // List all registered classes
+        module_.def(
+            "list_classes", []() { return core::Registry::instance().list_classes(); },
+            "List all registered classes");
 
-            // Get class information
-            module_.def(
-                "get_class_info",
-                [](const std::string &name) -> py::dict {
-                    auto holder = core::Registry::instance().get_by_name(name);
-                    if (!holder) {
-                        throw std::runtime_error("Class not found: " + name);
-                    }
+        // Get class information
+        module_.def(
+            "get_class_info",
+            [](const std::string &name) -> py::dict {
+                auto holder = core::Registry::instance().get_by_name(name);
+                if (!holder) {
+                    throw std::runtime_error("Class not found: " + name);
+                }
 
-                    py::dict info;
-                    info["name"] = holder->get_name();
+                py::dict info;
+                info["name"] = holder->get_name();
 
-                    const auto &inh                = holder->get_inheritance();
-                    info["is_abstract"]            = inh.is_abstract;
-                    info["is_polymorphic"]         = inh.is_polymorphic;
-                    info["has_virtual_destructor"] = inh.has_virtual_destructor;
-                    info["base_count"]             = inh.total_base_count();
+                const auto &inh                = holder->get_inheritance();
+                info["is_abstract"]            = inh.is_abstract;
+                info["is_polymorphic"]         = inh.is_polymorphic;
+                info["has_virtual_destructor"] = inh.has_virtual_destructor;
+                info["base_count"]             = inh.total_base_count();
 
-                    return info;
-                },
-                py::arg("name"), "Get information about a registered class");
+                return info;
+            },
+            py::arg("name"), "Get information about a registered class");
 
-            // Version info
-            module_.def("version", []() { return rosetta::version(); }, "Get Rosetta version");
+        // Version info
+        module_.def("version", []() { return rosetta::version(); }, "Get Rosetta version");
 
-            return *this;
-        }
+        return *this;
+    }
 
-        /**
-         * @brief Add module-level documentation
-         */
-        PyBindingGenerator &set_doc(const std::string &doc) {
-            module_.doc() = doc.c_str();
-            return *this;
-        }
-
-    private:
-        py::module_ &module_;
-    };
-
-// ============================================================================
-// Helper Macros
-// ============================================================================
-
-/**
- * @brief Bind a class to Python (simplified macro)
- */
-#define ROSETTA_BIND_PY_CLASS(Generator, ClassName) Generator.bind_class<ClassName>(#ClassName)
+    inline PyBindingGenerator &PyBindingGenerator::set_doc(const std::string &doc) {
+        module_.doc() = doc.c_str();
+        return *this;
+    }
 
     /**
      * @brief Bind multiple classes at once
      */
-    template <typename... Classes> void bind_classes(PyBindingGenerator &gen) {
+    template <typename... Classes> inline void bind_classes(PyBindingGenerator &gen) {
         (gen.bind_class<Classes>(), ...);
     }
 

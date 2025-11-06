@@ -77,13 +77,13 @@ install(TARGETS rosetta_example
 # =============================================================================
 # Copy test script to build directory
 # =============================================================================
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_bindings.py)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test.py)
     configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_bindings.py
-        ${CMAKE_BINARY_DIR}/test_bindings.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+        ${CMAKE_BINARY_DIR}/test.py
         COPYONLY
     )
-    message(STATUS "Copied test_bindings.py to build directory")
+    message(STATUS "Copied test.py to build directory")
 endif()
 
 # =============================================================================

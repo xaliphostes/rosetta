@@ -84,7 +84,7 @@ public:
 ---
 
 <a id="using-idl"></a>
-## 🧾 Interface Description Language (IDL)
+## A. 🧾 Using Interface Description Language (IDL)
 
 Rosetta can use a **YAML-based Interface Description Language** to describe your classes, methods, and functions independently of source code.
 This file serves as a **neutral schema** to generate bindings in multiple target languages.
@@ -144,7 +144,7 @@ Go to the folder where the binding was generated and compile it (see the generat
 ---
 
 <a id="using-rosetta"></a>
-## 🧠 Using Rosetta Registration
+## B. 🧠 Using C++ Rosetta Registration
 
 If you prefer working directly in C++, Rosetta can automatically introspect your classes via lightweight registration calls.
 

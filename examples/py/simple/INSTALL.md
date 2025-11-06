@@ -121,25 +121,6 @@ mkdir rosetta_python_example
 cd rosetta_python_example
 ```
 
-Your directory should look like this:
-
-```
-rosetta_python_example/
-├── CMakeLists.txt                 # Build configuration
-├── setup.py                       # Python packaging
-├── pybind11_generator.h          # Generator header
-├── binding_example.cxx           # Example binding code
-├── test_bindings.py              # Python test script
-├── rosetta/                      # Rosetta library headers
-│   ├── rosetta.h
-│   └── core/
-│       ├── any.h
-│       ├── class_metadata.h
-│       ├── registry.h
-│       └── ...
-└── build/                        # Build directory (created)
-```
-
 ---
 
 ## Compilation Methods

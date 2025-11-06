@@ -470,10 +470,20 @@ namespace rosetta::core {
                 if (args.size() != sizeof...(Args))
                     throw std::runtime_error("Constructor argument count mismatch");
 
-                return Any(Class(args[0].as<Args>()...)); // unpack
+                // Use index_sequence to properly unpack arguments
+                return construct_with_indices<Args...>(args, std::index_sequence_for<Args...>{});
             });
             return *this;
         }
+
+    private:
+        // Helper to construct with proper indexing
+        template <typename... Args, std::size_t... Is>
+        static Any construct_with_indices(const std::vector<Any> &args, std::index_sequence<Is...>) {
+            return Any(Class(args[Is].as<std::remove_cv_t<std::remove_reference_t<Args>>>()...));
+        }
+
+    public:
 
         // ========================================================================
         // Field registration
@@ -919,7 +929,7 @@ namespace rosetta::core {
                 } else {
                     return Any((obj.*ptr)(extract_arg<Args>(args[Is])...));
                 }
-            } catch (const std::bad_cast &) {
+            } catch (const std::bad_cast &e) {
                 std::string error = "Type mismatch in method arguments. Expected types: ";
                 ((error += typeid(Args).name(), error += " "), ...);
                 throw std::runtime_error(error);

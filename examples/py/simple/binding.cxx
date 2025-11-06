@@ -2,8 +2,8 @@
 // Example: Using the non-intrusive Python binding generator
 // ============================================================================
 
-#include <rosetta/generators/py/py_generator.h>
 #include <cmath>
+#include <rosetta/generators/py_generator.h>
 #include <rosetta/rosetta.h>
 
 #ifndef M_PI
@@ -97,8 +97,8 @@ public:
     }
 
     // Read/write property
-    double getRadius() const { return radius_; }
-    void   setRadius(double r) {
+    const double &getRadius() const { return radius_; }
+    void          setRadius(const double &r) {
         if (r < 0) {
             throw std::invalid_argument("Radius cannot be negative");
         }
@@ -161,24 +161,16 @@ void register_rosetta_classes() {
 // Python Module Definition
 // ============================================================================
 
-PYBIND11_MODULE(rosetta_example, m) {
-    m.doc() = "Python bindings for C++ classes using Rosetta introspection";
-
-    // Register classes with Rosetta (if not already done)
+BEGIN_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta introspection") {
     register_rosetta_classes();
+    
+    BIND_PY_UTILITIES();
+    
+    BIND_PY_CLASS(Vector3D);
+    BIND_PY_CLASS(Rectangle);
+    BIND_PY_CLASS(Person);
+    BIND_PY_CLASS(Circle);
 
-    // Create the Python binding generator
-    auto generator = rosetta::bindings::create_bindings(m);
-
-    // Bind classes - that's it!
-    generator.bind_class<Vector3D>()
-        .bind_class<Rectangle>()
-        .bind_class<Person>()
-        .bind_class<Circle>()
-        .add_utilities()
-        .set_doc("Rosetta Python bindings - Non-intrusive C++ reflection");
-
-    // Optional: Add module-level constants or functions
     m.attr("PI") = M_PI;
 
     m.def(
@@ -189,3 +181,4 @@ PYBIND11_MODULE(rosetta_example, m) {
         },
         "Create a unit vector along the X axis");
 }
+END_PY_MODULE()
