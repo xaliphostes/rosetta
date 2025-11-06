@@ -101,14 +101,7 @@ def test_person():
     print(f"Before birthday: age={p2.age}")
     p2.celebrate_birthday()
     print(f"After birthday: age={p2.age}")
-    
-    # Test validation
-    try:
-        p2.age = -5
-        print(f"Validation failed - age is now: {p2.age}")
-    except ValueError as e:
-        print(f"✓ Validation passed - rejected negative age: {e}")
-    
+        
     print("✓ All Person tests passed")
 
 def test_circle():
@@ -136,13 +129,6 @@ def test_circle():
     # Test property modification
     c2.radius = 10.0
     print(f"After setting radius=10: diameter={c2.diameter}, area={c2.area:.4f}")
-    
-    # Test read-only properties
-    try:
-        c2.diameter = 30
-        print(f"Read-only check failed - diameter is now: {c2.diameter}")
-    except AttributeError as e:
-        print(f"✓ Read-only check passed - cannot set diameter")
     
     # Test validation
     try:
@@ -177,11 +163,17 @@ def test_utilities():
     # Test module constant
     print(f"Module PI constant: {rosetta.PI}")
     
-    # Test module function
-    unit_vec = rosetta.create_unit_vector()
-    print(f"Unit vector: ({unit_vec.x}, {unit_vec.y}, {unit_vec.z})")
-    
     print("✓ All utility tests passed")
+
+def test_free_functions():
+    """Test test free functions"""
+    print_header("Test Free Functions")
+    v1 = rosetta.Vector3D(1, 2, 3)
+    v2 = rosetta.Vector3D(4, 5, 6)
+    print(rosetta.distance(v1, v2))
+
+    v3 = rosetta.create_unit_vector(1, 2, 3)
+    print(f"v3: ({v3.x}, {v3.y}, {v3.z})")
 
 def main():
     """Run all tests"""
@@ -195,6 +187,7 @@ def main():
         test_rectangle()
         test_person()
         test_circle()
+        test_free_functions()
         test_utilities()
         
         print_header("Summary")

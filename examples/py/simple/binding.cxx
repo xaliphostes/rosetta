@@ -112,6 +112,23 @@ public:
 };
 
 // ============================================================================
+// Free Functions
+// ============================================================================
+
+double distance(const Vector3D &a, const Vector3D &b) {
+    double dx = a.x - b.x;
+    double dy = a.y - b.y;
+    double dz = a.z - b.z;
+    return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+Vector3D create_unit_vector(double x, double y, double z) {
+    Vector3D v(x, y, z);
+    v.normalize();
+    return v;
+}
+
+// ============================================================================
 // Registration with Rosetta (done once, typically in a registration file)
 // ============================================================================
 
@@ -165,20 +182,15 @@ BEGIN_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta 
     register_rosetta_classes();
     
     BIND_PY_UTILITIES();
-    
+
     BIND_PY_CLASS(Vector3D);
     BIND_PY_CLASS(Rectangle);
     BIND_PY_CLASS(Person);
     BIND_PY_CLASS(Circle);
 
-    m.attr("PI") = M_PI;
+    BIND_FUNCTION(distance, "Calculate distance between two vectors");
+    BIND_FUNCTION(create_unit_vector, "Create a normalized vector");
 
-    m.def(
-        "create_unit_vector",
-        []() {
-            Vector3D v(1, 0, 0);
-            return v;
-        },
-        "Create a unit vector along the X axis");
+    BIND_CONSTANT("PI", M_PI);
 }
 END_PY_MODULE()

@@ -495,16 +495,23 @@ namespace rosetta::bindings {
     // Python Binding Generator
     // ============================================================================
 
-    inline PyBindingGenerator::PyBindingGenerator(py::module_ &m) : module_(m) {
+    inline PyGenerator::PyGenerator(py::module_ &m) : module_(m) {
     }
 
-    template <typename T>
-    inline PyBindingGenerator &PyBindingGenerator::bind_class(const std::string &py_name) {
+    template <typename T> inline PyGenerator &PyGenerator::bind_class(const std::string &py_name) {
         PyClassBinder<T>::bind(module_, py_name);
         return *this;
     }
 
-    inline PyBindingGenerator &PyBindingGenerator::add_utilities() {
+    template <typename Ret, typename... Args>
+    inline PyGenerator &PyGenerator::bind_function(const std::string &name, Ret (*func)(Args...),
+                                                   const std::string &docstring) {
+        // Use pybind11's automatic function binding
+        module_.def(name.c_str(), func, docstring.c_str());
+        return *this;
+    }
+
+    inline PyGenerator &PyGenerator::add_utilities() {
         // List all registered classes
         module_.def(
             "list_classes", []() { return core::Registry::instance().list_classes(); },
@@ -538,7 +545,7 @@ namespace rosetta::bindings {
         return *this;
     }
 
-    inline PyBindingGenerator &PyBindingGenerator::set_doc(const std::string &doc) {
+    inline PyGenerator &PyGenerator::set_doc(const std::string &doc) {
         module_.doc() = doc.c_str();
         return *this;
     }
@@ -546,7 +553,7 @@ namespace rosetta::bindings {
     /**
      * @brief Bind multiple classes at once
      */
-    template <typename... Classes> inline void bind_classes(PyBindingGenerator &gen) {
+    template <typename... Classes> inline void bind_classes(PyGenerator &gen) {
         (gen.bind_class<Classes>(), ...);
     }
 
@@ -559,8 +566,8 @@ namespace rosetta::bindings {
      * @param m The pybind11 module
      * @return A binding generator ready to use
      */
-    inline PyBindingGenerator create_bindings(py::module_ &m) {
-        return PyBindingGenerator(m);
+    inline PyGenerator create_bindings(py::module_ &m) {
+        return PyGenerator(m);
     }
 
 } // namespace rosetta::bindings

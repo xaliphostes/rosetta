@@ -5,7 +5,7 @@ Go inside each leaf folder, and then type:
     mkdir build && cd build
     cmake ..
     cmake --build .
-    python3 test.py
+    python3.14 test.py
     ```
 
 - For JavaScript:
@@ -16,12 +16,4 @@ Go inside each leaf folder, and then type:
     ```sh
     npm run build # (compile)
     node test.js  #(run)
-    ```
-
-- For Lua:
-    ```sh
-    mkdir build && cd build
-    cmake ..
-    cmake --build .
-    lua test.lua
     ```
