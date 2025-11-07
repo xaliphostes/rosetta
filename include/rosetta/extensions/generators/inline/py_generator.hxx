@@ -146,6 +146,26 @@ namespace rosetta::py {
             return pyb11::none();
         }
 
+        // Handle std::vector<T> conversions to Python lists
+        if (type == std::type_index(typeid(std::vector<double>))) {
+            return pyb11::cast(value.as<std::vector<double>>());
+        }
+        if (type == std::type_index(typeid(std::vector<float>))) {
+            return pyb11::cast(value.as<std::vector<float>>());
+        }
+        if (type == std::type_index(typeid(std::vector<int>))) {
+            return pyb11::cast(value.as<std::vector<int>>());
+        }
+        if (type == std::type_index(typeid(std::vector<size_t>))) {
+            return pyb11::cast(value.as<std::vector<size_t>>());
+        }
+        if (type == std::type_index(typeid(std::vector<std::string>))) {
+            return pyb11::cast(value.as<std::vector<std::string>>());
+        }
+        if (type == std::type_index(typeid(std::vector<bool>))) {
+            return pyb11::cast(value.as<std::vector<bool>>());
+        }
+
         // Try custom type cast registry
         auto &registry = TypeCastRegistry::instance();
         if (registry.has_cast(type)) {
@@ -214,7 +234,45 @@ namespace rosetta::py {
             }
         }
 
-        // Try custom type converters for registered classes
+        // Handle std::vector<T> conversions
+        // std::vector<double>
+        if (expected_type == std::type_index(typeid(std::vector<double>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::vector<double>>());
+            }
+        }
+        // std::vector<float>
+        if (expected_type == std::type_index(typeid(std::vector<float>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::vector<float>>());
+            }
+        }
+        // std::vector<int>
+        if (expected_type == std::type_index(typeid(std::vector<int>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::vector<int>>());
+            }
+        }
+        // std::vector<size_t>
+        if (expected_type == std::type_index(typeid(std::vector<size_t>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::vector<size_t>>());
+            }
+        }
+        // std::vector<std::string>
+        if (expected_type == std::type_index(typeid(std::vector<std::string>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::vector<std::string>>());
+            }
+        }
+        // std::vector<bool>
+        if (expected_type == std::type_index(typeid(std::vector<bool>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::vector<bool>>());
+            }
+        }
+
+        // Try custom type converters for registered classes (including vector types)
         auto &registry = TypeConverterRegistry::instance();
         if (registry.has_converter(expected_type)) {
             return registry.convert(py_obj, expected_type);
@@ -336,7 +394,7 @@ namespace rosetta::py {
                 std::vector<core::Any> cpp_args;
                 for (size_t i = 0; i < args.size(); ++i) {
                     pyb11::object arg = args[i];
-                    // Use the actual expected type from constructor signature
+                    // Use python_to_any with the expected type for proper conversion
                     cpp_args.push_back(python_to_any(arg, param_types[i]));
                 }
 
@@ -376,6 +434,7 @@ namespace rosetta::py {
 
         /**
          * @brief Bind a parametric constructor with generic Python arguments
+         * Fallback when we don't have type information - tries to infer types
          */
         static void
         bind_parametric_constructor(pyb11::class_<T> &py_class,
@@ -389,22 +448,54 @@ namespace rosetta::py {
                                              " arguments, got " + std::to_string(args.size()));
                 }
 
-                // Convert Python args to Any - we'll try some common types
+                // Convert Python args to Any - try to infer the type
                 std::vector<core::Any> cpp_args;
                 for (size_t i = 0; i < args.size(); ++i) {
                     pyb11::object arg = args[i];
 
-                    // Try different types in order of likelihood
+                    // Try to infer type from Python object
+                    std::type_index inferred_type = std::type_index(typeid(void));
+                    
                     if (pyb11::isinstance<pyb11::int_>(arg)) {
-                        cpp_args.emplace_back(arg.cast<int>());
+                        inferred_type = std::type_index(typeid(int));
                     } else if (pyb11::isinstance<pyb11::float_>(arg)) {
-                        cpp_args.emplace_back(arg.cast<double>());
+                        inferred_type = std::type_index(typeid(double));
                     } else if (pyb11::isinstance<pyb11::bool_>(arg)) {
-                        cpp_args.emplace_back(arg.cast<bool>());
+                        inferred_type = std::type_index(typeid(bool));
                     } else if (pyb11::isinstance<pyb11::str>(arg)) {
-                        cpp_args.emplace_back(arg.cast<std::string>());
+                        inferred_type = std::type_index(typeid(std::string));
+                    } else if (pyb11::isinstance<pyb11::list>(arg) || pyb11::isinstance<pyb11::tuple>(arg)) {
+                        // For lists, try to infer element type from first element if possible
+                        pyb11::list py_list = arg.cast<pyb11::list>();
+                        if (py_list.size() > 0) {
+                            pyb11::object first = py_list[0];
+                            if (pyb11::isinstance<pyb11::int_>(first)) {
+                                inferred_type = std::type_index(typeid(std::vector<int>));
+                            } else if (pyb11::isinstance<pyb11::float_>(first)) {
+                                inferred_type = std::type_index(typeid(std::vector<double>));
+                            } else if (pyb11::isinstance<pyb11::str>(first)) {
+                                inferred_type = std::type_index(typeid(std::vector<std::string>));
+                            }
+                        }
+                    }
+
+                    // Use python_to_any with inferred type
+                    if (inferred_type != std::type_index(typeid(void))) {
+                        cpp_args.push_back(python_to_any(arg, inferred_type));
                     } else {
-                        throw std::runtime_error("Unsupported argument type");
+                        // Fallback: try basic conversion
+                        if (pyb11::isinstance<pyb11::int_>(arg)) {
+                            cpp_args.emplace_back(arg.cast<int>());
+                        } else if (pyb11::isinstance<pyb11::float_>(arg)) {
+                            cpp_args.emplace_back(arg.cast<double>());
+                        } else if (pyb11::isinstance<pyb11::bool_>(arg)) {
+                            cpp_args.emplace_back(arg.cast<bool>());
+                        } else if (pyb11::isinstance<pyb11::str>(arg)) {
+                            cpp_args.emplace_back(arg.cast<std::string>());
+                        } else {
+                            throw std::runtime_error("Unsupported argument type at position " + 
+                                                   std::to_string(i));
+                        }
                     }
                 }
 

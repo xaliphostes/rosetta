@@ -1,0 +1,41 @@
+#pragma once
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+namespace rosetta::py {
+
+    /**
+     * @brief Register custom vector type with explicit converters
+     * @tparam T Element type
+     * @param m Python module
+     * @param type_name Name for the Python type
+     *
+     * Use this for custom types that pybind11 doesn't handle automatically
+     */
+    template <typename T>
+    inline void registerCustomVectorType(pybind11::module_ &m, const std::string &type_name) {
+        pybind11::class_<std::vector<T>>(m, type_name.c_str())
+            .def(pybind11::init<>())
+            .def(pybind11::init<size_t>())
+            .def("__len__", [](const std::vector<T> &v) { return v.size(); })
+            .def("__getitem__",
+                 [](const std::vector<T> &v, size_t i) {
+                     if (i >= v.size())
+                         throw pybind11::index_error();
+                     return v[i];
+                 })
+            .def("__setitem__",
+                 [](std::vector<T> &v, size_t i, const T &value) {
+                     if (i >= v.size())
+                         throw pybind11::index_error();
+                     v[i] = value;
+                 })
+            .def("append", [](std::vector<T> &v, const T &value) { v.push_back(value); })
+            .def("clear", &std::vector<T>::clear)
+            .def(
+                "__iter__",
+                [](const std::vector<T> &v) { return pybind11::make_iterator(v.begin(), v.end()); },
+                pybind11::keep_alive<0, 1>());
+    }
+
+} // namespace rosetta::py

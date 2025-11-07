@@ -48,6 +48,13 @@ namespace rosetta::core {
         using Constructor = std::function<Any(std::vector<Any>)>;
         std::vector<Constructor> constructors_;
 
+        struct ConstructorInfo {
+            std::function<Any(std::vector<Any>)> invoker;
+            std::vector<std::type_index>         param_types;
+            size_t                               arity = 0;
+        };
+        std::vector<ConstructorInfo> constructor_infos_;
+
         // ----------------------------------------
 
         std::vector<std::string> field_names_;
@@ -466,6 +473,7 @@ namespace rosetta::core {
          * ```
          */
         template <typename... Args> ClassMetadata &constructor() {
+            // Store in old-style vector for backward compatibility
             constructors_.emplace_back([](const std::vector<Any> &args) -> Any {
                 if (args.size() != sizeof...(Args))
                     throw std::runtime_error("Constructor argument count mismatch");
@@ -473,6 +481,18 @@ namespace rosetta::core {
                 // Use index_sequence to properly unpack arguments
                 return construct_with_indices<Args...>(args, std::index_sequence_for<Args...>{});
             });
+
+            // Store in new ConstructorInfo with type information
+            ConstructorInfo info;
+            info.arity = sizeof...(Args);
+            info.param_types = {std::type_index(typeid(Args))...};
+            info.invoker = [](const std::vector<Any> &args) -> Any {
+                if (args.size() != sizeof...(Args))
+                    throw std::runtime_error("Constructor argument count mismatch");
+                return construct_with_indices<Args...>(args, std::index_sequence_for<Args...>{});
+            };
+            constructor_infos_.push_back(info);
+
             return *this;
         }
 
@@ -786,6 +806,11 @@ namespace rosetta::core {
         // ========================================================================
 
         const std::vector<Constructor> &constructors() const { return constructors_; }
+
+        /**
+         * @brief Get constructor information with parameter types
+         */
+        const std::vector<ConstructorInfo> &constructor_infos() const { return constructor_infos_; }
 
         /**
          * @brief Liste des noms de champs
