@@ -20,10 +20,10 @@ struct Triangle {
 // -----------------------------------------------------
 
 class Surface {
-public:
     std::vector<Point>    points;
     std::vector<Triangle> triangles;
 
+public:
     Surface() = default;
     Surface(const std::vector<double> &positions, const std::vector<int> &indices) {
         size_t num_points = positions.size() / 3;
@@ -36,6 +36,12 @@ public:
         for (size_t i = 0; i < num_triangles; ++i) {
             size_t idx = 3 * i;
             triangles.push_back(Triangle{indices[idx], indices[idx + 1], indices[idx + 2]});
+        }
+    }
+
+    void transform(std::function<Point(const Point &)> func) {
+        for (auto &p : points) {
+            p = func(p);
         }
     }
 
@@ -78,27 +84,19 @@ void register_rosetta_classes() {
         .field("b", &Triangle::b)
         .field("c", &Triangle::c);
 
+    // Here the "property" replaces the two methods "get..." and "set..."
+    // (it create a virtual field).
+
     ROSETTA_REGISTER_CLASS(Surface)
         .constructor<>()
         .constructor<const std::vector<double> &, const std::vector<int> &>()
-        .field("points", &Surface::points)
-        .field("triangles", &Surface::triangles)
-        .method("setPoints", &Surface::setPoints)
-        .method("setTriangles", &Surface::setTriangles)
-        .method("getPoints", &Surface::getPoints)
-        .method("getTriangles", &Surface::getTriangles);
+        .property("points", &Surface::getPoints, &Surface::setPoints)
+        .property("triangles", &Surface::getTriangles, &Surface::setTriangles)
+        .method("transform", &Surface::transform);
 
     ROSETTA_REGISTER_CLASS(Model)
-        .method("getSurfaces", &Model::getSurfaces)
-        .method("setSurfaces", &Model::setSurfaces)
+        .property("surfaces", &Model::getSurfaces, &Model::setSurfaces)
         .method("addSurface", &Model::addSurface);
-}
-
-// Helper function to register vector converters for custom types
-template<typename T>
-void register_vector_converter() {
-    rosetta::py::TypeConverterRegistry::instance().register_converter<std::vector<T>>();
-    rosetta::py::TypeCastRegistry::instance().register_cast<std::vector<T>>();
 }
 
 // ============================================================================
@@ -107,14 +105,12 @@ void register_vector_converter() {
 
 BEGIN_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta introspection") {
     register_rosetta_classes();
-    
-    // Register vector converters for custom types
-    // register_vector_converter<double>();
-    // register_vector_converter<int>();
-    register_vector_converter<Point>();
-    register_vector_converter<Triangle>();
-    register_vector_converter<Surface>();
-    
+
+    // *** IMPORTANT: Register function converters BEFORE binding classes ***
+    // Register the std::function<Point(const Point&)> type converter
+    // This allows Python lambdas to be converted to C++ std::function
+    rosetta::py::register_function_converter<Point, const Point &>();
+
     BIND_PY_CLASS(Point);
     BIND_PY_CLASS(Triangle);
     BIND_PY_CLASS(Surface);

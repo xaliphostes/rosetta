@@ -802,6 +802,177 @@ namespace rosetta::core {
         }
 
         // ========================================================================
+        // Auto-detect properties from get/set method pairs
+        // ========================================================================
+
+        /**
+         * @brief Automatically detect and register properties from getter/setter pairs
+         * 
+         * Scans all registered methods for patterns like:
+         * - getXyz() / setXyz(value) → property "xyz"
+         * - GetXyz() / SetXyz(value) → property "xyz"
+         * 
+         * The getter must have 0 parameters and a non-void return type.
+         * The setter must have 1 parameter and match the getter's return type.
+         * 
+         * @return Reference to this for chaining
+         * 
+         * @example
+         * ```cpp
+         * ROSETTA_REGISTER_CLASS(Model)
+         *     .method("getSurfaces", &Model::getSurfaces)
+         *     .method("setSurfaces", &Model::setSurfaces)
+         *     .auto_detect_properties();  // Creates "surfaces" property
+         * ```
+         */
+        ClassMetadata &auto_detect_properties() {
+            // Build a map of potential getters: propertyName -> method info
+            std::unordered_map<std::string, std::string> getters; // property_name -> method_name
+            std::unordered_map<std::string, std::string> setters; // property_name -> method_name
+
+            for (const auto &method_name : method_names_) {
+                std::string lower_name = to_lower(method_name);
+                
+                // Check for getter pattern: get* or Get*
+                if (method_name.size() > 3) {
+                    if ((method_name[0] == 'g' && method_name[1] == 'e' && method_name[2] == 't') ||
+                        (method_name[0] == 'G' && method_name[1] == 'e' && method_name[2] == 't')) {
+                        
+                        // Extract property name (everything after "get")
+                        std::string property_name = method_name.substr(3);
+                        if (!property_name.empty()) {
+                            // Convert first char to lowercase for property name
+                            property_name[0] = std::tolower(property_name[0]);
+                            
+                            // Verify it's a valid getter (0 args, non-void return)
+                            auto it = method_info_.find(method_name);
+                            if (it != method_info_.end() && 
+                                it->second.arity == 0 && 
+                                it->second.return_type != std::type_index(typeid(void))) {
+                                getters[property_name] = method_name;
+                            }
+                        }
+                    }
+                }
+                
+                // Check for setter pattern: set* or Set*
+                if (method_name.size() > 3) {
+                    if ((method_name[0] == 's' && method_name[1] == 'e' && method_name[2] == 't') ||
+                        (method_name[0] == 'S' && method_name[1] == 'e' && method_name[2] == 't')) {
+                        
+                        // Extract property name (everything after "set")
+                        std::string property_name = method_name.substr(3);
+                        if (!property_name.empty()) {
+                            // Convert first char to lowercase for property name
+                            property_name[0] = std::tolower(property_name[0]);
+                            
+                            // Verify it's a valid setter (1 arg)
+                            auto it = method_info_.find(method_name);
+                            if (it != method_info_.end() && it->second.arity == 1) {
+                                setters[property_name] = method_name;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Now match getters with setters
+            for (const auto &[property_name, getter_name] : getters) {
+                auto setter_it = setters.find(property_name);
+                
+                if (setter_it != setters.end()) {
+                    // We have both getter and setter!
+                    const std::string &setter_name = setter_it->second;
+                    
+                    // Verify type compatibility (getter return type == setter param type)
+                    auto &getter_info = method_info_[getter_name];
+                    auto &setter_info = method_info_[setter_name];
+                    
+                    if (getter_info.return_type == setter_info.arg_types[0]) {
+                        // Types match! Create a virtual property
+                        register_property_from_methods(property_name, getter_name, setter_name, 
+                                                     getter_info.return_type);
+                    }
+                } else {
+                    // Only getter, create read-only property
+                    auto &getter_info = method_info_[getter_name];
+                    register_readonly_property_from_method(property_name, getter_name, 
+                                                          getter_info.return_type);
+                }
+            }
+
+            return *this;
+        }
+
+    private:
+        /**
+         * @brief Helper to convert string to lowercase
+         */
+        static std::string to_lower(const std::string &str) {
+            std::string result = str;
+            for (char &c : result) {
+                c = std::tolower(c);
+            }
+            return result;
+        }
+
+        /**
+         * @brief Register a property from getter/setter method pair
+         */
+        void register_property_from_methods(const std::string &property_name,
+                                           const std::string &getter_name,
+                                           const std::string &setter_name,
+                                           std::type_index value_type) {
+            // Only register if not already a field
+            if (std::find(field_names_.begin(), field_names_.end(), property_name) != field_names_.end()) {
+                return; // Already exists as a field
+            }
+
+            field_names_.push_back(property_name);
+            field_types_.emplace(property_name, value_type);
+
+            // Create getter that calls the getter method
+            field_getters_[property_name] = [this, getter_name](Class &obj) -> Any {
+                std::vector<Any> no_args;
+                return this->invoke_method(obj, getter_name, no_args);
+            };
+
+            // Create setter that calls the setter method
+            field_setters_[property_name] = [this, setter_name](Class &obj, Any value) {
+                std::vector<Any> args = {value};
+                this->invoke_method(obj, setter_name, args);
+            };
+        }
+
+        /**
+         * @brief Register a read-only property from a getter method
+         */
+        void register_readonly_property_from_method(const std::string &property_name,
+                                                    const std::string &getter_name,
+                                                    std::type_index value_type) {
+            // Only register if not already a field
+            if (std::find(field_names_.begin(), field_names_.end(), property_name) != field_names_.end()) {
+                return; // Already exists as a field
+            }
+
+            field_names_.push_back(property_name);
+            field_types_.emplace(property_name, value_type);
+
+            // Create getter that calls the getter method
+            field_getters_[property_name] = [this, getter_name](Class &obj) -> Any {
+                std::vector<Any> no_args;
+                return this->invoke_method(obj, getter_name, no_args);
+            };
+
+            // Create setter that throws
+            field_setters_[property_name] = [property_name](Class &, Any) {
+                throw std::runtime_error("Cannot set read-only property: " + property_name);
+            };
+        }
+
+    public:
+
+        // ========================================================================
         // ACCESSEURS
         // ========================================================================
 

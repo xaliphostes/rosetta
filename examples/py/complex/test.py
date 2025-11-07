@@ -19,12 +19,13 @@ print("")
 for t in surface.triangles:
     print(f"Triangle({t.a}, {t.b}, {t.c})")
 
+surface.transform(lambda p: rosetta.Point(p.x, p.y, 100*p.z))
 
 model = rosetta.Model()
 model.addSurface(surface)
 
 print("")
-for s in model.getSurfaces():
+for s in model.surfaces:
     for p in s.points:
         print(p.x, p.y, p.z)
     for t in s.triangles:

@@ -41,6 +41,15 @@ namespace rosetta::py {
             };
         }
 
+        /**
+         * @brief Register a custom converter function
+         * @param type_index Type to register converter for
+         * @param converter Converter function
+         */
+        void register_custom_converter(std::type_index type_index, ConverterFunc converter) {
+            converters_[type_index] = std::move(converter);
+        }
+
         bool has_converter(std::type_index type) const {
             return converters_.find(type) != converters_.end();
         }
@@ -272,6 +281,14 @@ namespace rosetta::py {
             }
         }
 
+        // Handle std::function types - add this BEFORE the final return statement
+        if (pyb11::isinstance<pyb11::function>(py_obj) || pyb11::hasattr(py_obj, "__call__")) {
+            auto &registry = TypeConverterRegistry::instance();
+            if (registry.has_converter(expected_type)) {
+                return registry.convert(py_obj, expected_type);
+            }
+        }
+
         // Try custom type converters for registered classes (including vector types)
         auto &registry = TypeConverterRegistry::instance();
         if (registry.has_converter(expected_type)) {
@@ -279,6 +296,56 @@ namespace rosetta::py {
         }
 
         return core::Any(); // Empty
+    }
+
+    /**
+     * @brief Wrapper to convert Python callable to std::function
+     * This allows Python lambdas to be used where C++ expects std::function
+     */
+    template <typename Ret, typename... Args>
+    std::function<Ret(Args...)> python_callable_to_function(const pyb11::object &py_callable) {
+        // Capture the Python callable in a shared_ptr to manage its lifetime
+        auto py_func_ptr = std::make_shared<pyb11::object>(py_callable);
+
+        return [py_func_ptr](Args... args) -> Ret {
+            // Acquire GIL for calling Python from C++
+            pyb11::gil_scoped_acquire acquire;
+
+            try {
+                // Call the Python function with converted arguments
+                pyb11::object result = (*py_func_ptr)(args...);
+
+                if constexpr (std::is_void_v<Ret>) {
+                    return;
+                } else {
+                    // Convert result back to C++ type
+                    return result.cast<Ret>();
+                }
+            } catch (const pyb11::error_already_set &e) {
+                throw std::runtime_error(std::string("Python callable failed: ") + e.what());
+            }
+        };
+    }
+
+    /**
+     * @brief Helper to register std::function converters
+     * Must be called before binding classes that use std::function
+     */
+    template <typename Ret, typename... Args> void register_function_converter() {
+        using FuncType                  = std::function<Ret(Args...)>;
+        std::type_index func_type_index = std::type_index(typeid(FuncType));
+
+        // Create converter function
+        auto converter = [](const pyb11::object &obj) -> core::Any {
+            if (pyb11::isinstance<pyb11::function>(obj) || pyb11::hasattr(obj, "__call__")) {
+                FuncType cpp_func = python_callable_to_function<Ret, Args...>(obj);
+                return core::Any(cpp_func);
+            }
+            throw std::runtime_error("Object is not callable");
+        };
+
+        // Register using the public API
+        TypeConverterRegistry::instance().register_custom_converter(func_type_index, converter);
     }
 
     // ============================================================================
@@ -304,6 +371,10 @@ namespace rosetta::py {
             // Register type cast function for this class (C++ -> Python)
             TypeCastRegistry::instance().register_cast<T>();
 
+            // Automatically register std::vector<T> converters
+            TypeConverterRegistry::instance().register_converter<std::vector<T>>();
+            TypeCastRegistry::instance().register_cast<std::vector<T>>();
+
             // Create the pybind11 class
             pyb11::class_<T> py_class(m, final_name.c_str());
 
@@ -325,7 +396,8 @@ namespace rosetta::py {
         /**
          * @brief Bind all constructors
          */
-        static void bind_constructors(pyb11::class_<T> &py_class, const core::ClassMetadata<T> &meta) {
+        static void bind_constructors(pyb11::class_<T>             &py_class,
+                                      const core::ClassMetadata<T> &meta) {
             // Check if we have constructor_infos() method (new API)
             if constexpr (requires { meta.constructor_infos(); }) {
                 const auto &ctor_infos = meta.constructor_infos();
@@ -384,7 +456,7 @@ namespace rosetta::py {
         template <typename CtorInfo>
         static void bind_typed_constructor(pyb11::class_<T> &py_class, const CtorInfo &ctor_info) {
             py_class.def(pyb11::init([ctor = ctor_info.invoker, param_types = ctor_info.param_types,
-                                   arity = ctor_info.arity](pyb11::args args) {
+                                      arity = ctor_info.arity](pyb11::args args) {
                 if (args.size() != arity) {
                     throw std::runtime_error("Constructor expects " + std::to_string(arity) +
                                              " arguments, got " + std::to_string(args.size()));
@@ -455,7 +527,7 @@ namespace rosetta::py {
 
                     // Try to infer type from Python object
                     std::type_index inferred_type = std::type_index(typeid(void));
-                    
+
                     if (pyb11::isinstance<pyb11::int_>(arg)) {
                         inferred_type = std::type_index(typeid(int));
                     } else if (pyb11::isinstance<pyb11::float_>(arg)) {
@@ -464,7 +536,8 @@ namespace rosetta::py {
                         inferred_type = std::type_index(typeid(bool));
                     } else if (pyb11::isinstance<pyb11::str>(arg)) {
                         inferred_type = std::type_index(typeid(std::string));
-                    } else if (pyb11::isinstance<pyb11::list>(arg) || pyb11::isinstance<pyb11::tuple>(arg)) {
+                    } else if (pyb11::isinstance<pyb11::list>(arg) ||
+                               pyb11::isinstance<pyb11::tuple>(arg)) {
                         // For lists, try to infer element type from first element if possible
                         pyb11::list py_list = arg.cast<pyb11::list>();
                         if (py_list.size() > 0) {
@@ -493,8 +566,8 @@ namespace rosetta::py {
                         } else if (pyb11::isinstance<pyb11::str>(arg)) {
                             cpp_args.emplace_back(arg.cast<std::string>());
                         } else {
-                            throw std::runtime_error("Unsupported argument type at position " + 
-                                                   std::to_string(i));
+                            throw std::runtime_error("Unsupported argument type at position " +
+                                                     std::to_string(i));
                         }
                     }
                 }
