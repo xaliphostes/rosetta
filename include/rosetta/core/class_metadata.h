@@ -7,6 +7,7 @@
 #include "any.h"
 #include "demangler.h"
 #include "inheritance_info.h"
+#include "function_auto_registration.h"
 #include "virtual_method_registry.h"
 #include <functional>
 #include <string>
@@ -454,7 +455,7 @@ namespace rosetta::core {
         // ========================================================================
         // Constructor registration
         // ========================================================================
-        
+
         /**
          * @brief Register a constructor
          * @example
@@ -484,9 +485,9 @@ namespace rosetta::core {
 
             // Store in new ConstructorInfo with type information
             ConstructorInfo info;
-            info.arity = sizeof...(Args);
+            info.arity       = sizeof...(Args);
             info.param_types = {std::type_index(typeid(Args))...};
-            info.invoker = [](const std::vector<Any> &args) -> Any {
+            info.invoker     = [](const std::vector<Any> &args) -> Any {
                 if (args.size() != sizeof...(Args))
                     throw std::runtime_error("Constructor argument count mismatch");
                 return construct_with_indices<Args...>(args, std::index_sequence_for<Args...>{});
@@ -499,12 +500,12 @@ namespace rosetta::core {
     private:
         // Helper to construct with proper indexing
         template <typename... Args, std::size_t... Is>
-        static Any construct_with_indices(const std::vector<Any> &args, std::index_sequence<Is...>) {
+        static Any construct_with_indices(const std::vector<Any> &args,
+                                          std::index_sequence<Is...>) {
             return Any(Class(args[Is].as<std::remove_cv_t<std::remove_reference_t<Args>>>()...));
         }
 
     public:
-
         // ========================================================================
         // Field registration
         // ========================================================================
@@ -570,6 +571,8 @@ namespace rosetta::core {
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...)) {
+            py::auto_register_function_converters(ptr);
+
             method_names_.push_back(name);
 
             // Create and store method info
@@ -606,6 +609,8 @@ namespace rosetta::core {
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
+            py::auto_register_function_converters(ptr);
+
             method_names_.push_back(name);
 
             // Create and store method info
@@ -807,16 +812,16 @@ namespace rosetta::core {
 
         /**
          * @brief Automatically detect and register properties from getter/setter pairs
-         * 
+         *
          * Scans all registered methods for patterns like:
          * - getXyz() / setXyz(value) → property "xyz"
          * - GetXyz() / SetXyz(value) → property "xyz"
-         * 
+         *
          * The getter must have 0 parameters and a non-void return type.
          * The setter must have 1 parameter and match the getter's return type.
-         * 
+         *
          * @return Reference to this for chaining
-         * 
+         *
          * @example
          * ```cpp
          * ROSETTA_REGISTER_CLASS(Model)
@@ -832,40 +837,39 @@ namespace rosetta::core {
 
             for (const auto &method_name : method_names_) {
                 std::string lower_name = to_lower(method_name);
-                
+
                 // Check for getter pattern: get* or Get*
                 if (method_name.size() > 3) {
                     if ((method_name[0] == 'g' && method_name[1] == 'e' && method_name[2] == 't') ||
                         (method_name[0] == 'G' && method_name[1] == 'e' && method_name[2] == 't')) {
-                        
+
                         // Extract property name (everything after "get")
                         std::string property_name = method_name.substr(3);
                         if (!property_name.empty()) {
                             // Convert first char to lowercase for property name
                             property_name[0] = std::tolower(property_name[0]);
-                            
+
                             // Verify it's a valid getter (0 args, non-void return)
                             auto it = method_info_.find(method_name);
-                            if (it != method_info_.end() && 
-                                it->second.arity == 0 && 
+                            if (it != method_info_.end() && it->second.arity == 0 &&
                                 it->second.return_type != std::type_index(typeid(void))) {
                                 getters[property_name] = method_name;
                             }
                         }
                     }
                 }
-                
+
                 // Check for setter pattern: set* or Set*
                 if (method_name.size() > 3) {
                     if ((method_name[0] == 's' && method_name[1] == 'e' && method_name[2] == 't') ||
                         (method_name[0] == 'S' && method_name[1] == 'e' && method_name[2] == 't')) {
-                        
+
                         // Extract property name (everything after "set")
                         std::string property_name = method_name.substr(3);
                         if (!property_name.empty()) {
                             // Convert first char to lowercase for property name
                             property_name[0] = std::tolower(property_name[0]);
-                            
+
                             // Verify it's a valid setter (1 arg)
                             auto it = method_info_.find(method_name);
                             if (it != method_info_.end() && it->second.arity == 1) {
@@ -879,25 +883,25 @@ namespace rosetta::core {
             // Now match getters with setters
             for (const auto &[property_name, getter_name] : getters) {
                 auto setter_it = setters.find(property_name);
-                
+
                 if (setter_it != setters.end()) {
                     // We have both getter and setter!
                     const std::string &setter_name = setter_it->second;
-                    
+
                     // Verify type compatibility (getter return type == setter param type)
                     auto &getter_info = method_info_[getter_name];
                     auto &setter_info = method_info_[setter_name];
-                    
+
                     if (getter_info.return_type == setter_info.arg_types[0]) {
                         // Types match! Create a virtual property
-                        register_property_from_methods(property_name, getter_name, setter_name, 
-                                                     getter_info.return_type);
+                        register_property_from_methods(property_name, getter_name, setter_name,
+                                                       getter_info.return_type);
                     }
                 } else {
                     // Only getter, create read-only property
                     auto &getter_info = method_info_[getter_name];
-                    register_readonly_property_from_method(property_name, getter_name, 
-                                                          getter_info.return_type);
+                    register_readonly_property_from_method(property_name, getter_name,
+                                                           getter_info.return_type);
                 }
             }
 
@@ -920,11 +924,12 @@ namespace rosetta::core {
          * @brief Register a property from getter/setter method pair
          */
         void register_property_from_methods(const std::string &property_name,
-                                           const std::string &getter_name,
-                                           const std::string &setter_name,
-                                           std::type_index value_type) {
+                                            const std::string &getter_name,
+                                            const std::string &setter_name,
+                                            std::type_index    value_type) {
             // Only register if not already a field
-            if (std::find(field_names_.begin(), field_names_.end(), property_name) != field_names_.end()) {
+            if (std::find(field_names_.begin(), field_names_.end(), property_name) !=
+                field_names_.end()) {
                 return; // Already exists as a field
             }
 
@@ -949,9 +954,10 @@ namespace rosetta::core {
          */
         void register_readonly_property_from_method(const std::string &property_name,
                                                     const std::string &getter_name,
-                                                    std::type_index value_type) {
+                                                    std::type_index    value_type) {
             // Only register if not already a field
-            if (std::find(field_names_.begin(), field_names_.end(), property_name) != field_names_.end()) {
+            if (std::find(field_names_.begin(), field_names_.end(), property_name) !=
+                field_names_.end()) {
                 return; // Already exists as a field
             }
 
@@ -971,7 +977,6 @@ namespace rosetta::core {
         }
 
     public:
-
         // ========================================================================
         // ACCESSEURS
         // ========================================================================

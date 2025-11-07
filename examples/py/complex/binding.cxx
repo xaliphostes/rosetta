@@ -45,8 +45,6 @@ public:
         }
     }
 
-    // --- converters (get/set) exposed to Rosetta ---
-
     const std::vector<Point>    &getPoints() const { return points; }
     void                         setPoints(const std::vector<Point> &pts) { points = pts; }
     const std::vector<Triangle> &getTriangles() const { return triangles; }
