@@ -48,15 +48,16 @@ Rosetta supports two complementary workflows:
 2. **Simple to use**
 3. **One API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM, C#
 4. **Multiple constructors**
-5. **Virtual fields** - From `setDummy`/`getDummy`, create the virtual field `Dummy`
-6. **Free functions support**
-7. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
-8. **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
-9. **Inheritance & polymorphism** — Virtual methods, multiple inheritance
-10. **Const correctness** — Differentiates const/non-const methods
-11. **Validation system** — Runtime constraints and checks
-12. **Serialization**
-13. **Documentation generation** — Markdown / HTML export
+5. **Functors support**
+6. **Virtual fields** - From `setDummy`/`getDummy`, create the virtual field `Dummy`
+7. **Free functions support**
+8. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
+9. **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
+10. **Inheritance & polymorphism** — Virtual methods, multiple inheritance
+11. **Const correctness** — Differentiates const/non-const methods
+12. **Validation system** — Runtime constraints and checks
+13. **Serialization**
+14. **Documentation generation** — Markdown / HTML export
 
 ## [Short overview](SHORT_README.md)
 ## [Long overview](LONG_README.md)
