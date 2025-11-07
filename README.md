@@ -33,12 +33,12 @@
 ## 🧩 Overview
 
 **Rosetta** is a **non-intrusive C++ introspection library** that automatically generates bindings for Python, JavaScript, Lua, and more — without modifying your C++ code.
-Write your classes once, and export them everywhere.
+Write your classes once, and export them everywhere. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11...)
 
 Rosetta supports two complementary workflows:
 
 1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
-2. **Interface Description Language (IDL)** via YAML or JSON files. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11...)
+2. **Interface Description Language (IDL)** via YAML or JSON files. 
 
 ---
 
