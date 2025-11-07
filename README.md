@@ -1,11 +1,11 @@
 
 # Rosetta — A C++ Automatic Language Binding
 
+# **One registration, infinite possibilities** 🚀
+
 <p align="center">
   <img src="media/logo.png" alt="Logo rosetta" width="300">
 </p>
-
-# **One registration, infinite possibilities** 🚀
 
 <p align="center">
   <img src="https://img.shields.io/static/v1?label=Linux&logo=linux&logoColor=white&message=support&color=success" alt="Linux support">
