@@ -14,7 +14,7 @@ public:
 };
 ```
 
-## Introspection: register once with Rosetta (pure C++)
+## Introspection: register once with Rosetta (no other external libs)
 ```cpp
 #include "rosetta/rosetta.h"
 
@@ -33,7 +33,7 @@ void register_classes() {
 1. For Python
     ```cpp
     BEGIN_PY_MODULE(rosetta_example) {
-        register_classes();
+        register_classes(); // see above
         BIND_PY_CLASS(Vector3D);
     }
     END_PY_MODULE()
@@ -42,7 +42,7 @@ void register_classes() {
 2. For JavaScript
     ```cpp
     BEGIN_JS_MODULE(rosetta_example) {
-        register_classes();
+        register_classes(); // see above
         BIND_JS_CLASS(Vector3D);
     }
     END_JS_MODULE()
@@ -53,9 +53,9 @@ void register_classes() {
 
 ## Consequences
 
-- Bind what you want (only the necessary C++ classes and functions)
-- Bind for the language you want (Python, JavaScript, Lua, C#...)
-- All bindings shared the same API
-- C++ API changes? Recompile for all bindings in one go
+- Expose only what you need (C++ classes and functions)
+- Bind to the language you want (Python, JavaScript, Lua, C#...)
+- All bindings share the same API
+- C++ API changes? Recompile all bindings in one go
 
-The (non-intrusive) **introspection** is the key of this lib!
+The (non-intrusive) **introspection** is the key to this library!
