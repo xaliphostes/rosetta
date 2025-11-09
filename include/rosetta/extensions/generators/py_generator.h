@@ -4,13 +4,18 @@
 // ============================================================================
 #pragma once
 
+#include <array>
+#include <deque>
 #include <functional>
+#include <map>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <rosetta/rosetta.h>
+#include <set>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace pyb11 = pybind11;
@@ -104,7 +109,6 @@ namespace rosetta::py {
 #define BIND_FUNCTION(func, doc) generator.bind_function(#func, func, doc)
 
 #define BIND_CONSTANT(name, value) m.attr(name) = value;
-
 
 #define BIND_PY_UTILITIES() generator.add_utilities();
 

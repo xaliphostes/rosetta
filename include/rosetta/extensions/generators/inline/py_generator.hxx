@@ -1,7 +1,3 @@
-#include <map>
-#include <set>
-#include <array>
-
 namespace py = pybind11;
 
 namespace rosetta::py {
@@ -433,6 +429,229 @@ namespace rosetta::py {
         }
 
         return core::Any(); // Empty
+    }
+
+    // ============================================================================
+    // Generic Container Type Binding Functions
+    // ============================================================================
+
+    /**
+     * @brief Register converters for std::vector<T>
+     * @tparam T Element type
+     *
+     * This allows automatic conversion between Python lists and std::vector<T>
+     *
+     * Example usage:
+     * ```cpp
+     * bind_vector_type<MyClass>();
+     * bind_vector_type<std::string>();
+     * ```
+     */
+    template <typename T> inline void bind_vector_type() {
+        // Register converter: Python list -> std::vector<T>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::vector<T>)), [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::list>(obj) || pyb11::isinstance<pyb11::tuple>(obj)) {
+                    try {
+                        return core::Any(obj.cast<std::vector<T>>());
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python list to std::vector: ") +
+                            e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python list or tuple");
+            });
+
+        // Register cast: std::vector<T> -> Python list
+        TypeCastRegistry::instance().register_cast<std::vector<T>>();
+    }
+
+    /**
+     * @brief Register converters for std::map<K,V>
+     * @tparam K Key type
+     * @tparam V Value type
+     *
+     * This allows automatic conversion between Python dicts and std::map<K,V>
+     *
+     * Example usage:
+     * ```cpp
+     * bind_map_type<std::string, int>();
+     * bind_map_type<int, MyClass>();
+     * ```
+     */
+    template <typename K, typename V> inline void bind_map_type() {
+        // Register converter: Python dict -> std::map<K,V>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::map<K, V>)), [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::dict>(obj)) {
+                    try {
+                        return core::Any(obj.cast<std::map<K, V>>());
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python dict to std::map: ") + e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python dict");
+            });
+
+        // Register cast: std::map<K,V> -> Python dict
+        TypeCastRegistry::instance().register_cast<std::map<K, V>>();
+    }
+
+    /**
+     * @brief Register converters for std::set<T>
+     * @tparam T Element type
+     *
+     * This allows automatic conversion between Python sets and std::set<T>
+     *
+     * Example usage:
+     * ```cpp
+     * bind_set_type<int>();
+     * bind_set_type<std::string>();
+     * ```
+     */
+    template <typename T> inline void bind_set_type() {
+        // Register converter: Python set -> std::set<T>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::set<T>)), [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::set>(obj) || pyb11::isinstance<pyb11::list>(obj)) {
+                    try {
+                        return core::Any(obj.cast<std::set<T>>());
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python set to std::set: ") + e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python set or list");
+            });
+
+        // Register cast: std::set<T> -> Python set
+        TypeCastRegistry::instance().register_cast<std::set<T>>();
+    }
+
+    /**
+     * @brief Register converters for std::array<T,N>
+     * @tparam T Element type
+     * @tparam N Array size
+     *
+     * This allows automatic conversion between Python lists/tuples and std::array<T,N>
+     *
+     * Example usage:
+     * ```cpp
+     * bind_array_type<double, 3>();  // For 3D vectors
+     * bind_array_type<int, 4>();     // For RGBA colors
+     * ```
+     */
+    template <typename T, size_t N> inline void bind_array_type() {
+        // Register converter: Python list/tuple -> std::array<T,N>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::array<T, N>)), [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::list>(obj) || pyb11::isinstance<pyb11::tuple>(obj)) {
+                    try {
+                        auto arr = obj.cast<std::array<T, N>>();
+                        return core::Any(arr);
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python list to std::array: ") +
+                            e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python list or tuple");
+            });
+
+        // Register cast: std::array<T,N> -> Python list
+        TypeCastRegistry::instance().register_cast<std::array<T, N>>();
+    }
+
+    /**
+     * @brief Register converters for std::unordered_map<K,V>
+     * @tparam K Key type
+     * @tparam V Value type
+     *
+     * Example usage:
+     * ```cpp
+     * bind_unordered_map_type<std::string, int>();
+     * ```
+     */
+    template <typename K, typename V> inline void bind_unordered_map_type() {
+        // Register converter: Python dict -> std::unordered_map<K,V>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::unordered_map<K, V>)),
+            [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::dict>(obj)) {
+                    try {
+                        return core::Any(obj.cast<std::unordered_map<K, V>>());
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python dict to std::unordered_map: ") +
+                            e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python dict");
+            });
+
+        // Register cast: std::unordered_map<K,V> -> Python dict
+        TypeCastRegistry::instance().register_cast<std::unordered_map<K, V>>();
+    }
+
+    /**
+     * @brief Register converters for std::unordered_set<T>
+     * @tparam T Element type
+     *
+     * Example usage:
+     * ```cpp
+     * bind_unordered_set_type<std::string>();
+     * ```
+     */
+    template <typename T> inline void bind_unordered_set_type() {
+        // Register converter: Python set -> std::unordered_set<T>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::unordered_set<T>)),
+            [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::set>(obj) || pyb11::isinstance<pyb11::list>(obj)) {
+                    try {
+                        return core::Any(obj.cast<std::unordered_set<T>>());
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python set to std::unordered_set: ") +
+                            e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python set or list");
+            });
+
+        // Register cast: std::unordered_set<T> -> Python set
+        TypeCastRegistry::instance().register_cast<std::unordered_set<T>>();
+    }
+
+    /**
+     * @brief Register converters for std::deque<T>
+     * @tparam T Element type
+     *
+     * Example usage:
+     * ```cpp
+     * bind_deque_type<int>();
+     * ```
+     */
+    template <typename T> inline void bind_deque_type() {
+        // Register converter: Python list -> std::deque<T>
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::deque<T>)), [](const pyb11::object &obj) -> core::Any {
+                if (pyb11::isinstance<pyb11::list>(obj)) {
+                    try {
+                        return core::Any(obj.cast<std::deque<T>>());
+                    } catch (const pyb11::cast_error &e) {
+                        throw std::runtime_error(
+                            std::string("Failed to convert Python list to std::deque: ") +
+                            e.what());
+                    }
+                }
+                throw std::runtime_error("Expected a Python list");
+            });
+
+        // Register cast: std::deque<T> -> Python list
+        TypeCastRegistry::instance().register_cast<std::deque<T>>();
     }
 
     /**

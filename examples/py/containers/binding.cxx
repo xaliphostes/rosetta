@@ -102,7 +102,9 @@ public:
     }
 };
 
+// ------------------------------------------------------
 // Registration with Rosetta
+// ------------------------------------------------------
 void register_container_classes() {
     ROSETTA_REGISTER_CLASS(DataContainer)
         .constructor<>()
@@ -131,11 +133,11 @@ void register_container_classes() {
         .method("dotProduct", &MathUtils::dotProduct);
 }
 
+// ------------------------------------------------------
 // Python Module Definition
-BEGIN_PY_MODULE(rosetta_example,
-                "Python bindings demonstrating std::map, std::set, std::array support") {
+// ------------------------------------------------------
+BEGIN_PY_MODULE(rosetta_example, "Python bindings demonstrating map, set, array support") {
     register_container_classes();
-
     BIND_PY_CLASS(DataContainer);
     BIND_PY_CLASS(MathUtils);
 }
