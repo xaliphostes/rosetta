@@ -7,7 +7,7 @@
 #include "any.h"
 #include "demangler.h"
 #include "inheritance_info.h"
-#include "function_auto_registration.h"
+// #include "function_auto_registration.h"
 #include "virtual_method_registry.h"
 #include <functional>
 #include <string>
@@ -571,7 +571,7 @@ namespace rosetta::core {
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...)) {
-            py::auto_register_function_converters(ptr);
+            // auto_register_function_converters(ptr);
 
             method_names_.push_back(name);
 
@@ -609,7 +609,7 @@ namespace rosetta::core {
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
-            py::auto_register_function_converters(ptr);
+            // auto_register_function_converters(ptr);
 
             method_names_.push_back(name);
 

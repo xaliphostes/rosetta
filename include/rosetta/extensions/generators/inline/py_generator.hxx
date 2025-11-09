@@ -1,3 +1,7 @@
+#include <map>
+#include <set>
+#include <array>
+
 namespace py = pybind11;
 
 namespace rosetta::py {
@@ -175,6 +179,58 @@ namespace rosetta::py {
             return pyb11::cast(value.as<std::vector<bool>>());
         }
 
+        // Handle std::map<K,V> conversions to Python dicts
+        if (type == std::type_index(typeid(std::map<std::string, int>))) {
+            return pyb11::cast(value.as<std::map<std::string, int>>());
+        }
+        if (type == std::type_index(typeid(std::map<std::string, double>))) {
+            return pyb11::cast(value.as<std::map<std::string, double>>());
+        }
+        if (type == std::type_index(typeid(std::map<std::string, std::string>))) {
+            return pyb11::cast(value.as<std::map<std::string, std::string>>());
+        }
+        if (type == std::type_index(typeid(std::map<int, int>))) {
+            return pyb11::cast(value.as<std::map<int, int>>());
+        }
+        if (type == std::type_index(typeid(std::map<int, double>))) {
+            return pyb11::cast(value.as<std::map<int, double>>());
+        }
+        if (type == std::type_index(typeid(std::map<int, std::string>))) {
+            return pyb11::cast(value.as<std::map<int, std::string>>());
+        }
+
+        // Handle std::set<T> conversions to Python sets
+        if (type == std::type_index(typeid(std::set<int>))) {
+            return pyb11::cast(value.as<std::set<int>>());
+        }
+        if (type == std::type_index(typeid(std::set<double>))) {
+            return pyb11::cast(value.as<std::set<double>>());
+        }
+        if (type == std::type_index(typeid(std::set<std::string>))) {
+            return pyb11::cast(value.as<std::set<std::string>>());
+        }
+
+        // Handle std::array<T, N> conversions to Python lists
+        // Note: We need to add the most common sizes
+        if (type == std::type_index(typeid(std::array<double, 2>))) {
+            return pyb11::cast(value.as<std::array<double, 2>>());
+        }
+        if (type == std::type_index(typeid(std::array<double, 3>))) {
+            return pyb11::cast(value.as<std::array<double, 3>>());
+        }
+        if (type == std::type_index(typeid(std::array<double, 4>))) {
+            return pyb11::cast(value.as<std::array<double, 4>>());
+        }
+        if (type == std::type_index(typeid(std::array<int, 2>))) {
+            return pyb11::cast(value.as<std::array<int, 2>>());
+        }
+        if (type == std::type_index(typeid(std::array<int, 3>))) {
+            return pyb11::cast(value.as<std::array<int, 3>>());
+        }
+        if (type == std::type_index(typeid(std::array<int, 4>))) {
+            return pyb11::cast(value.as<std::array<int, 4>>());
+        }
+
         // Try custom type cast registry
         auto &registry = TypeCastRegistry::instance();
         if (registry.has_cast(type)) {
@@ -278,6 +334,87 @@ namespace rosetta::py {
         if (expected_type == std::type_index(typeid(std::vector<bool>))) {
             if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
                 return core::Any(py_obj.cast<std::vector<bool>>());
+            }
+        }
+
+        // Handle std::map<K,V> conversions from Python dicts
+        if (expected_type == std::type_index(typeid(std::map<std::string, int>))) {
+            if (pyb11::isinstance<pyb11::dict>(py_obj)) {
+                return core::Any(py_obj.cast<std::map<std::string, int>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::map<std::string, double>))) {
+            if (pyb11::isinstance<pyb11::dict>(py_obj)) {
+                return core::Any(py_obj.cast<std::map<std::string, double>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::map<std::string, std::string>))) {
+            if (pyb11::isinstance<pyb11::dict>(py_obj)) {
+                return core::Any(py_obj.cast<std::map<std::string, std::string>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::map<int, int>))) {
+            if (pyb11::isinstance<pyb11::dict>(py_obj)) {
+                return core::Any(py_obj.cast<std::map<int, int>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::map<int, double>))) {
+            if (pyb11::isinstance<pyb11::dict>(py_obj)) {
+                return core::Any(py_obj.cast<std::map<int, double>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::map<int, std::string>))) {
+            if (pyb11::isinstance<pyb11::dict>(py_obj)) {
+                return core::Any(py_obj.cast<std::map<int, std::string>>());
+            }
+        }
+
+        // Handle std::set<T> conversions from Python sets or lists
+        if (expected_type == std::type_index(typeid(std::set<int>))) {
+            if (pyb11::isinstance<pyb11::set>(py_obj) || pyb11::isinstance<pyb11::list>(py_obj)) {
+                return core::Any(py_obj.cast<std::set<int>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::set<double>))) {
+            if (pyb11::isinstance<pyb11::set>(py_obj) || pyb11::isinstance<pyb11::list>(py_obj)) {
+                return core::Any(py_obj.cast<std::set<double>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::set<std::string>))) {
+            if (pyb11::isinstance<pyb11::set>(py_obj) || pyb11::isinstance<pyb11::list>(py_obj)) {
+                return core::Any(py_obj.cast<std::set<std::string>>());
+            }
+        }
+
+        // Handle std::array<T, N> conversions from Python lists/tuples
+        if (expected_type == std::type_index(typeid(std::array<double, 2>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::array<double, 2>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::array<double, 3>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::array<double, 3>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::array<double, 4>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::array<double, 4>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::array<int, 2>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::array<int, 2>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::array<int, 3>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::array<int, 3>>());
+            }
+        }
+        if (expected_type == std::type_index(typeid(std::array<int, 4>))) {
+            if (pyb11::isinstance<pyb11::list>(py_obj) || pyb11::isinstance<pyb11::tuple>(py_obj)) {
+                return core::Any(py_obj.cast<std::array<int, 4>>());
             }
         }
 

@@ -2,6 +2,7 @@
 
 // ============================================================================
 // Automatic Function Converter Registration
+// Not used yet, soon in class_metadata.h (ClassMetadata &method(...))
 // ============================================================================
 
 namespace rosetta::core {
