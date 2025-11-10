@@ -120,79 +120,24 @@ BEGIN_PY_MODULE(rosetta_example, "Demonstration of dynamic container type bindin
     // *** CRITICAL: Register container types BEFORE binding classes ***
     // This allows the automatic conversion system to work properly
 
-    // Register std::vector types
     rosetta::py::bind_vector_type<Vec3>();
     rosetta::py::bind_vector_type<Color>();
-    rosetta::py::bind_vector_type<int>();
-    rosetta::py::bind_vector_type<double>();
-    rosetta::py::bind_vector_type<std::string>();
 
-    // Register std::map types
     rosetta::py::bind_map_type<std::string, Color>();
-    rosetta::py::bind_map_type<std::string, int>();
-    rosetta::py::bind_map_type<std::string, double>();
-    rosetta::py::bind_map_type<int, std::string>();
 
-    // Register std::set types
-    rosetta::py::bind_set_type<int>();
-    rosetta::py::bind_set_type<double>();
-    rosetta::py::bind_set_type<std::string>();
-
-    // Register std::array types (with specific sizes)
-    rosetta::py::bind_array_type<double, 2>();
-    rosetta::py::bind_array_type<double, 3>();
-    rosetta::py::bind_array_type<double, 4>();
     rosetta::py::bind_array_type<double, 16>(); // 4x4 transformation matrix
-    rosetta::py::bind_array_type<int, 3>();
-    rosetta::py::bind_array_type<int, 4>();
 
-    // Register std::unordered_map types
     rosetta::py::bind_unordered_map_type<int, std::string>();
     rosetta::py::bind_unordered_map_type<std::string, int>();
 
-    // Register std::unordered_set types
     rosetta::py::bind_unordered_set_type<std::string>();
     rosetta::py::bind_unordered_set_type<int>();
 
-    // Register std::deque types
     rosetta::py::bind_deque_type<Vec3>();
-    rosetta::py::bind_deque_type<int>();
-    rosetta::py::bind_deque_type<double>();
 
     // Now bind the classes
     BIND_PY_CLASS(Vec3);
     BIND_PY_CLASS(Color);
     BIND_PY_CLASS(Scene);
-
-    // // Add a utility function to show registered containers
-    // m.def("list_registered_containers", []() -> std::vector<std::string> {
-    //     return {
-    //         "vector<Vec3>",
-    //         "vector<Color>",
-    //         "vector<int>",
-    //         "vector<double>",
-    //         "vector<string>",
-    //         "map<string,Color>",
-    //         "map<string,int>",
-    //         "map<string,double>",
-    //         "map<int,string>",
-    //         "set<int>",
-    //         "set<double>",
-    //         "set<string>",
-    //         "array<double,2>",
-    //         "array<double,3>",
-    //         "array<double,4>",
-    //         "array<double,16>",
-    //         "array<int,3>",
-    //         "array<int,4>",
-    //         "unordered_map<int,string>",
-    //         "unordered_map<string,int>",
-    //         "unordered_set<string>",
-    //         "unordered_set<int>",
-    //         "deque<Vec3>",
-    //         "deque<int>",
-    //         "deque<double>"
-    //     };
-    // }, "List all registered container types");
 }
 END_PY_MODULE()
