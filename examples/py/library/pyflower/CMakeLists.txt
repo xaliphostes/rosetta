@@ -58,7 +58,7 @@ endif()
 # Find and link against pyflower.a
 # You can specify the path to pyflower.a using -DPYFLOWER_LIB_PATH=/path/to/pyflower.a
 if(NOT DEFINED FLOWER_LIB_PATH)
-    set(FLOWER_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../flower/build/libflower.a" CACHE FILEPATH "../flower/build/libflower.a")
+    set(FLOWER_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../libflower.a" CACHE FILEPATH "../lib/libflower.a")
 endif()
 
 if(EXISTS ${FLOWER_LIB_PATH})

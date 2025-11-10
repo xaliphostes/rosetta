@@ -1,14 +1,14 @@
 # General example
 
-Shows how to bind a third party library using Rosetta for Python.
+Shows how to bind a third party library using `Rosetta` for Python.
 
 ## Folder flower
 
-The third party library that we cannot modify.
+The third party library that we cannot modify. A static library is generated. 
 
 ## Folder pyflower
 
-The Rosetta introspection + python binding.
+The Rosetta introspection + python binding. Only the headers of the library `flower` are used
 
 ## Compilation
 
@@ -18,7 +18,7 @@ The Rosetta introspection + python binding.
 
 ## Testing
 
-In the folder **pyflowre/build**, run
+In the folder **pyflower/build**, since the script `test.py` is copied, run
 ```sh
 python test.py
 ```
