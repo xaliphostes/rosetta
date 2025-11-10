@@ -59,6 +59,10 @@ Rosetta supports two complementary workflows:
 13. **Serialization**
 14. **Documentation generation** — Markdown / HTML export
 
+## Testing the lib
+
+Go to the folder `examples/py/containers` (for example) and read [this file](./examples/README.md) before.
+
 ## [Short overview](SHORT_README.md)
 ## [Long overview](LONG_README.md)
 
