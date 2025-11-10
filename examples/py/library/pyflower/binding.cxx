@@ -8,7 +8,6 @@
 #include "../flower/include/flower.h"
 
 void register_rosetta_classes() {
-    // Register Vector3D
     ROSETTA_REGISTER_CLASS(Flower)
         .method("computeCircleArea", &Flower::computeCircleArea)
         .method("computeSphereVolume", &Flower::computeSphereVolume)
