@@ -99,20 +99,3 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test.py)
     )
     message(STATUS "Copied test.py to build directory")
 endif()
-
-# =============================================================================
-# Print configuration summary
-# =============================================================================
-message(STATUS "")
-message(STATUS "=== Configuration Summary ===")
-message(STATUS "Python executable: ${Python_EXECUTABLE}")
-message(STATUS "Python version: ${PYTHON_VERSION_STRING}")
-message(STATUS "Python include dirs: ${Python_INCLUDE_DIRS}")
-message(STATUS "Python libraries: ${Python_LIBRARIES}")
-if(pybind11_VERSION)
-    message(STATUS "pybind11 version: ${pybind11_VERSION}")
-endif()
-message(STATUS "C++ standard: C++${CMAKE_CXX_STANDARD}")
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "=============================")
-message(STATUS "")
