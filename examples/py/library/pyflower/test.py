@@ -2,8 +2,8 @@
 
 import pyflower as pyf
 
-lib = pyf.Flower()
+flower = pyf.Flower()
 
-print(lib.computeCircleArea(10))
-print(lib.computeSphereVolume(10))
-print(lib.computeFibonacci(10))
+print(flower.computeCircleArea(10))
+print(flower.computeSphereVolume(10))
+print(flower.computeFibonacci(10))
