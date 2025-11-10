@@ -85,7 +85,6 @@ void register_dynamic_binding_classes() {
 
     ROSETTA_REGISTER_CLASS(Color)
         .constructor<>()
-        // .constructor<int, int, int>()
         .constructor<int, int, int, int>()
         .field("r", &Color::r)
         .field("g", &Color::g)
