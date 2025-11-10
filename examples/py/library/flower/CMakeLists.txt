@@ -19,12 +19,12 @@ target_include_directories(flower
 )
 
 # Optional: Create an executable for testing
-option(BUILD_EXAMPLE "Build example executable" ON)
+option(BUILD_EXAMPLE "Build example executable" OFF)
 
-# if(BUILD_EXAMPLE)
-#     add_executable(flower_example example/main.cpp)
-#     target_link_libraries(flower_example PRIVATE flower)
-# endif()
+if(BUILD_EXAMPLE)
+    add_executable(flower_example example/main.cpp)
+    target_link_libraries(flower_example PRIVATE flower)
+endif()
 
 # Installation rules
 install(TARGETS flower
