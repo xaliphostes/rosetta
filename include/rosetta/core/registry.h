@@ -59,10 +59,7 @@ namespace rosetta::core {
          * @brief Obtient l'instance unique du registry
          * @return Référence au registry
          */
-        static Registry &instance() {
-            static Registry reg;
-            return reg;
-        }
+        static Registry &instance();
 
         /**
          * @brief Enregistre une classe
@@ -70,13 +67,7 @@ namespace rosetta::core {
          * @param name Nom de la classe
          * @return Référence aux métadonnées de la classe
          */
-        template <typename Class> ClassMetadata<Class> &register_class(const std::string &name) {
-            auto  holder                  = std::make_unique<MetadataHolderImpl<Class>>(name);
-            auto *ptr                     = &holder->metadata;
-            classes_[name]                = std::move(holder);
-            type_to_name_[&typeid(Class)] = name;
-            return *ptr;
-        }
+        template <typename Class> ClassMetadata<Class> &register_class(const std::string &name);
 
         /**
          * @brief Obtient les métadonnées d'une classe par son type
@@ -84,14 +75,7 @@ namespace rosetta::core {
          * @return Référence aux métadonnées
          * @throws std::runtime_error si la classe n'est pas enregistrée
          */
-        template <typename Class> ClassMetadata<Class> &get() {
-            for (auto &[name, holder] : classes_) {
-                if (auto *typed = dynamic_cast<MetadataHolderImpl<Class> *>(holder.get())) {
-                    return typed->metadata;
-                }
-            }
-            throw std::runtime_error("Class not registered: " + std::string(typeid(Class).name()));
-        }
+        template <typename Class> ClassMetadata<Class> &get();
 
         /**
          * @brief Obtient les métadonnées d'une classe par son type (version const)
@@ -99,79 +83,54 @@ namespace rosetta::core {
          * @return Référence const aux métadonnées
          * @throws std::runtime_error si la classe n'est pas enregistrée
          */
-        template <typename Class> const ClassMetadata<Class> &get() const {
-            for (const auto &[name, holder] : classes_) {
-                if (auto *typed = dynamic_cast<const MetadataHolderImpl<Class> *>(holder.get())) {
-                    return typed->metadata;
-                }
-            }
-            throw std::runtime_error("Class not registered: " + std::string(typeid(Class).name()));
-        }
+        template <typename Class> const ClassMetadata<Class> &get() const;
 
         /**
          * @brief Obtient les métadonnées d'une classe par son nom
          * @param name Nom de la classe
          * @return Pointeur vers le holder, ou nullptr si non trouvé
          */
-        const MetadataHolder *get_by_name(const std::string &name) const {
-            auto it = classes_.find(name);
-            return it != classes_.end() ? it->second.get() : nullptr;
-        }
+        const MetadataHolder *get_by_name(const std::string &name) const;
 
         /**
          * @brief Obtient le nom d'une classe depuis son type_info
          * @param type Type de la classe
          * @return Nom de la classe, ou chaîne vide si non enregistrée
          */
-        std::string get_class_name(const std::type_info &type) const {
-            auto it = type_to_name_.find(&type);
-            return it != type_to_name_.end() ? it->second : "";
-        }
+        std::string get_class_name(const std::type_info &type) const;
 
         /**
          * @brief Liste toutes les classes enregistrées
          * @return Vecteur des noms de classes
          */
-        std::vector<std::string> list_classes() const {
-            std::vector<std::string> names;
-            names.reserve(classes_.size());
-            for (const auto &[name, _] : classes_) {
-                names.push_back(name);
-            }
-            return names;
-        }
+        std::vector<std::string> list_classes() const;
 
         /**
          * @brief Vérifie si une classe est enregistrée (par nom)
          * @param name Nom de la classe
          * @return true si enregistrée
          */
-        bool has_class(const std::string &name) const {
-            return classes_.find(name) != classes_.end();
-        }
+        bool has_class(const std::string &name) const;
 
         /**
          * @brief Vérifie si une classe est enregistrée (par type)
          * @tparam Class Type de la classe
          * @return true si enregistrée
          */
-        template <typename Class> bool has_class() const {
-            return type_to_name_.find(&typeid(Class)) != type_to_name_.end();
-        }
+        template <typename Class> bool has_class() const;
 
         /**
          * @brief Nombre total de classes enregistrées
          * @return Nombre de classes
          */
-        size_t size() const { return classes_.size(); }
+        size_t size() const;
 
         /**
          * @brief Supprime toutes les classes enregistrées
          */
-        void clear() {
-            classes_.clear();
-            type_to_name_.clear();
-        }
+        void clear();
     };
 
 } // namespace rosetta::core
+
+#include "inline/registry.hxx"

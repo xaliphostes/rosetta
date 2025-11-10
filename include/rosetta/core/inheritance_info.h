@@ -24,9 +24,8 @@ namespace rosetta::core {
         size_t                offset;
         bool                  is_primary_base = false;
 
-        BaseClassInfo(std::string n, const std::type_info *t, InheritanceType itype,
-                      AccessSpecifier acc, size_t off)
-            : name(std::move(n)), type(t), inheritance_type(itype), access(acc), offset(off) {}
+        BaseClassInfo(std::string, const std::type_info *, InheritanceType, AccessSpecifier,
+                      size_t);
     };
 
     /**
@@ -47,59 +46,29 @@ namespace rosetta::core {
          */
         void add_base(const std::string &name, const std::type_info *type,
                       InheritanceType itype  = InheritanceType::Normal,
-                      AccessSpecifier access = AccessSpecifier::Public, size_t offset = 0) {
-            BaseClassInfo info(name, type, itype, access, offset);
-
-            if (itype == InheritanceType::Virtual) {
-                virtual_bases.push_back(info);
-            } else {
-                base_classes.push_back(info);
-            }
-        }
+                      AccessSpecifier access = AccessSpecifier::Public, size_t offset = 0);
 
         /**
          * @brief Vérifie si une classe hérite d'un type donné
          * @param type Type à vérifier
          * @return true si c'est une classe de base
          */
-        bool has_base(const std::type_info &type) const {
-            for (const auto &base : base_classes) {
-                if (base.type && *base.type == type) {
-                    return true;
-                }
-            }
-            for (const auto &base : virtual_bases) {
-                if (base.type && *base.type == type) {
-                    return true;
-                }
-            }
-            return false;
-        }
+        bool has_base(const std::type_info &type) const;
 
         /**
          * @brief Obtient l'info d'une classe de base
          * @param type Type recherché
          * @return Pointeur vers l'info, ou nullptr si non trouvée
          */
-        const BaseClassInfo *get_base(const std::type_info &type) const {
-            for (const auto &base : base_classes) {
-                if (base.type && *base.type == type) {
-                    return &base;
-                }
-            }
-            for (const auto &base : virtual_bases) {
-                if (base.type && *base.type == type) {
-                    return &base;
-                }
-            }
-            return nullptr;
-        }
+        const BaseClassInfo *get_base(const std::type_info &type) const;
 
         /**
          * @brief Compte le nombre total de bases (normales + virtuelles)
          * @return Nombre de classes de base
          */
-        size_t total_base_count() const { return base_classes.size() + virtual_bases.size(); }
+        size_t total_base_count() const;
     };
 
 } // namespace rosetta::core
+
+#include "inline/inheritance_info.hxx"

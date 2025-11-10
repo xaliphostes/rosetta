@@ -23,8 +23,7 @@ namespace rosetta::core {
 
         VirtualMethodInfo() = default;
 
-        VirtualMethodInfo(std::string n, std::string sig, bool pure = false)
-            : name(std::move(n)), signature(std::move(sig)), is_pure_virtual(pure) {}
+        VirtualMethodInfo(std::string n, std::string sig, bool pure = false);
     };
 
     /**
@@ -38,49 +37,27 @@ namespace rosetta::core {
          * @brief Ajoute une méthode virtuelle
          */
         void add_virtual_method(const std::string &name, const std::string &signature,
-                                bool is_pure = false) {
-            methods.emplace_back(name, signature, is_pure);
-            methods.back().vtable_index = methods.size() - 1;
-        }
+                                bool is_pure = false);
 
         /**
          * @brief Trouve une méthode virtuelle par son nom
          * @param name Nom de la méthode
          * @return Pointeur vers l'info, ou nullptr si non trouvée
          */
-        const VirtualMethodInfo *find_method(const std::string &name) const {
-            for (const auto &method : methods) {
-                if (method.name == name) {
-                    return &method;
-                }
-            }
-            return nullptr;
-        }
+        const VirtualMethodInfo *find_method(const std::string &name) const;
 
         /**
          * @brief Trouve une méthode virtuelle par son nom (version non-const)
          */
-        VirtualMethodInfo *find_method(const std::string &name) {
-            for (auto &method : methods) {
-                if (method.name == name) {
-                    return &method;
-                }
-            }
-            return nullptr;
-        }
+        VirtualMethodInfo *find_method(const std::string &name);
 
         /**
          * @brief Vérifie si la vtable contient des méthodes pures virtuelles
          * @return true s'il y a au moins une méthode pure virtuelle
          */
-        bool has_pure_virtual_methods() const {
-            for (const auto &method : methods) {
-                if (method.is_pure_virtual) {
-                    return true;
-                }
-            }
-            return false;
-        }
+        bool has_pure_virtual_methods() const;
     };
 
 } // namespace rosetta::core
+
+#include "inline/virtual_method_info.hxx"
