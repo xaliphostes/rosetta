@@ -32,6 +32,7 @@ With support to:
 ## 🧩 Overview
 
 **Rosetta** is a **non-intrusive C++ header-only introspection library** that is used to automatically generates consistent bindings for Python, JavaScript, Lua, Ruby, Julia and more — without modifying your C++ code.
+
 Describe your introspection once, and export them everywhere. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11, Rice...)
 
 Rosetta supports two complementary workflows:
