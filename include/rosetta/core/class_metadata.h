@@ -65,8 +65,21 @@ namespace rosetta::core {
             std::vector<std::type_index>                  arg_types;
             std::type_index return_type = std::type_index(typeid(void));
             size_t          arity       = 0;
+            bool            is_static   = false;  // Flag to identify static methods
         };
         std::unordered_map<std::string, MethodInfo> method_info_;
+
+        // ----------------------------------------
+        // Static methods storage (no object instance needed)
+        // ----------------------------------------
+        
+        struct StaticMethodInfo {
+            std::function<Any(std::vector<Any>)> invoker;
+            std::vector<std::type_index>         arg_types;
+            std::type_index return_type = std::type_index(typeid(void));
+            size_t          arity       = 0;
+        };
+        std::unordered_map<std::string, StaticMethodInfo> static_methods_;
 
         // ----------------------------------------
 
@@ -476,6 +489,29 @@ namespace rosetta::core {
          */
         Any invoke_method(const Class &obj, const std::string &name,
                           std::vector<Any> args = {}) const;
+
+        /**
+         * @brief Invoke a static method (no object instance required)
+         * @param name Name of the static method
+         * @param args Arguments to pass to the method
+         * @return Result wrapped in Any
+         * @throws std::runtime_error if method not found or is not static
+         *
+         * Example:
+         * ```cpp
+         * auto& meta = ROSETTA_GET_META(MyClass);
+         * auto result = meta.invoke_static_method("pi");
+         * double pi = result.as<double>();
+         * ```
+         */
+        Any invoke_static_method(const std::string &name, std::vector<Any> args = {}) const;
+
+        /**
+         * @brief Check if a method is static
+         * @param name Name of the method
+         * @return true if the method is static, false otherwise
+         */
+        bool is_static_method(const std::string &name) const;
 
         /**
          * @brief Check if the class is instantiable

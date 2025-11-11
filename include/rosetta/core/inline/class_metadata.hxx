@@ -96,8 +96,12 @@ namespace rosetta::core {
                 }
                 os << ")";
 
-                // Display arity
-                os << " [" << info.arity << " arg" << (info.arity == 1 ? "" : "s") << "]\n";
+                // Display arity and static indicator
+                os << " [" << info.arity << " arg" << (info.arity == 1 ? "" : "s") << "]";
+                if (info.is_static) {
+                    os << " [static]";
+                }
+                os << "\n";
             } else {
                 // Fallback for methods without stored info
                 os << "  - " << name << " (no type info available)\n";
@@ -479,14 +483,37 @@ namespace rosetta::core {
                                                                      Ret (*ptr)(Args...)) {
         method_names_.push_back(name);
 
-        // Create and store method info
+        // Create and store static method info (no object instance needed)
+        StaticMethodInfo static_info;
+        static_info.arity       = sizeof...(Args);
+        static_info.return_type = std::type_index(typeid(Ret));
+        static_info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+
+        static_info.invoker = [ptr](std::vector<Any> args) -> Any {
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((*ptr)());
+                }
+            } else {
+                // Invoke static function with arguments
+                return invoke_static_with_args(ptr, args, std::index_sequence_for<Args...>{});
+            }
+        };
+
+        static_methods_[name] = static_info;
+
+        // Also create regular MethodInfo for backward compatibility
         MethodInfo info;
         info.arity       = sizeof...(Args);
         info.return_type = std::type_index(typeid(Ret));
-        info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.arg_types   = {std::type_index(typeid(Args))...};
+        info.is_static   = true; // Mark as static
 
         // Static methods don't need an object instance, but we still store them
-        // with a dummy invoker that ignores the object parameter
+        // with a dummy invoker that ignores the object parameter (for backward compatibility)
         info.invoker = [ptr](Class &, std::vector<Any> args) -> Any {
             if constexpr (sizeof...(Args) == 0) {
                 if constexpr (std::is_void_v<Ret>) {
@@ -859,6 +886,21 @@ namespace rosetta::core {
     inline Any ClassMetadata<Class>::invoke_method(const Class &obj, const std::string &name,
                                                    std::vector<Any> args) const {
         return const_methods_.at(name)(obj, std::move(args));
+    }
+
+    template <typename Class>
+    inline Any ClassMetadata<Class>::invoke_static_method(const std::string &name,
+                                                          std::vector<Any>   args) const {
+        auto it = static_methods_.find(name);
+        if (it == static_methods_.end()) {
+            throw std::runtime_error("Static method '" + name + "' not found or is not static");
+        }
+        return it->second.invoker(std::move(args));
+    }
+
+    template <typename Class>
+    inline bool ClassMetadata<Class>::is_static_method(const std::string &name) const {
+        return static_methods_.find(name) != static_methods_.end();
     }
 
     template <typename Class> inline bool ClassMetadata<Class>::is_instantiable() const {
