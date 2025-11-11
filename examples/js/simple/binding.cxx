@@ -16,9 +16,7 @@ public:
     Vector3D() : x(0), y(0), z(0) {}
     Vector3D(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {}
 
-    double length() const {
-        return std::sqrt(x * x + y * y + z * z);
-    }
+    double length() const { return std::sqrt(x * x + y * y + z * z); }
 
     void normalize() {
         double len = length();
@@ -50,7 +48,7 @@ public:
 class Person {
 private:
     std::string name_;
-    int age_;
+    int         age_;
 
 public:
     Person() : name_(""), age_(0) {}
@@ -58,7 +56,7 @@ public:
 
     // Getters return by const reference (for string) or by value (for primitives)
     const std::string &getName() const { return name_; }
-    int getAge() const { return age_; }
+    int                getAge() const { return age_; }
 
     // Setters take const reference
     void setName(const std::string &n) { name_ = n; }
@@ -107,22 +105,8 @@ void register_rosetta_classes() {
 // Node.js Module Initialization
 // ============================================================================
 
-Napi::Object InitModule(Napi::Env env, Napi::Object exports) {
-    // Register classes with Rosetta (if not already done)
+BEGIN_JS_MODULE(mymodule) {
     register_rosetta_classes();
-
-    // Create the JavaScript binding generator
-    rosetta::js::JsGenerator generator(env, exports);
-
-    // Bind classes - that's it!
-    generator
-        .bind_class<Vector3D>()
-        .bind_class<Rectangle>()
-        .bind_class<Person>()
-        .add_utilities();
-
-    return exports;
+    generator.bind_class<Vector3D>().bind_class<Rectangle>().bind_class<Person>().add_utilities();
 }
-
-// Register the Node.js module
-NODE_API_MODULE(mymodule, InitModule)
+END_JS_MODULE(mymodule)
