@@ -10,22 +10,19 @@
 <p align="center">
   <img src="https://img.shields.io/static/v1?label=Linux&logo=linux&logoColor=white&message=support&color=success" alt="Linux support">
   <img src="https://img.shields.io/static/v1?label=macOS&logo=apple&logoColor=white&message=support&color=success" alt="macOS support">
-  <img src="https://img.shields.io/static/v1?label=Windows&logo=windows&logoColor=white&message=support&color=success" alt="Windows support">
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=support&color=success" alt="Python support">
-  <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support">
-  <img src="https://img.shields.io/static/v1?label=Emscripten&logo=emscripten&logoColor=white&message=support&color=success" alt="Emscripten support">
-  <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support">
-  <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support">
-  <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support">
-  <img src="https://img.shields.io/static/v1?label=C%23&logo=unity&logoColor=white&message=soon&color=informational" alt="C# support">
-</p>
-
-<p align="center">
+  <img src="https://img.shields.io/static/v1?label=Windows&logo=windows&logoColor=white&message=support&color=success" alt="Windows support"><br>
   <img src="https://img.shields.io/badge/C%2B%2B-20+-green.svg" alt="Language">
   <img src="https://img.shields.io/badge/license-LGPL-green.svg" alt="License">
+</p>
+With support to:
+<p align="left" style="padding-left: 100px;">
+  <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=support&color=success" alt="Python support"><br>
+  <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support"><br>
+  <img src="https://img.shields.io/static/v1?label=Emscripten&logo=emscripten&logoColor=white&message=soon&color=informational" alt="Emscripten support"><br>
+  <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support"><br>
+  <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support"><br>
+  <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support"><br>
+  <img src="https://img.shields.io/static/v1?label=Julia&logo=julia&logoColor=white&message=soon&color=informational" alt="Julia support">
 </p>
 
 ---
@@ -49,17 +46,18 @@ Rosetta supports two complementary workflows:
 3. **One API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM...
 4. Supports:
    - **Multiple constructors**
+   - **Inheritance & polymorphism** — Virtual methods, multiple inheritance
+   - **Const correctness** — Differentiates const/non-const methods
    - **Functors**
    - **Virtual fields** - From `setDummy`/`getDummy` methods, create the virtual field `Dummy`
    - **Static methods**
    - **Free functions**
-   -  **Container** — `std::vector`, `std::map`, `std::set`, etc.
-   -  **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
-   -  **Inheritance & polymorphism** — Virtual methods, multiple inheritance
-   -  **Const correctness** — Differentiates const/non-const methods
+   - **Container** — `std::vector`, `std::map`, `std::set`, etc.
+   - **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
 5.  **Validation system** — Runtime constraints and checks
 6.  **Serialization**
 7.  **Documentation generation** — Markdown / HTML export
+8.  **IDL language**
 
 ## Testing the lib
 
