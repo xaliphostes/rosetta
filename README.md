@@ -64,8 +64,6 @@ Rosetta supports two complementary workflows:
 Go to the folder `examples/py/containers` (for example) and read [this file](./examples/README.md) before.
 
 ## [Short overview](SHORT_README.md)
-## [Long overview](LONG_README.md)
-
 
 ## 📜 License
 
