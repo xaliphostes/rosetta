@@ -38,7 +38,7 @@ Write your classes once, and export them everywhere. You do not need to know any
 Rosetta supports two complementary workflows:
 
 1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
-2. **Interface Description Language (IDL)** via YAML or JSON files. 
+2. **Interface Description Language (IDL)** via YAML or JSON files (**STILL IN DEV MODE!**)
 
 ---
 
@@ -76,4 +76,3 @@ LGPL 3 License — see [LICENSE](LICENSE)
 ## 💡 Credits
 
 [Xaliphostes](https://github.com/xaliphostes) (fmaerten@gmail.com)
-

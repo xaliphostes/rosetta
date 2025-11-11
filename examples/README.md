@@ -8,7 +8,7 @@ Go inside each leaf folder, and then type:
     python3.14 test.py
     ```
 
-- For JavaScript:
+- For JavaScript (node.js):
     ```sh
     npm i # first time, it will install (and compile as well)
     ```

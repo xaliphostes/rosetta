@@ -470,6 +470,58 @@ namespace rosetta::core {
     }
 
     // ========================================================================
+    // Register static methods
+    // ========================================================================
+
+    template <typename Class>
+    template <typename Ret, typename... Args>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::static_method(const std::string &name,
+                                                                     Ret (*ptr)(Args...)) {
+        method_names_.push_back(name);
+
+        // Create and store method info
+        MethodInfo info;
+        info.arity       = sizeof...(Args);
+        info.return_type = std::type_index(typeid(Ret));
+        info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+
+        // Static methods don't need an object instance, but we still store them
+        // with a dummy invoker that ignores the object parameter
+        info.invoker = [ptr](Class &, std::vector<Any> args) -> Any {
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((*ptr)());
+                }
+            } else {
+                // Invoke static function with arguments
+                return invoke_static_with_args(ptr, args, std::index_sequence_for<Args...>{});
+            }
+        };
+
+        method_info_[name] = info;
+        methods_[name]     = info.invoker;
+
+        // Also add to const_methods_ so it can be called on const objects
+        const_methods_[name] = [ptr](const Class &, std::vector<Any> args) -> Any {
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((*ptr)());
+                }
+            } else {
+                return invoke_static_with_args(ptr, args, std::index_sequence_for<Args...>{});
+            }
+        };
+
+        return *this;
+    }
+
+    // ========================================================================
     // METHODS FROM BASE CLASSES
     // ========================================================================
 
@@ -765,12 +817,14 @@ namespace rosetta::core {
     // ========================================================================
 
     template <typename Class>
-    inline const std::vector<typename ClassMetadata<Class>::Constructor> &ClassMetadata<Class>::constructors() const {
+    inline const std::vector<typename ClassMetadata<Class>::Constructor> &
+    ClassMetadata<Class>::constructors() const {
         return constructors_;
     }
 
     template <typename Class>
-    inline const std::vector<typename ClassMetadata<Class>::ConstructorInfo> &ClassMetadata<Class>::constructor_infos() const {
+    inline const std::vector<typename ClassMetadata<Class>::ConstructorInfo> &
+    ClassMetadata<Class>::constructor_infos() const {
         return constructor_infos_;
     }
 
@@ -790,19 +844,20 @@ namespace rosetta::core {
     }
 
     template <typename Class>
-    inline void ClassMetadata<Class>::set_field(Class &obj, const std::string &name, Any value) const {
+    inline void ClassMetadata<Class>::set_field(Class &obj, const std::string &name,
+                                                Any value) const {
         field_setters_.at(name)(obj, std::move(value));
     }
 
     template <typename Class>
     inline Any ClassMetadata<Class>::invoke_method(Class &obj, const std::string &name,
-                                            std::vector<Any> args) const {
+                                                   std::vector<Any> args) const {
         return methods_.at(name)(obj, std::move(args));
     }
 
     template <typename Class>
     inline Any ClassMetadata<Class>::invoke_method(const Class &obj, const std::string &name,
-                                            std::vector<Any> args) const {
+                                                   std::vector<Any> args) const {
         return const_methods_.at(name)(obj, std::move(args));
     }
 
@@ -848,8 +903,9 @@ namespace rosetta::core {
     // To invoke non-const methods with arguments
     template <typename Class>
     template <typename Ret, typename... Args, size_t... Is>
-    inline Any ClassMetadata<Class>::invoke_with_args(Class            &obj, Ret (Class::*ptr)(Args...),
-                                               std::vector<Any> &args, std::index_sequence<Is...>) {
+    inline Any ClassMetadata<Class>::invoke_with_args(Class &obj, Ret (Class::*ptr)(Args...),
+                                                      std::vector<Any> &args,
+                                                      std::index_sequence<Is...>) {
         try {
             if constexpr (std::is_void_v<Ret>) {
                 (obj.*ptr)(extract_arg<Args>(args[Is])...);
@@ -899,9 +955,10 @@ namespace rosetta::core {
     // To invoke const methods with arguments
     template <typename Class>
     template <typename Ret, typename... Args, size_t... Is>
-    inline Any
-    ClassMetadata<Class>::invoke_const_with_args(const Class      &obj, Ret (Class::*ptr)(Args...) const,
-                                          std::vector<Any> &args, std::index_sequence<Is...>) {
+    inline Any ClassMetadata<Class>::invoke_const_with_args(const Class &obj,
+                                                            Ret (Class::*ptr)(Args...) const,
+                                                            std::vector<Any> &args,
+                                                            std::index_sequence<Is...>) {
         try {
             if constexpr (std::is_void_v<Ret>) {
                 (obj.*ptr)(extract_arg<Args>(args[Is])...);
@@ -911,6 +968,26 @@ namespace rosetta::core {
             }
         } catch (const std::bad_cast &e) {
             std::string error = "Type mismatch in method arguments. Expected types: ";
+            ((error += typeid(Args).name(), error += " "), ...);
+            throw std::runtime_error(error);
+        }
+    }
+
+    // To invoke static methods with arguments
+    template <typename Class>
+    template <typename Ret, typename... Args, size_t... Is>
+    inline Any ClassMetadata<Class>::invoke_static_with_args(Ret (*ptr)(Args...),
+                                                             std::vector<Any> &args,
+                                                             std::index_sequence<Is...>) {
+        try {
+            if constexpr (std::is_void_v<Ret>) {
+                (*ptr)(extract_arg<Args>(args[Is])...);
+                return Any(0);
+            } else {
+                return Any((*ptr)(extract_arg<Args>(args[Is])...));
+            }
+        } catch (const std::bad_cast &e) {
+            std::string error = "Type mismatch in static method arguments. Expected types: ";
             ((error += typeid(Args).name(), error += " "), ...);
             throw std::runtime_error(error);
         }

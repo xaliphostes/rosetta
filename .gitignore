@@ -9,3 +9,4 @@ unittest
 idl/example/bindings
 .venv
 *.a
+idl/example/binding

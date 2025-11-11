@@ -299,6 +299,38 @@ namespace rosetta::core {
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         // ========================================================================
+        // Register static methods
+        // ========================================================================
+
+        /**
+         * @brief Register static method
+         * @tparam Ret return type
+         * @tparam Args Types of parameters
+         * @param name Name of the static method
+         * @param ptr Pointer to the static function
+         *
+         * Static methods don't require an instance to call, but we store them
+         * in the metadata for completeness and for binding generation.
+         *
+         * Example:
+         * ```cpp
+         * class MyClass {
+         * public:
+         *     static double pi() { return 3.14159; }
+         *     static std::string greet(const std::string& name) {
+         *         return "Hello, " + name;
+         *     }
+         * };
+         *
+         * ROSETTA_REGISTER_CLASS(MyClass)
+         *     .static_method("pi", &MyClass::pi)
+         *     .static_method("greet", &MyClass::greet);
+         * ```
+         */
+        template <typename Ret, typename... Args>
+        ClassMetadata &static_method(const std::string &name, Ret (*ptr)(Args...));
+
+        // ========================================================================
         // METHODS FROM BASE CLASSES
         // ========================================================================
 
@@ -363,8 +395,8 @@ namespace rosetta::core {
          * @brief Automatically detect and register properties from getter/setter pairs
          *
          * Scans all registered methods for patterns like:
-         * - getXyz() / setXyz(value) → property "xyz"
-         * - GetXyz() / SetXyz(value) → property "xyz"
+         * - getXyz() / setXyz(value) â†’ property "xyz"
+         * - GetXyz() / SetXyz(value) â†’ property "xyz"
          *
          * The getter must have 0 parameters and a non-void return type.
          * The setter must have 1 parameter and match the getter's return type.
@@ -477,6 +509,11 @@ namespace rosetta::core {
         template <typename Ret, typename... Args, size_t... Is>
         static Any invoke_const_with_args(const Class      &obj, Ret (Class::*ptr)(Args...) const,
                                           std::vector<Any> &args, std::index_sequence<Is...>);
+
+        // To invoke static methods with arguments
+        template <typename Ret, typename... Args, size_t... Is>
+        static Any invoke_static_with_args(Ret (*ptr)(Args...), std::vector<Any> &args,
+                                           std::index_sequence<Is...>);
     };
 
 } // namespace rosetta::core
