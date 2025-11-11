@@ -32,13 +32,13 @@
 
 ## 🧩 Overview
 
-**Rosetta** is a **non-intrusive C++ introspection library** that automatically generates bindings for Python, JavaScript, Lua, and more — without modifying your C++ code.
-Write your classes once, and export them everywhere. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11...)
+**Rosetta** is a **non-intrusive C++ header-only introspection library** that automatically generates consistent bindings for Python, JavaScript, Lua, Ruby, Julia and more — without modifying your C++ code.
+Write your classes once, and export them everywhere. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11, Rice...)
 
 Rosetta supports two complementary workflows:
 
 1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
-2. **Interface Description Language (IDL)** via YAML or JSON files (**STILL IN DEV MODE!**)
+2. **Interface Description Language (IDL)** via YAML or JSON files (***STILL IN DEV MODE!***)
 
 ---
 
@@ -46,24 +46,31 @@ Rosetta supports two complementary workflows:
 
 1. **Zero-intrusion** — No inheritance, no macros inside your classes, no wrapper
 2. **Simple to use**
-3. **One API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM, C#
+3. **One API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM...
 4. **Multiple constructors**
 5. **Functors support**
 6. **Virtual fields** - From `setDummy`/`getDummy`, create the virtual field `Dummy`
-7. **Free functions support**
-8. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
-9. **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
-10. **Inheritance & polymorphism** — Virtual methods, multiple inheritance
-11. **Const correctness** — Differentiates const/non-const methods
-12. **Validation system** — Runtime constraints and checks
-13. **Serialization**
-14. **Documentation generation** — Markdown / HTML export
+7. **Static methods**
+8. **Free functions support**
+9. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
+10. **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
+11. **Inheritance & polymorphism** — Virtual methods, multiple inheritance
+12. **Const correctness** — Differentiates const/non-const methods
+13. **Validation system** — Runtime constraints and checks
+14. **Serialization**
+15. **Documentation generation** — Markdown / HTML export
 
 ## Testing the lib
 
 Go to the folder `examples/py/containers` (for example) and read [this file](./examples/README.md) before.
 
 ## [Short overview](SHORT_README.md)
+
+## Contributing
+
+Anyone is wellcome to write a generator, base on Rosetta introspection, for another scripting language (Lua, Julia, Ruby...).
+
+See [this folder](include/rosetta/extensions/generators/) for **Python** and **JavaScript** generator.
 
 ## 📜 License
 
