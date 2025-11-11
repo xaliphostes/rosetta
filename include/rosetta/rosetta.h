@@ -13,6 +13,9 @@
 // Core
 #include "core/any.h"
 #include "core/class_metadata.h"
+#include "core/demangler.h"
+#include "core/function_metadata.h"
+#include "core/function_registry.h"
 #include "core/inheritance_info.h"
 #include "core/registry.h"
 #include "core/type_kind.h"
@@ -42,10 +45,15 @@ namespace rosetta {
     using core::Any;
     using core::BaseClassInfo;
     using core::ClassMetadata;
+    using core::demangle;
+    using core::FunctionMetadata;
+    using core::FunctionRegistry;
+    using core::get_readable_type_name;
     using core::InheritanceInfo;
     using core::InheritanceType;
     using core::Registry;
     using core::TypeKind;
+    using core::TypeNameRegistry;
     using core::VirtualMethodInfo;
     using core::VirtualMethodRegistry;
     using core::VirtualTableInfo;
@@ -128,9 +136,9 @@ namespace rosetta {
 
 } // namespace rosetta
 
-// ============================================================================
-// Optional Macros for Simplified Usage
-// ============================================================================
+// ===============================================================
+//                        C L A S S E S
+// ===============================================================
 
 /**
  * @brief Register a class with Rosetta using its type name
@@ -158,3 +166,33 @@ namespace rosetta {
  * @brief Check if a class is registered
  */
 #define ROSETTA_HAS_CLASS(ClassName) rosetta::Registry::instance().has_class<ClassName>()
+
+// ===============================================================
+//                        F U N C T I O N S
+// ===============================================================
+
+/**
+ * @brief Register a free function with Rosetta
+ *
+ * Usage:
+ * ROSETTA_REGISTER_FUNCTION(my_function);
+ */
+#define ROSETTA_REGISTER_FUNCTION(FuncName) \
+    rosetta::core::FunctionRegistry::instance().register_function(#FuncName, &FuncName)
+
+/**
+ * @brief Register a free function with a custom name
+ */
+#define ROSETTA_REGISTER_FUNCTION_AS(FuncName, Name) \
+    rosetta::core::FunctionRegistry::instance().register_function(Name, &FuncName)
+
+/**
+ * @brief Get metadata for a registered function
+ */
+#define ROSETTA_GET_FUNCTION(FuncName) rosetta::core::FunctionRegistry::instance().get(#FuncName)
+
+/**
+ * @brief Check if a function is registered
+ */
+#define ROSETTA_HAS_FUNCTION(FuncName) \
+    rosetta::core::FunctionRegistry::instance().has_function(#FuncName)

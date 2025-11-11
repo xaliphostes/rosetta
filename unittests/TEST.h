@@ -73,13 +73,8 @@ namespace test {
     } register_##name##_##fixture##_instance;                       \
     void name##_##fixture()
 
-// Declare a weak symbol
-//void initFct() __attribute__((weak));
-
 #define RUN_TESTS()                                                                                \
     int main() {                                                                                   \
-        if (initFct)                                                                               \
-            initFct();                                                                             \
         for (const auto &test : test::tests) {                                                     \
             std::cout << "***************************************************"                     \
                          "*******"                                                                 \

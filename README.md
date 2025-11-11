@@ -67,6 +67,60 @@ Go to the folder `examples/py/containers` (for example) and read [this file](./e
 
 ## Short overview
 
+### 1. Your lib
+```cpp
+class Vector3D {...};
+class SceneManager {...};
+...
+```
+along with a static or dynamic library (if any).
+
+### 2. Describe your API with Rosetta and generate the binding for any language 
+This description provide the introspection of your classes that will be used by the generators (see below).
+```cpp
+#include <rosetta/rosetta.h>
+#include <yourlib/all.h>
+
+void rosetta_registration() {
+    ROSETTA_REGISTER_CLASS(Vector3D)
+        .field("z", &Vector3D::z)
+        .method("length", &Vector3D::length)
+        .method("normalize", &Vector3D::normalize);
+
+    ROSETTA_REGISTER_CLASS(SceneManager)
+        .method("add", &SceneManager::add)
+        ...;
+}
+```
+
+### 3. Finally, generate the binding for any language
+Since the introspection of your C++ classes (and free functions) is now created by Rosetta, binding is
+straightforward as long as the generator for a given language is available:
+
+1. For Python
+    ```cpp
+    #include <rosetta/extensions/generators/py_generator.h>
+
+    BEGIN_PY_MODULE(rosetta_example) {
+        rosetta_registration();
+        BIND_PY_CLASSES(Vector3D, SceneManager);
+    }
+    END_PY_MODULE()
+    ```
+2. For JavaScript
+    ```cpp
+    #include <rosetta/extensions/generatorsv/js_generator.h>
+
+    BEGIN_JS_MODULE(rosetta_example) {
+        rosetta_registration();
+        BIND_JS_CLASSES(Vector3D, SceneManager);
+    }
+    END_JS_MODULE()
+    ```
+
+3. For...??
+   Just ask.
+
 [Read this](SHORT_README.md)
 
 ## 💡 Contribute Your Own Generator

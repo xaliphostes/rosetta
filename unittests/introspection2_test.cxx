@@ -95,7 +95,6 @@ void initFct() {
         .method("forEachTriangle", &Surface::forEachTriangle);
 
     ROSETTA_REGISTER_CLASS(Model)
-        // .field("surfaces", &Model::surfaces)
         .property<std::vector<Surface>>("surfaces", &Model::getSurfaces, &Model::setSurfaces)
         .method("getSurfaces",
                 &Model::getSurfaces) //- a getter for surfaces (will gen property surfaces)
@@ -141,10 +140,13 @@ TEST(Introspection2, basic) {
     model.addSurface(surface);
 
     // Introspect the model
+    std::cerr << "DEBUG 0\n";
     auto &meta = ROSETTA_GET_META(Model);
     // auto surfaces_any = meta.get_field(model, "surfaces"); // getter/setter not auto detected
     // yet?
+    std::cerr << "DEBUG 1\n";
     auto        surfaces_any = meta.invoke_method(model, "getSurfaces");
+    std::cerr << "DEBUG 2\n";
     const auto &surfaces     = surfaces_any.as<std::vector<Surface>>();
 
     EXPECT_EQ(surfaces.size(), 1);

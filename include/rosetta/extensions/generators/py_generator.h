@@ -104,6 +104,13 @@ namespace rosetta::py {
 #define BIND_PY_CLASS(Class) generator.bind_class<Class>(#Class);
 
 /**
+ * @brief Bind multiple classes to Pyhton
+ */
+#define BIND_PY_CLASSES(...) \
+    ([&]() { (generator.bind_class<__VA_ARGS__>(#__VA_ARGS__), ...); })();
+
+
+/**
  * @brief Auto-bind a function
  */
 #define BIND_FUNCTION(func, doc) generator.bind_function(#func, func, doc)
