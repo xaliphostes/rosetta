@@ -122,8 +122,6 @@ straightforward as long as the generator for a given language is available:
 3. For...??
    Just ask.
 
-[Read this](SHORT_README.md)
-
 ## 💡 Contribute Your Own Generator
 
 You’re very welcome to create a generator based on **Rosetta introspection** for other scripting languages — such as **Lua**, **Julia**, or **Ruby**!
