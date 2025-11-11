@@ -1,8 +1,4 @@
-//const rosetta = require('./build/Debug/rosetta');
-import rosetta from './build/Debug/rosetta.node'
-const pause = require('./pause');
-
-await pause();  // attend une touche
+const rosetta = require('./build/Release/rosetta.node')
 
 const hr = (t) => {
     console.log('\n' + '='.repeat(30) + ` ${t} ` + '='.repeat(30));

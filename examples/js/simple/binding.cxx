@@ -106,7 +106,7 @@ void register_rosetta_classes() {
 // ============================================================================
 
 BEGIN_JS_MODULE(mymodule) {
-    register_rosetta_classes();
+    register_rosetta_classes(); // See above
     generator.bind_class<Vector3D>().bind_class<Rectangle>().bind_class<Person>().add_utilities();
 }
 END_JS_MODULE(mymodule)

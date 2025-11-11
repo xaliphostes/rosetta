@@ -377,7 +377,7 @@ namespace rosetta::js {
     }
 
     template <typename T>
-    inline JsGenerator &JsGenerator::bind_class(const std::string &js_name = "") {
+    inline JsGenerator &JsGenerator::bind_class(const std::string &js_name) {
         // Get metadata from registry
         const auto &meta       = core::Registry::instance().get<T>();
         std::string final_name = js_name.empty() ? meta.name() : js_name;
