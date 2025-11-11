@@ -52,7 +52,7 @@ Rosetta supports two complementary workflows:
    - **Virtual fields** - From `setDummy`/`getDummy` methods, create the virtual field `Dummy`
    - **Static methods**
    - **Free functions**
-   - **Container** — `std::vector`, `std::map`, `std::set`, etc.
+   - **STL Containers** — `vector`, `map`, `set`, `array`, etc... of any type
    - **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
 5.  **Validation system** — Runtime constraints and checks
 6.  **Serialization**
@@ -63,13 +63,17 @@ Rosetta supports two complementary workflows:
 
 Go to the folder `examples/py/containers` (for example) and read [this file](./examples/README.md) before.
 
-## [Short overview](SHORT_README.md)
+## Short overview
 
-## Contributing
+[Read this](SHORT_README.md)
 
-Anyone is wellcome to write a generator, base on Rosetta introspection, for another scripting language (Lua, Julia, Ruby...).
+## 💡 Contribute Your Own Generator
 
-See [this folder](include/rosetta/extensions/generators/) for **Python** and **JavaScript** generator.
+You’re very welcome to create a generator based on **Rosetta introspection** for other scripting languages — such as **Lua**, **Julia**, or **Ruby**!
+
+👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python** and **JavaScript** generators for inspiration.
+
+Every new generator helps expand the ecosystem — contributions are always appreciated ❤️
 
 ## 📜 License
 
