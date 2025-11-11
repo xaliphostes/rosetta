@@ -47,18 +47,19 @@ Rosetta supports two complementary workflows:
 1. **Zero-intrusion** — No inheritance, no macros inside your classes, no wrapper
 2. **Simple to use**
 3. **One API -> Multi-language output** — Python (pybind11), JavaScript (N-API), Lua, WASM...
-4. **Multiple constructors**
-5. **Functors support**
-6. **Virtual fields** - From `setDummy`/`getDummy`, create the virtual field `Dummy`
-7. **Static methods**
-8. **Free functions support**
-9. **Container support** — `std::vector`, `std::map`, `std::optional`, etc.
-10. **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
-11. **Inheritance & polymorphism** — Virtual methods, multiple inheritance
-12. **Const correctness** — Differentiates const/non-const methods
-13. **Validation system** — Runtime constraints and checks
-14. **Serialization**
-15. **Documentation generation** — Markdown / HTML export
+4. Supports:
+   - **Multiple constructors**
+   - **Functors**
+   - **Virtual fields** - From `setDummy`/`getDummy` methods, create the virtual field `Dummy`
+   - **Static methods**
+   - **Free functions**
+   -  **Container** — `std::vector`, `std::map`, `std::set`, etc.
+   -  **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
+   -  **Inheritance & polymorphism** — Virtual methods, multiple inheritance
+   -  **Const correctness** — Differentiates const/non-const methods
+5.  **Validation system** — Runtime constraints and checks
+6.  **Serialization**
+7.  **Documentation generation** — Markdown / HTML export
 
 ## Testing the lib
 
