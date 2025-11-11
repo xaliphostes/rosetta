@@ -61,6 +61,28 @@ Rosetta supports two complementary workflows:
 6.  **Serialization**
 7.  **Documentation generation** — Markdown / HTML export
 8.  **IDL language**
+  
+## 📊 Comparison with Other Systems
+
+| Feature | Rosetta | Qt MOC | RTTR | Boost.Describe |
+|---------|---------|--------|------|----------------|
+| Non-intrusive | ✅ | ❌ | ✅ | ✅ |
+| No macros in class | ✅ | ❌ | ❌ | ❌ |
+| Header-only | ✅ | ❌ | ❌ | ✅ |
+| Static methods | ✅ | ✅ | ✅ | ⚠️ |
+| Virtual methods | ✅ | ✅ | ✅ | ❌ |
+| Free functions | ✅ | ❌ | ✅ | ❌ |
+| Python bindings | ✅ | ✅ | ⚠️ | ❌ |
+| Serialization | ✅ | ✅ | ✅ | ⚠️ |
+
+### Legends
+
+| Symbol | Meaning | Description |
+|--------|---------|-------------|
+| ✅ | **Fully Supported** | Feature is implemented, stable, and works as expected |
+| ⚠️ | **Partial Support** | Feature exists but has limitations, requires workarounds, or is incomplete |
+| ❌ | **Not Supported** | Feature is not available or not applicable |
+| 🚧 | **In Progress** | Feature is being developed or planned |
 
 ## Testing the lib
 
