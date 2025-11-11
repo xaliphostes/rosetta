@@ -4,7 +4,7 @@
 # **One registration, infinite possibilities** 🚀
 
 <p align="center">
-  <img src="media/logo.png" alt="Logo rosetta" width="300">
+  <img src="media/logo2.png" alt="Logo rosetta" width="300">
 </p>
 
 <p align="center">
