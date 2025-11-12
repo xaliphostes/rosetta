@@ -14,7 +14,7 @@
 namespace rosetta::core {
 
     /**
-     * @brief Registry singleton pour toutes les classes enregistrées
+     * @brief Registry singleton for all registered classes
      *
      * Ce registry stocke les métadonnées de toutes les classes enregistrées
      * et permet d'y accéder par type ou par nom.
