@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <rosetta/extensions/generators/py_generator.h>
+// #include <rosetta/extensions/generators/py_binder.h>
 #include <rosetta/rosetta.h>
 
 #ifndef M_PI
@@ -194,3 +195,8 @@ BEGIN_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta 
     BIND_CONSTANT("PI", M_PI);
 }
 END_PY_MODULE()
+
+// ROSETTA_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta introspection") {
+//     BIND_ALL_CLASSES();
+// }
+// ROSETTA_PY_MODULE_END();

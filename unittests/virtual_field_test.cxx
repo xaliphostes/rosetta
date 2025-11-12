@@ -92,6 +92,8 @@ void initFct() {
 TEST(virtual_field, basic) {
     using namespace rosetta;
 
+    initFct();
+
     Rectangle rect(5.0, 3.0);
     auto     &meta = ROSETTA_GET_META(Rectangle);
 

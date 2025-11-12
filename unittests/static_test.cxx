@@ -21,7 +21,11 @@ void initFct() {
 }
 
 TEST(Static, basic) {
+    initFct();
+    
+    std::cerr << "starting meta\n";
     auto    &meta = ROSETTA_GET_META(A);
+    std::cerr << "ending meta\n";
     meta.dump(std::cerr);
 
     // Static invoke

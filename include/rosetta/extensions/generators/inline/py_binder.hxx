@@ -4,6 +4,8 @@
 // Unified implementation - no code duplication!
 // ============================================================================
 
+#include <rosetta/core/registry.h>
+#include <rosetta/core/version.h>
 #include <stdexcept>
 #include <algorithm>
 
@@ -419,6 +421,7 @@ namespace rosetta::python {
     template <typename Class>
     inline void BinderRegistry::register_class(const std::string& name) {
         binders_[name] = std::make_unique<TypedBinder<Class>>(name);
+        std::cerr << "--> register py class " << name << std::endl;
     }
 
     inline void BinderRegistry::bind_all(
@@ -426,9 +429,12 @@ namespace rosetta::python {
         std::function<bool(const std::string&)> filter
     ) {
         for (auto& [name, binder] : binders_) {
+            std::cerr << "--> try to bind class " << name ;
             if (filter && !filter(name)) {
+                std::cerr << "nop! " << std::endl ;
                 continue;
             }
+            std::cerr << "yes! " << std::endl ;
             binder->bind(m);
         }
     }
@@ -511,7 +517,7 @@ namespace rosetta::python {
         // Version info
         module_.def(
             "version",
-            []() { return rosetta::version(); },
+            []() { return rosetta::core::version(); },
             "Get Rosetta version"
         );
 

@@ -122,6 +122,7 @@ template <typename T> void displayMeta() {
 }
 
 TEST(Introspection2, basic) {
+    initFct();
     using namespace rosetta;
 
     Model model;

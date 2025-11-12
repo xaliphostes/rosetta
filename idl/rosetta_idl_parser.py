@@ -7,8 +7,8 @@ Parser for Rosetta Interface Language Description (ILD) files.
 Converts YAML interface descriptions into structured Python objects
 for code generation.
 
-Author: Rosetta Framework
-License: MIT
+Author: xaliphostes
+License: LGPL3
 """
 
 import yaml

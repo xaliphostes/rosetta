@@ -130,6 +130,7 @@ void initFct() {
 // ============================================================================
 
 TEST(Introspection, demo) {
+    initFct();
     Vector3D vec(3, 4, 0);
     auto    &meta = ROSETTA_GET_META(Vector3D);
 
@@ -161,6 +162,7 @@ TEST(Introspection, demo) {
 }
 
 TEST(Introspection, A) {
+    initFct();
     A a;
     a.areas     = {1, 2, 3, 4, 5, 6};
     a.positions = {{1, 2, 3}, {4, 5, 6}};
@@ -201,6 +203,7 @@ TEST(Introspection, A) {
 }
 
 TEST(Introspection, inheritance) {
+    initFct();
     auto       &sphere_meta = ROSETTA_GET_META(Sphere);
     const auto &inheritance = sphere_meta.inheritance();
 
@@ -223,6 +226,7 @@ TEST(Introspection, inheritance) {
 }
 
 TEST(Introspection, serialization) {
+    initFct();
     Vector3D vec(1.5, 2.5, 3.5);
 
     // JSON
@@ -266,6 +270,8 @@ TEST(Introspection, serialization) {
 TEST(Introspection, validation) {
     using namespace rosetta;
 
+    initFct();
+
     // Ajouter des contraintes
     ConstraintValidator::instance().add_field_constraint<Sphere, double>(
         "radius", make_range_constraint(0.1, 100.0));
@@ -285,6 +291,7 @@ TEST(Introspection, validation) {
 }
 
 TEST(Introspection, documentation) {
+    initFct();
     // Markdown
     std::cout << "\n--- Markdown ---\n";
     rosetta::DocGenerator md_gen(rosetta::DocFormat::Markdown);
@@ -309,6 +316,7 @@ template <typename T> void displayMeta() {
 }
 
 TEST(Introspection, registry) {
+    initFct();
     std::cout << "\n" << std::string(60, '=') << "\n";
     std::cout << "DEMO 7: REGISTRY\n";
     std::cout << std::string(60, '=') << "\n";

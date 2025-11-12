@@ -37,6 +37,7 @@ void initFct() {
 }
 
 TEST(Vector3D, basic_test) {
+    initFct();
     std::type_index    idx1(typeid(Vector3D));     // Direct type_index
     rosetta::core::Any any_vec(Vector3D(1, 2, 3)); // type_index from Any
     std::type_index    idx2 = any_vec.get_type_index();
@@ -50,6 +51,7 @@ TEST(Vector3D, basic_test) {
 }
 
 TEST(Vector3D, introspection) {
+    initFct();
     const auto &meta = rosetta::core::Registry::instance().get<Vector3D>(); // should not throw
 
     // EXPECT_EQ(meta.name(), typeid(Vector3D).name()); // typeid names may differ across compilers
@@ -58,6 +60,7 @@ TEST(Vector3D, introspection) {
 }
 
 TEST(Vector3D, RegistrationAndIntrospection) {
+    initFct();
     auto &meta = ROSETTA_GET_META(Vector3D);
 
     // Check class is instantiable per metadata
@@ -79,6 +82,7 @@ TEST(Vector3D, RegistrationAndIntrospection) {
 }
 
 TEST(Vector3D, DynamicFieldAccess) {
+    initFct();
     auto &meta = ROSETTA_GET_META(Vector3D);
 
     Vector3D v(3, 4, 0);
@@ -97,6 +101,7 @@ TEST(Vector3D, DynamicFieldAccess) {
 }
 
 TEST(Vector3D, DynamicMethodInvoke) {
+    initFct();
     auto &meta = ROSETTA_GET_META(Vector3D);
 
     Vector3D v(3, 4, 0);
@@ -114,6 +119,7 @@ TEST(Vector3D, DynamicMethodInvoke) {
 }
 
 TEST(Vector3D, FieldTypeIntrospection) {
+    initFct();
     auto &meta = ROSETTA_GET_META(Vector3D);
 
     // Verify stored type_info for fields

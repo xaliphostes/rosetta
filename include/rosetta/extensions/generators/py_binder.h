@@ -8,9 +8,12 @@
 
 #include <functional>
 #include <memory>
+#include <ostream>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <rosetta/core/any.h>
+#include <rosetta/core/class_metadata.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -23,7 +26,6 @@ namespace rosetta::python {
     // Forward declarations
     // ============================================================================
 
-    class TypeConverter;
     class BinderRegistry;
     class PythonBinder;
 
@@ -265,7 +267,7 @@ namespace rosetta::python {
 /**
  * @brief End module definition
  */
-#define ROSETTA_PY_MODULE_END }
+#define ROSETTA_PY_MODULE_END() }
 
 /**
  * @brief Register a class with both Rosetta and Python binding registry
@@ -274,6 +276,7 @@ namespace rosetta::python {
  */
 #define ROSETTA_REGISTER_CLASS_PY(ClassName)                                               \
     []() -> auto & {                                                                       \
+        std::cerr << "--> register class " << #ClassName << std::endl;                     \
         auto &meta = rosetta::Registry::instance().register_class<ClassName>(#ClassName);  \
         rosetta::python::BinderRegistry::instance().register_class<ClassName>(#ClassName); \
         rosetta::python::TypeConverter::register_type<ClassName>();                        \
@@ -305,4 +308,4 @@ namespace rosetta::python {
  */
 #define BIND_UTILITIES() binder.add_utilities()
 
-#include "inline/python_binder_unified.hxx"
+#include "inline/py_binder.hxx"
