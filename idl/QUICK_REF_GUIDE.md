@@ -55,7 +55,7 @@ generate_python_bindings("interface.yaml", "binding.cpp")
 module:
   name: my_module
   version: "1.0.0"
-  namespace: my::ns
+  namespace: my::ns # from the User library
   description: "Description"
 ```
 

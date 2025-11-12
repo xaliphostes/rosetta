@@ -7,6 +7,7 @@ tmp
 __pycache__
 unittest
 idl/example/bindings
+idl/example/output
 .venv
 *.a
 idl/example/binding

@@ -501,55 +501,28 @@ class IDLParser:
         Returns:
             True if valid, False otherwise
         """
-        self.errors.clear()
-        self.warnings.clear()
-        
         # Check for duplicate class names
-        class_names = set()
-        for cls in idl.classes:
-            if cls.name in class_names:
-                self.errors.append(f"Duplicate class name: {cls.name}")
-            class_names.add(cls.name)
+        class_names = [cls.name for cls in idl.classes]
+        if len(class_names) != len(set(class_names)):
+            self.errors.append("Duplicate class names found")
+            return False
         
         # Check for duplicate function names
-        func_names = set()
-        for func in idl.functions:
-            if func.name in func_names:
-                self.errors.append(f"Duplicate function name: {func.name}")
-            func_names.add(func.name)
+        func_names = [func.name for func in idl.functions]
+        if len(func_names) != len(set(func_names)):
+            self.errors.append("Duplicate function names found")
+            return False
         
-        # Validate base classes exist
+        # Validate inheritance
         for cls in idl.classes:
             for base in cls.base_classes:
                 if not idl.get_class(base.name):
                     self.warnings.append(
-                        f"Base class '{base.name}' for '{cls.name}' not found in IDL"
+                        f"Class '{cls.name}' inherits from '{base.name}' "
+                        f"which is not defined in this IDL"
                     )
         
-        # Check for circular inheritance
-        for cls in idl.classes:
-            if self._has_circular_inheritance(cls, idl):
-                self.errors.append(f"Circular inheritance detected for class: {cls.name}")
-        
         return len(self.errors) == 0
-
-    def _has_circular_inheritance(self, cls: Class, idl: InterfaceDefinition, 
-                                  visited: Optional[set] = None) -> bool:
-        """Check for circular inheritance"""
-        if visited is None:
-            visited = set()
-        
-        if cls.name in visited:
-            return True
-        
-        visited.add(cls.name)
-        
-        for base in cls.base_classes:
-            base_cls = idl.get_class(base.name)
-            if base_cls and self._has_circular_inheritance(base_cls, idl, visited.copy()):
-                return True
-        
-        return False
 
     def has_errors(self) -> bool:
         """Check if there are any errors"""
@@ -559,43 +532,43 @@ class IDLParser:
         """Check if there are any warnings"""
         return len(self.warnings) > 0
 
-    def get_errors(self) -> List[str]:
-        """Get all errors"""
-        return self.errors.copy()
-
-    def get_warnings(self) -> List[str]:
-        """Get all warnings"""
-        return self.warnings.copy()
-
     def print_diagnostics(self):
-        """Print errors and warnings"""
+        """Print all errors and warnings"""
         if self.errors:
-            print("Errors:")
+            print("\nErrors:")
             for error in self.errors:
                 print(f"  ❌ {error}")
         
         if self.warnings:
-            print("Warnings:")
+            print("\nWarnings:")
             for warning in self.warnings:
                 print(f"  ⚠️  {warning}")
 
 
 # ============================================================================
-# Main Entry Point
+# Code Generation Helpers
 # ============================================================================
 
 def parse_idl(filepath: Union[str, Path]) -> Optional[InterfaceDefinition]:
     """
-    Convenience function to parse an IDL file
+    Convenience function to parse and validate an IDL file
     
     Args:
-        filepath: Path to the IDL YAML file
+        filepath: Path to the IDL file
         
     Returns:
-        InterfaceDefinition object or None if parsing failed
+        InterfaceDefinition or None if parsing/validation failed
     """
     parser = IDLParser()
     idl = parser.parse_file(filepath)
+    
+    if not idl:
+        parser.print_diagnostics()
+        return None
+    
+    if not parser.validate(idl):
+        parser.print_diagnostics()
+        return None
     
     if parser.has_errors():
         parser.print_diagnostics()
@@ -618,8 +591,8 @@ def write_rosetta_bindings(idl: InterfaceDefinition, output_dir: Path):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Generate the registration file
-    registration_file = output_dir / f"{idl.module.name}_registration.cpp"
+    # Generate the registration file (*.cxx)
+    registration_file = output_dir / f"{idl.module.name}_registration.cxx"
     
     with open(registration_file, 'w') as f:
         # Header
@@ -644,11 +617,7 @@ def write_rosetta_bindings(idl: InterfaceDefinition, output_dir: Path):
         for cls in idl.classes:
             _write_class_registration(f, cls, idl)
         
-        f.write("}\n\n")
-        
-        # Free functions wrapper (if any)
-        if idl.functions:
-            _write_free_functions(f, idl)
+        f.write("}\n")
     
     print(f"✅ Generated Rosetta registration: {registration_file}")
     return registration_file
@@ -666,6 +635,7 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
     cmake_file = output_dir / "CMakeLists.txt"
     module_name = f"py{idl.module.name}"
     binding_filename = binding_file.name
+    registration_filename = f"{idl.module.name}_registration.cxx"
     lib_name = f"lib{idl.module.name}.a"
     
     with open(cmake_file, 'w') as f:
@@ -714,6 +684,7 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
         f.write(f"include_directories(\n")
         f.write(f"    ${{CMAKE_CURRENT_SOURCE_DIR}}\n")
         f.write(f"    ${{CMAKE_CURRENT_SOURCE_DIR}}/..\n")
+        f.write(f"    ${{CMAKE_CURRENT_SOURCE_DIR}}/../../../include\n")
         f.write(f"    ${{Python_INCLUDE_DIRS}}\n")
         
         # Add include paths from IDL
@@ -734,6 +705,7 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
         f.write(f"# =============================================================================\n")
         f.write(f"pybind11_add_module({module_name}\n")
         f.write(f"    {binding_filename}\n")
+        f.write(f"    {registration_filename}\n")
         f.write(f")\n\n")
         
         # Target include directories
@@ -749,15 +721,11 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
         f.write(f"    target_link_libraries({module_name} PRIVATE ${{Python_LIBRARIES}})\n")
         f.write(f"endif()\n\n")
         
-        # Find and link library
+        # Link with third-party library
         f.write(f"# =============================================================================\n")
-        f.write(f"# Find and link against {lib_name}\n")
+        f.write(f"# Link with {idl.module.name} library\n")
         f.write(f"# =============================================================================\n")
-        f.write(f"if(NOT DEFINED {idl.module.name.upper()}_LIB_PATH)\n")
-        f.write(f"    set({idl.module.name.upper()}_LIB_PATH \"${{CMAKE_CURRENT_SOURCE_DIR}}/../lib/{lib_name}\" ")
-        f.write(f"CACHE FILEPATH \"Path to {lib_name}\")\n")
-        f.write(f"endif()\n\n")
-        
+        f.write(f"set({idl.module.name.upper()}_LIB_PATH \"\" CACHE FILEPATH \"Path to {lib_name}\")\n\n")
         f.write(f"if(EXISTS ${{{idl.module.name.upper()}_LIB_PATH}})\n")
         f.write(f"    message(STATUS \"Found {idl.module.name} library at: ${{{idl.module.name.upper()}_LIB_PATH}}\")\n")
         f.write(f"    target_link_libraries({module_name} PUBLIC ${{{idl.module.name.upper()}_LIB_PATH}})\n")
@@ -830,17 +798,17 @@ def _write_class_registration(f, cls: Class, idl: InterfaceDefinition):
         cpp_field_name = field.cpp_name or field.name
         
         if field.getter and field.setter:
-            # Property with getter/setter
-            f.write(f"        .property<{field.type}>(\"{field.name}\", "
+            # Property with getter/setter - NO type parameter
+            f.write(f"        .property(\"{field.name}\", "
                    f"&{cls.cpp_name}::{field.getter}, "
                    f"&{cls.cpp_name}::{field.setter})\n")
         elif field.getter and field.access == AccessMode.READ_ONLY:
-            # Read-only property
-            f.write(f"        .readonly_property<{field.type}>(\"{field.name}\", "
+            # Read-only property - NO type parameter
+            f.write(f"        .readonly_property(\"{field.name}\", "
                    f"&{cls.cpp_name}::{field.getter})\n")
         elif field.setter and field.access == AccessMode.WRITE_ONLY:
-            # Write-only property
-            f.write(f"        .writeonly_property<{field.type}>(\"{field.name}\", "
+            # Write-only property - NO type parameter
+            f.write(f"        .writeonly_property(\"{field.name}\", "
                    f"&{cls.cpp_name}::{field.setter})\n")
         else:
             # Direct field access
@@ -872,12 +840,6 @@ def _write_class_registration(f, cls: Class, idl: InterfaceDefinition):
         f.write(f"        .auto_detect_properties()\n")
     
     f.write("        ;\n\n")
-
-
-def _write_free_functions(f, idl: InterfaceDefinition):
-    """Write wrapper for free functions"""
-    f.write(f"// Free functions are registered in the binding layer\n")
-    f.write(f"// See the Python/JS binding generator for details\n\n")
 
 
 if __name__ == "__main__":

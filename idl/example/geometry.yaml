@@ -4,7 +4,7 @@
 module:
   name: geometry_complete
   version: "1.0.0"
-  namespace: geo
+  namespace: mylib
   description: "Complete geometry library with advanced features"
 
 # System and user includes
@@ -14,9 +14,12 @@ includes:
   - <memory>
   - <optional>
   - <map>
-  - mylib/Vector3D.h
-  - mylib/Matrix4x4.h
-  - mylib/Transform.h
+  - ../mylib/Vector3D.h
+  - ../mylib/Matrix4x4.h
+  - ../mylib/Transform.h
+  - ../mylib/Shape.h
+  - ../mylib/Sphere.h
+  - ../mylib/Scene.h
 
 # Type converters for containers
 converters:
@@ -376,21 +379,21 @@ functions:
         type: double
     description: "Linear interpolation between two vectors"
   
-  - name: create_sphere
-    returns: "std::shared_ptr<Sphere>"
-    parameters:
-      - name: center
-        type: "const Vector3D&"
-      - name: radius
-        type: double
-    description: "Create a new sphere"
+  # - name: create_sphere
+  #   returns: "std::shared_ptr<Sphere>"
+  #   parameters:
+  #     - name: center
+  #       type: "const Vector3D&"
+  #     - name: radius
+  #       type: double
+  #   description: "Create a new sphere"
   
-  - name: load_scene
-    returns: Scene
-    parameters:
-      - name: filename
-        type: "const std::string&"
-    description: "Load a scene from file"
+  # - name: load_scene
+  #   returns: Scene
+  #   parameters:
+  #     - name: filename
+  #       type: "const std::string&"
+  #   description: "Load a scene from file"
 
 # Utility functions to include
 utilities:
