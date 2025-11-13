@@ -698,7 +698,7 @@ namespace rosetta::py {
      * @brief Helper to register std::function converters
      * Must be called before binding classes that use std::function
      */
-    template <typename Ret, typename... Args> void register_function_converter() {
+    template <typename Ret, typename... Args> inline void register_function_converter() {
         using FuncType                  = std::function<Ret(Args...)>;
         std::type_index func_type_index = std::type_index(typeid(FuncType));
 

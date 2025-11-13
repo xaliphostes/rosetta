@@ -77,6 +77,15 @@ namespace rosetta::py {
      */
     template <typename... Classes> void bind_classes(PyGenerator &gen);
 
+    template <typename T> void                     bind_vector_type();
+    template <typename K, typename V> void         bind_map_type();
+    template <typename T> void                     bind_set_type();
+    template <typename T, size_t N> void           bind_array_type();
+    template <typename K, typename V> void         bind_unordered_map_type();
+    template <typename T> void                     bind_unordered_set_type();
+    template <typename T> void                     bind_deque_type();
+    template <typename Ret, typename... Args> void register_function_converter();
+
     // ============================================================================
     // Convenience function for module initialization
     // ============================================================================

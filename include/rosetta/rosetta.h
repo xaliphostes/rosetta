@@ -22,9 +22,9 @@
 #include "core/virtual_method_registry.h"
 
 // Traits
-#include "traits/container_traits.h"
-#include "traits/inheritance_traits.h"
-#include "traits/pointer_traits.h"
+// #include "traits/container_traits.h"
+// #include "traits/inheritance_traits.h"
+// #include "traits/pointer_traits.h"
 
 // Extensions
 #include "extensions/documentation/doc_generator.h"
