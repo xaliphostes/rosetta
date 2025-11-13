@@ -34,6 +34,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <map>
+
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846 // Valeur de π si non définie
