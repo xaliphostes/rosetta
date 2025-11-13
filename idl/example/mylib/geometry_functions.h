@@ -11,39 +11,6 @@
 namespace mylib {
 
     /**
-     * @brief Create a new Vector3D
-     * @param x X coordinate (default: 0.0)
-     * @param y Y coordinate (default: 0.0)
-     * @param z Z coordinate (default: 0.0)
-     * @return New Vector3D instance
-     */
-    inline Vector3D create_vector(double x = 0.0, double y = 0.0, double z = 0.0) {
-        return Vector3D(x, y, z);
-    }
-
-    /**
-     * @brief Calculate distance between two points
-     * @param a First point
-     * @param b Second point
-     * @return Euclidean distance between the points
-     */
-    inline double distance(const Vector3D &a, const Vector3D &b) {
-        Vector3D diff = b - a;
-        return diff.length();
-    }
-
-    /**
-     * @brief Linear interpolation between two vectors
-     * @param a Start vector
-     * @param b End vector
-     * @param t Interpolation parameter (0.0 to 1.0)
-     * @return Interpolated vector
-     */
-    inline Vector3D lerp(const Vector3D &a, const Vector3D &b, double t) {
-        return Vector3D(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
-    }
-
-    /**
      * @brief Create a new sphere
      * @param center Center point of the sphere
      * @param radius Radius of the sphere

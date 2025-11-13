@@ -37,6 +37,15 @@ namespace rosetta::py {
         template <typename T> PyGenerator &bind_class(const std::string &py_name = "");
 
         /**
+         * @brief Bind a derived class with its base class
+         * @tparam Derived The derived C++ class type
+         * @tparam Base The base C++ class type
+         * @param py_name Optional Python name (uses C++ name if empty)
+         */
+        template <typename Derived, typename Base>
+        PyGenerator &bind_derived_class(const std::string &py_name = "");
+
+        /**
          * @brief Bind a free function to Python
          * @tparam Ret Return type
          * @tparam Args Argument types
@@ -104,11 +113,14 @@ namespace rosetta::py {
 #define BIND_PY_CLASS(Class) generator.bind_class<Class>(#Class);
 
 /**
+ * @brief Bind a derived class with its base class
+ */
+#define BIND_PY_DERIVED_CLASS(Derived, Base) generator.bind_derived_class<Derived, Base>(#Derived);
+
+/**
  * @brief Bind multiple classes to Pyhton
  */
-#define BIND_PY_CLASSES(...) \
-    ([&]() { (generator.bind_class<__VA_ARGS__>(#__VA_ARGS__), ...); })();
-
+#define BIND_PY_CLASSES(...) ([&]() { (generator.bind_class<__VA_ARGS__>(#__VA_ARGS__), ...); })();
 
 /**
  * @brief Auto-bind a function
