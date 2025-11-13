@@ -5,6 +5,9 @@
 // ============================================================================
 
 #include <cmath>
+#include <map>
+#include <array>
+#include <vector>
 #include <iostream>
 #include <rosetta/rosetta.h>
 
