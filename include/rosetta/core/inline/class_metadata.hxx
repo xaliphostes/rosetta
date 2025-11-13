@@ -827,7 +827,28 @@ namespace rosetta::core {
         std::string signature = make_signature<Ret, Args...>();
         VirtualMethodRegistry::instance().register_virtual_method<Class>(name, signature, true);
         inheritance_.vtable.add_virtual_method(name, signature, true);
-        method_names_.push_back(name);
+
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
+
+        // Create MethodInfo for the pure virtual method
+        MethodInfo info;
+        info.arity       = sizeof...(Args);
+        info.return_type = std::type_index(typeid(Ret));
+        info.arg_types   = {std::type_index(typeid(Args))...};
+        info.is_static   = false;
+
+        // For pure virtual methods, we can't provide a real invoker
+        // Create a dummy invoker that throws an exception
+        info.invoker = [name](Class &, std::vector<Any>) -> Any {
+            throw std::runtime_error("Cannot invoke pure virtual method: " + name);
+        };
+
+        // Add to method_info_ to make it discoverable
+        method_info_[name].push_back(info);
+
         return *this;
     }
 
