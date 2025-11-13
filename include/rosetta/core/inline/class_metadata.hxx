@@ -200,6 +200,80 @@ namespace rosetta::core {
         return *this;
     }
 
+    // ========================================================================
+    // Property overloads for setters taking value by value (not const ref)
+    // ========================================================================
+
+    template <typename Class>
+    template <typename T>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+                                                                const T &(Class::*getter)() const,
+                                                                void (Class::*setter)(T)) {
+        field_names_.push_back(name);
+
+        // Store type information
+        field_types_.emplace(name, std::type_index(typeid(T)));
+
+        // Getter: invoke the getter method and wrap result in Any
+        field_getters_[name] = [getter](Class &obj) -> Any {
+            const Class &const_obj = obj;
+            return Any((const_obj.*getter)());
+        };
+
+        // Setter: extract value from Any and invoke the setter method
+        // Note: setter takes T by value, not const T&
+        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+
+        return *this;
+    }
+
+    template <typename Class>
+    template <typename T>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+                                                                T (Class::*getter)() const,
+                                                                void (Class::*setter)(T)) {
+        field_names_.push_back(name);
+
+        // Store type information
+        field_types_.emplace(name, std::type_index(typeid(T)));
+
+        // Getter: invoke the getter method and wrap result in Any
+        field_getters_[name] = [getter](Class &obj) -> Any {
+            const Class &const_obj = obj;
+            return Any((const_obj.*getter)());
+        };
+
+        // Setter: extract value from Any and invoke the setter method
+        // Note: setter takes T by value, not const T&
+        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+
+        return *this;
+    }
+
+    template <typename Class>
+    template <typename T>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+                                                                T &(Class::*getter)(),
+                                                                void (Class::*setter)(T)) {
+        field_names_.push_back(name);
+
+        // Store type information
+        field_types_.emplace(name, std::type_index(typeid(T)));
+
+        // Getter: invoke the getter method and wrap result in Any
+        field_getters_[name] = [getter](Class &obj) -> Any { return Any((obj.*getter)()); };
+
+        // Setter: extract value from Any and invoke the setter method
+        // Note: setter takes T by value, not const T&
+        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+
+        return *this;
+    }
+
+    // ========================================================================
+    // Read-only properties
+    // ========================================================================
+
     template <typename Class>
     template <typename T>
     inline ClassMetadata<Class> &ClassMetadata<Class>::readonly_property(const std::string &name,

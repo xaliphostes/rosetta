@@ -65,19 +65,19 @@ namespace rosetta::core {
             std::vector<std::type_index>                  arg_types;
             std::type_index return_type = std::type_index(typeid(void));
             size_t          arity       = 0;
-            bool            is_static   = false;  // Flag to identify static methods
+            bool            is_static   = false; // Flag to identify static methods
         };
         std::unordered_map<std::string, MethodInfo> method_info_;
 
         // ----------------------------------------
         // Static methods storage (no object instance needed)
         // ----------------------------------------
-        
+
         struct StaticMethodInfo {
             std::function<Any(std::vector<Any>)> invoker;
             std::vector<std::type_index>         arg_types;
-            std::type_index return_type = std::type_index(typeid(void));
-            size_t          arity       = 0;
+            std::type_index                      return_type = std::type_index(typeid(void));
+            size_t                               arity       = 0;
         };
         std::unordered_map<std::string, StaticMethodInfo> static_methods_;
 
@@ -173,6 +173,56 @@ namespace rosetta::core {
         template <typename T>
         ClassMetadata &property(const std::string &name, T &(Class::*getter)(),
                                 void (Class::*setter)(const T &));
+
+        /**
+         * @brief Register a virtual field - setter takes value by value (not const ref)
+         *
+         * This overload handles setters that take the value by value instead of const reference.
+         * Common for primitive types (int, double, float, bool, etc.) in third-party libraries.
+         *
+         * Example:
+         * ```cpp
+         * class Sphere {
+         *     double radius_;
+         * public:
+         *     double getRadius() const { return radius_; }
+         *     void setRadius(double r) { radius_ = r; }  // Takes by value, not const double&
+         * };
+         *
+         * ROSETTA_REGISTER_CLASS(Sphere)
+         *     .property("radius", &Sphere::getRadius, &Sphere::setRadius);
+         * ```
+         */
+        template <typename T>
+        ClassMetadata &property(const std::string &name, const T &(Class::*getter)() const,
+                                void (Class::*setter)(T));
+
+        /**
+         * @brief Register a virtual field - getter by value, setter by value
+         *
+         * This overload handles both getter returning by value and setter taking by value.
+         * Very common pattern for primitive types in third-party libraries.
+         *
+         * Example:
+         * ```cpp
+         * class Point {
+         *     double x_;
+         * public:
+         *     double getX() const { return x_; }  // Returns by value
+         *     void setX(double x) { x_ = x; }     // Takes by value
+         * };
+         * ```
+         */
+        template <typename T>
+        ClassMetadata &property(const std::string &name, T (Class::*getter)() const,
+                                void (Class::*setter)(T));
+
+        /**
+         * @brief Register a virtual field - non-const ref getter, setter by value
+         */
+        template <typename T>
+        ClassMetadata &property(const std::string &name, T &(Class::*getter)(),
+                                void (Class::*setter)(T));
 
         /**
          * @brief Register a read-only virtual field (getter only, no setter)

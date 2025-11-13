@@ -42,9 +42,88 @@ class AccessSpecifier(Enum):
     PRIVATE = "private"
 
 
+class LibraryType(Enum):
+    """Library types"""
+    STATIC = "static"
+    SHARED = "shared"
+    SYSTEM = "system"  # System library (e.g., pthread, m, dl)
+
+
 # ============================================================================
 # Data Classes for IDL Structure
 # ============================================================================
+
+@dataclass
+class LibraryDependency:
+    """Library dependency specification"""
+    name: str
+    type: LibraryType = LibraryType.SHARED
+    optional: bool = False
+    system: bool = False  # True for system libraries (pthread, etc.)
+    
+    @classmethod
+    def from_dict(cls, data: Union[str, Dict[str, Any]]) -> 'LibraryDependency':
+        if isinstance(data, str):
+            return cls(name=data)
+        
+        lib_type = LibraryType.SYSTEM if data.get('system', False) else LibraryType(data.get('type', 'shared'))
+        
+        return cls(
+            name=data['name'],
+            type=lib_type,
+            optional=data.get('optional', False),
+            system=data.get('system', False)
+        )
+
+
+@dataclass
+class LibraryConfig:
+    """Library configuration for binding generation"""
+    name: str
+    type: LibraryType = LibraryType.STATIC
+    filename: Optional[str] = None  # Exact filename if different from name
+    search_paths: List[str] = field(default_factory=list)
+    cmake_var: Optional[str] = None  # CMake variable name for path override
+    dependencies: List[LibraryDependency] = field(default_factory=list)
+    
+    @property
+    def lib_filename(self) -> str:
+        """Get the library filename based on platform conventions"""
+        if self.filename:
+            return self.filename
+        
+        # Generate platform-appropriate name
+        if self.type == LibraryType.STATIC:
+            # Unix: libname.a, Windows: name.lib
+            return f"lib{self.name}.a"  # Default to Unix
+        else:
+            # Unix: libname.so, macOS: libname.dylib, Windows: name.dll
+            return f"lib{self.name}.so"  # Default to Unix
+    
+    @property
+    def cmake_variable_name(self) -> str:
+        """Get the CMake variable name for library path"""
+        if self.cmake_var:
+            return self.cmake_var
+        return f"{self.name.upper()}_LIB_PATH"
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'LibraryConfig':
+        lib_type = LibraryType(data.get('type', 'static'))
+        
+        deps = [
+            LibraryDependency.from_dict(d) 
+            for d in data.get('dependencies', [])
+        ]
+        
+        return cls(
+            name=data['name'],
+            type=lib_type,
+            filename=data.get('filename'),
+            search_paths=data.get('search_paths', []),
+            cmake_var=data.get('cmake_var'),
+            dependencies=deps
+        )
 
 @dataclass
 class Parameter:
@@ -345,6 +424,7 @@ class InterfaceDefinition:
     classes: List[Class] = field(default_factory=list)
     functions: List[Function] = field(default_factory=list)
     utilities: Optional[Utilities] = None
+    library: Optional[LibraryConfig] = None  # Library configuration for binding generation
 
     def get_class(self, name: str) -> Optional[Class]:
         """Get a class by name"""
@@ -475,6 +555,14 @@ class IDLParser:
             if 'utilities' in data:
                 utilities = Utilities.from_dict(data['utilities'])
             
+            # Parse library configuration
+            library = None
+            if 'library' in data:
+                try:
+                    library = LibraryConfig.from_dict(data['library'])
+                except Exception as e:
+                    self.errors.append(f"Error parsing library configuration: {e}")
+            
             if self.errors:
                 return None
             
@@ -484,7 +572,8 @@ class IDLParser:
                 converters=converters,
                 classes=classes,
                 functions=functions,
-                utilities=utilities
+                utilities=utilities,
+                library=library
             )
             
         except Exception as e:
@@ -537,12 +626,12 @@ class IDLParser:
         if self.errors:
             print("\nErrors:")
             for error in self.errors:
-                print(f"  ❌ {error}")
+                print(f"{error}")
         
         if self.warnings:
             print("\nWarnings:")
             for warning in self.warnings:
-                print(f"  ⚠️  {warning}")
+                print(f"{warning}")
 
 
 # ============================================================================
@@ -619,7 +708,7 @@ def write_rosetta_bindings(idl: InterfaceDefinition, output_dir: Path):
         
         f.write("}\n")
     
-    print(f"✅ Generated Rosetta registration: {registration_file}")
+    print(f"Generated Rosetta registration: {registration_file}")
     return registration_file
 
 
@@ -633,7 +722,7 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
         binding_file: Path to the binding .cpp file
     """
     cmake_file = output_dir / "CMakeLists.txt"
-    module_name = f"py{idl.module.name}"
+    module_name = f"{idl.module.name}"
     binding_filename = binding_file.name
     registration_filename = f"{idl.module.name}_registration.cxx"
     lib_name = f"lib{idl.module.name}.a"
@@ -723,16 +812,74 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
         
         # Link with third-party library
         f.write(f"# =============================================================================\n")
-        f.write(f"# Link with {idl.module.name} library\n")
+        f.write(f"# Link with third-party libraries\n")
         f.write(f"# =============================================================================\n")
-        f.write(f"set({idl.module.name.upper()}_LIB_PATH \"\" CACHE FILEPATH \"Path to {lib_name}\")\n\n")
-        f.write(f"if(EXISTS ${{{idl.module.name.upper()}_LIB_PATH}})\n")
-        f.write(f"    message(STATUS \"Found {idl.module.name} library at: ${{{idl.module.name.upper()}_LIB_PATH}}\")\n")
-        f.write(f"    target_link_libraries({module_name} PUBLIC ${{{idl.module.name.upper()}_LIB_PATH}})\n")
-        f.write(f"else()\n")
-        f.write(f"    message(WARNING \"{lib_name} not found at: ${{{idl.module.name.upper()}_LIB_PATH}}\")\n")
-        f.write(f"    message(WARNING \"Specify with: cmake -D{idl.module.name.upper()}_LIB_PATH=/path/to/{lib_name}\")\n")
-        f.write(f"endif()\n\n")
+        
+        if idl.library:
+            lib_config = idl.library
+            lib_name = lib_config.lib_filename
+            cmake_var = lib_config.cmake_variable_name
+            
+            # Add search paths as hints
+            if lib_config.search_paths:
+                f.write(f"# Search paths for {lib_config.name}\n")
+                f.write(f"set({lib_config.name.upper()}_SEARCH_PATHS\n")
+                for search_path in lib_config.search_paths:
+                    f.write(f"    {search_path}\n")
+                f.write(f")\n\n")
+            
+            # Try to find the library
+            f.write(f"# Find {lib_config.name} library\n")
+            if lib_config.search_paths:
+                f.write(f"find_library({lib_config.name.upper()}_LIB\n")
+                f.write(f"    NAMES {lib_config.name}\n")
+                f.write(f"    PATHS ${{{lib_config.name.upper()}_SEARCH_PATHS}}\n")
+                f.write(f"    NO_DEFAULT_PATH\n")
+                f.write(f")\n\n")
+            
+            # Allow manual override via CMake variable
+            f.write(f"set({cmake_var} \"${{{lib_config.name.upper()}_LIB}}\" CACHE FILEPATH \"Path to {lib_name}\")\n\n")
+            
+            # Link if found
+            f.write(f"if(EXISTS ${{{cmake_var}}})\n")
+            f.write(f"    message(STATUS \"Found {lib_config.name} library at: ${{{cmake_var}}}\")\n")
+            f.write(f"    target_link_libraries({module_name} PUBLIC ${{{cmake_var}}})\n")
+            f.write(f"else()\n")
+            f.write(f"    message(WARNING \"{lib_name} not found\")\n")
+            if lib_config.search_paths:
+                f.write(f"    message(WARNING \"Searched in: ${{{lib_config.name.upper()}_SEARCH_PATHS}}\")\n")
+            f.write(f"    message(WARNING \"Specify manually with: cmake -D{cmake_var}=/path/to/{lib_name}\")\n")
+            f.write(f"endif()\n\n")
+            
+            # Link dependencies
+            if lib_config.dependencies:
+                f.write(f"# Link dependencies\n")
+                for dep in lib_config.dependencies:
+                    if dep.system:
+                        # System library - use find_library or direct linking
+                        f.write(f"target_link_libraries({module_name} PUBLIC {dep.name})\n")
+                    else:
+                        # Another library - similar process
+                        dep_cmake_var = f"{dep.name.upper()}_LIB_PATH"
+                        f.write(f"if(EXISTS ${{{dep_cmake_var}}})\n")
+                        f.write(f"    target_link_libraries({module_name} PUBLIC ${{{dep_cmake_var}}})\n")
+                        if not dep.optional:
+                            f.write(f"else()\n")
+                            f.write(f"    message(WARNING \"Required dependency {dep.name} not found\")\n")
+                        f.write(f"endif()\n")
+                f.write("\n")
+        else:
+            # Fallback to old behavior if no library config
+            lib_name = f"lib{idl.module.name}.a"
+            f.write(f"# No library configuration in IDL - using default\n")
+            f.write(f"set({idl.module.name.upper()}_LIB_PATH \"\" CACHE FILEPATH \"Path to {lib_name}\")\n\n")
+            f.write(f"if(EXISTS ${{{idl.module.name.upper()}_LIB_PATH}})\n")
+            f.write(f"    message(STATUS \"Found {idl.module.name} library at: ${{{idl.module.name.upper()}_LIB_PATH}}\")\n")
+            f.write(f"    target_link_libraries({module_name} PUBLIC ${{{idl.module.name.upper()}_LIB_PATH}})\n")
+            f.write(f"else()\n")
+            f.write(f"    message(WARNING \"{lib_name} not found at: ${{{idl.module.name.upper()}_LIB_PATH}}\")\n")
+            f.write(f"    message(WARNING \"Specify with: cmake -D{idl.module.name.upper()}_LIB_PATH=/path/to/{lib_name}\")\n")
+            f.write(f"endif()\n\n")
         
         # Set output directory
         f.write(f"# Set output directory\n")
@@ -769,7 +916,7 @@ def write_cmake_for_python(idl: InterfaceDefinition, output_dir: Path, binding_f
         f.write(f"    message(STATUS \"Copied test.py to build directory\")\n")
         f.write(f"endif()\n")
     
-    print(f"✅ Generated CMakeLists.txt: {cmake_file}")
+    print(f"Generated CMakeLists.txt: {cmake_file}")
     return cmake_file
 
 
@@ -814,32 +961,132 @@ def _write_class_registration(f, cls: Class, idl: InterfaceDefinition):
             # Direct field access
             f.write(f"        .field(\"{field.name}\", &{cls.cpp_name}::{cpp_field_name})\n")
     
-    # Methods
+    # Methods - with overload detection and static method support
+    # First, group methods by name to detect overloads
+    method_groups = {}
+    for method in cls.methods:
+        method_name = method.name
+        if method_name not in method_groups:
+            method_groups[method_name] = []
+        method_groups[method_name].append(method)
+    
+    # Now write each method with appropriate handling
+    # Track which methods we've already registered to avoid duplicates
+    registered_methods = set()
+    
     for method in cls.methods:
         cpp_method_name = method.cpp_name or method.name
+        is_overloaded = len(method_groups[method.name]) > 1
+        
+        # Create unique key for this method signature
+        param_sig = ",".join([p.type for p in method.parameters])
+        method_key = f"{method.name}::{param_sig}::{method.const}"
+        
+        # Skip if already registered
+        if method_key in registered_methods:
+            continue
+        registered_methods.add(method_key)
+        
+        # For overloaded methods, create unique Python name by appending parameter info
+        py_method_name = method.name
+        if is_overloaded:
+            # Create a unique suffix based on parameter types
+            if len(method.parameters) == 0:
+                suffix = "_void"
+            else:
+                # Simplify type names for suffix
+                suffix_parts = []
+                for param in method.parameters:
+                    ptype = param.type
+                    # Extract base type name (remove const, &, *, std::, etc.)
+                    ptype = ptype.replace("const ", "").replace("&", "").replace("*", "").strip()
+                    ptype = ptype.replace("std::", "")
+                    # Take last part after ::
+                    if "::" in ptype:
+                        ptype = ptype.split("::")[-1]
+                    # Remove template arguments for simplicity
+                    if "<" in ptype:
+                        ptype = ptype[:ptype.index("<")]
+                    suffix_parts.append(ptype.lower())
+                suffix = "_" + "_".join(suffix_parts)
+            py_method_name = method.name + suffix
         
         if method.pure_virtual:
             # Pure virtual method
             param_types_str = ", ".join([method.returns] + [p.type for p in method.parameters])
-            f.write(f"        .pure_virtual_method<{param_types_str}>(\"{method.name}\")\n")
+            f.write(f"        .pure_virtual_method<{param_types_str}>(\"{py_method_name}\")\n")
+        elif method.static:
+            # Static method - use .static_method() instead of .method()
+            method_ptr = _generate_method_pointer(cls.cpp_name, method, is_overloaded, is_static=True)
+            f.write(f"        .static_method(\"{py_method_name}\", {method_ptr})\n")
         elif method.override:
             # Override method
-            f.write(f"        .override_method(\"{method.name}\", "
-                   f"&{cls.cpp_name}::{cpp_method_name})\n")
+            method_ptr = _generate_method_pointer(cls.cpp_name, method, is_overloaded)
+            f.write(f"        .override_method(\"{py_method_name}\", {method_ptr})\n")
         elif method.virtual:
             # Virtual method
-            f.write(f"        .virtual_method(\"{method.name}\", "
-                   f"&{cls.cpp_name}::{cpp_method_name})\n")
+            method_ptr = _generate_method_pointer(cls.cpp_name, method, is_overloaded)
+            f.write(f"        .virtual_method(\"{py_method_name}\", {method_ptr})\n")
         else:
-            # Regular method
-            f.write(f"        .method(\"{method.name}\", "
-                   f"&{cls.cpp_name}::{cpp_method_name})\n")
+            # Regular method - ALWAYS use explicit cast for overloaded methods
+            method_ptr = _generate_method_pointer(cls.cpp_name, method, is_overloaded)
+            f.write(f"        .method(\"{py_method_name}\", {method_ptr})\n")
     
     # Auto-detect properties
     if cls.auto_detect_properties:
         f.write(f"        .auto_detect_properties()\n")
     
     f.write("        ;\n\n")
+
+
+def _generate_method_pointer(class_name: str, method: Method, is_overloaded: bool, is_static: bool = False) -> str:
+    """
+    Generate method pointer with explicit cast if needed for overloaded methods.
+    
+    Args:
+        class_name: Name of the class
+        method: Method object
+        is_overloaded: Whether this method name is overloaded
+        is_static: Whether this is a static method
+    
+    Returns:
+        String representing the method pointer (with cast if needed)
+    """
+    cpp_method_name = method.cpp_name or method.name
+    
+    # If not overloaded, simple pointer is enough
+    if not is_overloaded:
+        return f"&{class_name}::{cpp_method_name}"
+    
+    # For overloaded methods, generate explicit cast
+    return_type = method.returns
+    
+    # Build parameter type list
+    if method.parameters:
+        param_types = ", ".join([p.type for p in method.parameters])
+    else:
+        param_types = ""
+    
+    # Generate the appropriate signature based on method type
+    if is_static:
+        # Static method: ReturnType (*)(ParamTypes...)
+        if param_types:
+            signature = f"{return_type} (*)({param_types})"
+        else:
+            signature = f"{return_type} (*)()"
+    else:
+        # Member method: ReturnType (ClassName::*)(ParamTypes...)
+        if param_types:
+            signature = f"{return_type} ({class_name}::*)({param_types})"
+        else:
+            signature = f"{return_type} ({class_name}::*)()"
+        
+        # Add const qualifier if needed
+        if method.const:
+            signature += " const"
+    
+    # Return the cast
+    return f"static_cast<{signature}>(&{class_name}::{cpp_method_name})"
 
 
 if __name__ == "__main__":
@@ -883,12 +1130,12 @@ Examples:
     idl = idl_parser.parse_file(args.idl_file)
     
     if not idl:
-        print("❌ Failed to parse IDL file")
+        print("Failed to parse IDL file")
         idl_parser.print_diagnostics()
         sys.exit(1)
     
     # Display parsed info
-    print(f"✅ Successfully parsed IDL: {idl.module.name}")
+    print(f"Successfully parsed IDL: {idl.module.name}")
     print(f"   Version: {idl.module.version}")
     if idl.module.namespace:
         print(f"   Namespace: {idl.module.namespace}")
@@ -909,11 +1156,11 @@ Examples:
     
     # Validate
     if not idl_parser.validate(idl):
-        print("\n❌ Validation failed:")
+        print("\nValidation failed:")
         idl_parser.print_diagnostics()
         sys.exit(1)
     
-    print("✅ Validation passed")
+    print("Validation passed")
     
     if args.validate_only:
         print("\nValidation only - no code generated")
@@ -930,23 +1177,23 @@ Examples:
             
             binding_file = output_path / f"{idl.module.name}_binding.cpp"
             if generate_python_bindings(Path(args.idl_file), binding_file):
-                print(f"✅ Generated Python bindings: {binding_file}")
+                print(f"Generated Python bindings: {binding_file}")
                 
                 # Generate CMakeLists.txt for Python binding
                 cmake_file = write_cmake_for_python(idl, output_path, binding_file)
         
-        print(f"\n🎉 Code generation complete!")
-        print(f"   Output directory: {output_path.resolve()}")
+        print(f"\nCode generation complete!")
+        # print(f"   Output directory: {output_path.resolve()}")
         
-        if args.python:
-            print(f"\n📝 To build the Python module:")
-            print(f"   cd {output_path.resolve()}")
-            print(f"   mkdir build && cd build")
-            print(f"   cmake ..")
-            print(f"   make")
+        # if args.python:
+        #     print(f"\n“ To build the Python module:")
+        #     print(f"   cd {output_path.resolve()}")
+        #     print(f"   mkdir build && cd build")
+        #     print(f"   cmake ..")
+        #     print(f"   make")
         
     except Exception as e:
-        print(f"\n❌ Code generation failed: {e}")
+        print(f"\nCode generation failed: {e}")
         import traceback
         if args.verbose:
             traceback.print_exc()

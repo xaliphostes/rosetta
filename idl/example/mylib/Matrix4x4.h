@@ -281,7 +281,7 @@ namespace mylib {
         /**
          * @brief Create identity matrix
          */
-        static Matrix4x4 identity() { return Matrix4x4(); }
+        Matrix4x4 identity() { return Matrix4x4(); }
 
         /**
          * @brief Create translation matrix

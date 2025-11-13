@@ -41,7 +41,7 @@ public:
         : position_(0.0, 0.0, 0.0)
         , eulerAngles_(0.0, 0.0, 0.0)
         , scale_(1.0, 1.0, 1.0)
-        , rotationMatrix_(Matrix4x4::identity())
+        , rotationMatrix_(Matrix4x4().identity())
         , matrixDirty_(false)
     {}
     
@@ -53,7 +53,7 @@ public:
         : position_(position)
         , eulerAngles_(0.0, 0.0, 0.0)
         , scale_(1.0, 1.0, 1.0)
-        , rotationMatrix_(Matrix4x4::identity())
+        , rotationMatrix_(Matrix4x4().identity())
         , matrixDirty_(false)
     {}
     
@@ -66,7 +66,7 @@ public:
         : position_(position)
         , eulerAngles_(rotation)
         , scale_(1.0, 1.0, 1.0)
-        , rotationMatrix_(Matrix4x4::identity())
+        , rotationMatrix_(Matrix4x4().identity())
         , matrixDirty_(true)
     {}
     
@@ -80,7 +80,7 @@ public:
         : position_(position)
         , eulerAngles_(rotation)
         , scale_(scale)
-        , rotationMatrix_(Matrix4x4::identity())
+        , rotationMatrix_(Matrix4x4().identity())
         , matrixDirty_(true)
     {}
     
@@ -271,7 +271,7 @@ public:
      */
     Matrix4x4 toInverseMatrix() const {
         auto inv = toMatrix().inverse();
-        return inv.value_or(Matrix4x4::identity());
+        return inv.value_or(Matrix4x4().identity());
     }
 
     // ========================================================================
@@ -400,7 +400,7 @@ public:
         position_ = Vector3D::zero();
         eulerAngles_ = Vector3D::zero();
         scale_ = Vector3D::uniform(1.0);
-        rotationMatrix_ = Matrix4x4::identity();
+        rotationMatrix_ = Matrix4x4().identity();
         matrixDirty_ = false;
     }
     

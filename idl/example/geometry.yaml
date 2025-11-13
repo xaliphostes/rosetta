@@ -2,10 +2,62 @@
 # Demonstrates all features of the Rosetta IDL system
 
 module:
-  name: geometry_complete
+  name: pygeometry
   version: "1.0.0"
   namespace: mylib
   description: "Complete geometry library with advanced features"
+
+# ==============================================================================
+# Library Configuration
+# ==============================================================================
+# This section tells the binding generators how to link against your library
+# library:
+#     # Library name (without lib prefix or extension)
+#     name: geometry_core
+
+#     # Library type: 'static' (.a/.lib) or 'shared' (.so/.dylib/.dll)
+#     type: static
+
+#     # Optional: exact filename if it doesn't follow conventions
+#     # filename: libgeometry_core.a
+
+#     # Search paths (relative to IDL file or absolute)
+#     # The generator will try to find the library in these locations
+#     search_paths:
+#         - ../build/lib # Relative to IDL file
+#         - ../lib
+#         - /usr/local/lib/geometry
+#         - /opt/geometry/lib
+
+#     # CMake variable name for manual override (optional)
+#     # Users can specify: cmake -DGEOMETRY_LIB=/path/to/lib
+#     cmake_var: GEOMETRY_LIB
+
+#     # Additional libraries to link (dependencies)
+#     dependencies:
+#         # Another static library
+#         - name: geometry_math
+#           type: static
+#           optional: false
+
+#         # A shared library dependency
+#         - name: visualization
+#           type: shared
+#           optional: true
+
+#         # System libraries (pthread, m, dl, etc.)
+#         - name: pthread
+#           system: true
+
+#         - name: m
+#           system: true
+
+#         - name: stdc++
+#           system: true
+
+# ==============================================================================
+# Standard IDL sections
+# ==============================================================================
 
 # System and user includes
 includes:
@@ -30,16 +82,16 @@ converters:
   - type: "std::map<int, Transform>"
   - type: "std::array<double, 16>"
   - type: "std::set<int>"
-
+  
 # Class definitions
 classes:
   - name: Vector3D
     description: "3D vector with x, y, z components"
-    
+
     constructors:
       - description: "Default constructor - zero vector"
         parameters: []
-      
+
       - description: "Construct from coordinates"
         parameters:
           - name: x
@@ -48,34 +100,34 @@ classes:
             type: double
           - name: z
             type: double
-    
+
     fields:
       - name: x
         type: double
         access: rw
         description: "X component"
-      
+
       - name: y
         type: double
         access: rw
         description: "Y component"
-      
+
       - name: z
         type: double
         access: rw
         description: "Z component"
-    
+
     methods:
       - name: length
         returns: double
         const: true
         description: "Calculate vector magnitude"
-      
+
       - name: normalize
         returns: Vector3D
         const: true
         description: "Return normalized vector"
-      
+
       - name: dot
         returns: double
         const: true
@@ -83,7 +135,7 @@ classes:
           - name: other
             type: "const Vector3D&"
         description: "Dot product with another vector"
-      
+
       - name: cross
         returns: Vector3D
         const: true
@@ -91,7 +143,7 @@ classes:
           - name: other
             type: "const Vector3D&"
         description: "Cross product with another vector"
-      
+
       - name: to_array
         returns: "std::vector<double>"
         const: true
@@ -99,29 +151,29 @@ classes:
 
   - name: Matrix4x4
     description: "4x4 transformation matrix"
-    
+
     constructors:
       - description: "Identity matrix"
         parameters: []
-      
+
       - description: "From array of 16 values"
         parameters:
           - name: values
             type: "const std::array<double, 16>&"
-    
+
     fields:
       - name: data
         type: "std::array<double, 16>"
         access: ro
         description: "Matrix data in column-major order"
         getter: getData
-    
+
     methods:
       - name: identity
         returns: Matrix4x4
-        static: true
+        static: false
         description: "Create identity matrix"
-      
+
       - name: multiply
         returns: Matrix4x4
         const: true
@@ -129,7 +181,7 @@ classes:
           - name: other
             type: "const Matrix4x4&"
         description: "Matrix multiplication"
-      
+
       - name: transform
         returns: Vector3D
         const: true
@@ -137,12 +189,12 @@ classes:
           - name: point
             type: "const Vector3D&"
         description: "Transform a point"
-      
+
       - name: transpose
         returns: Matrix4x4
         const: true
         description: "Return transposed matrix"
-      
+
       - name: inverse
         returns: "std::optional<Matrix4x4>"
         const: true
@@ -153,26 +205,26 @@ classes:
     description: "Abstract base class for geometric shapes"
     is_abstract: true
     is_polymorphic: true
-    
+
     methods:
       - name: area
         returns: double
         const: true
         pure_virtual: true
         description: "Calculate surface area"
-      
+
       - name: volume
         returns: double
         const: true
         pure_virtual: true
         description: "Calculate volume"
-      
+
       - name: getName
         returns: std::string
         const: true
         virtual: true
         description: "Get shape name"
-      
+
       - name: boundingBox
         returns: "std::vector<Vector3D>"
         const: true
@@ -183,12 +235,12 @@ classes:
   - name: Sphere
     cpp_class: Sphere
     description: "Spherical shape"
-    
+
     base_classes:
       - name: Shape
         inheritance: normal
         access: public
-    
+
     constructors:
       - description: "Create sphere with center and radius"
         parameters:
@@ -196,39 +248,39 @@ classes:
             type: "const Vector3D&"
           - name: radius
             type: double
-    
+
     fields:
       - name: center
         type: Vector3D
         access: rw
         getter: getCenter
         setter: setCenter
-      
+
       - name: radius
         type: double
         access: rw
         getter: getRadius
         setter: setRadius
-    
+
     methods:
       - name: area
         returns: double
         const: true
         override: true
         description: "Calculate sphere surface area"
-      
+
       - name: volume
         returns: double
         const: true
         override: true
         description: "Calculate sphere volume"
-      
+
       - name: getName
         returns: std::string
         const: true
         override: true
         description: "Returns 'Sphere'"
-      
+
       - name: containsPoint
         returns: bool
         const: true
@@ -241,50 +293,56 @@ classes:
   - name: Transform
     description: "3D transformation with position, rotation, and scale"
     auto_detect_properties: true
-    
+
     constructors:
       - description: "Identity transform"
         parameters: []
-    
+
     methods:
       - name: getPosition
         returns: Vector3D
         const: true
         description: "Get position"
-      
+
       - name: setPosition
         parameters:
           - name: pos
             type: "const Vector3D&"
         description: "Set position"
-      
+
       - name: getRotation
         returns: Matrix4x4
         const: true
         description: "Get rotation matrix"
-      
+
       - name: setRotation
         parameters:
           - name: rot
             type: "const Matrix4x4&"
         description: "Set rotation matrix"
-      
+
       - name: getScale
         returns: Vector3D
         const: true
         description: "Get scale"
-      
+
       - name: setScale
         parameters:
           - name: scale
             type: "const Vector3D&"
         description: "Set scale"
-      
+
+      - name: setScale
+        parameters:
+          - name: uniformScale
+            type: double
+        description: "Set uniform scale"
+
       - name: toMatrix
         returns: Matrix4x4
         const: true
         description: "Convert to 4x4 matrix"
-      
+
       - name: transformPoint
         returns: Vector3D
         const: true
@@ -292,8 +350,8 @@ classes:
           - name: point
             type: "const Vector3D&"
         description: "Transform a point"
-      
-      - name: transformVector
+
+      - name: transformDirection
         returns: Vector3D
         const: true
         parameters:
@@ -304,23 +362,23 @@ classes:
   # Scene manager class
   - name: Scene
     description: "Container for geometric objects"
-    
+
     constructors:
       - description: "Create empty scene"
         parameters: []
-    
+
     methods:
       - name: addShape
         parameters:
           - name: shape
             type: "std::shared_ptr<Shape>"
         description: "Add a shape to the scene"
-      
+
       - name: getShapes
         returns: "std::vector<std::shared_ptr<Shape>>"
         const: true
         description: "Get all shapes"
-      
+
       - name: findShapeByName
         returns: "std::shared_ptr<Shape>"
         const: true
@@ -328,15 +386,15 @@ classes:
           - name: name
             type: "const std::string&"
         description: "Find shape by name"
-      
+
       - name: clear
         description: "Remove all shapes"
-      
+
       - name: getTotalVolume
         returns: double
         const: true
         description: "Calculate total volume of all shapes"
-      
+
       - name: getObjectCount
         returns: size_t
         const: true
@@ -357,7 +415,7 @@ functions:
         type: double
         default: "0.0"
     description: "Create a new Vector3D"
-  
+
   - name: distance
     returns: double
     parameters:
@@ -366,7 +424,7 @@ functions:
       - name: b
         type: "const Vector3D&"
     description: "Calculate distance between two points"
-  
+
   - name: lerp
     returns: Vector3D
     parameters:
@@ -377,7 +435,7 @@ functions:
       - name: t
         type: double
     description: "Linear interpolation between two vectors"
-  
+
   - name: create_sphere
     returns: "std::shared_ptr<Sphere>"
     parameters:
@@ -386,7 +444,7 @@ functions:
       - name: radius
         type: double
     description: "Create a new sphere"
-  
+
   - name: load_scene
     returns: Scene
     parameters:
@@ -400,3 +458,22 @@ utilities:
   list_classes: true
   type_inspection: true
   get_class_info: true
+# ==============================================================================
+# Usage Examples
+# ==============================================================================
+#
+# After running the IDL parser, the generated CMakeLists.txt will:
+#
+# 1. Search for libgeometry_core.a in the specified search_paths
+# 2. Allow manual override: cmake -DGEOMETRY_LIB=/custom/path/libgeometry_core.a
+# 3. Link dependencies: geometry_math (required), visualization (optional)
+# 4. Link system libraries: pthread, m, stdc++
+#
+# Build commands:
+#   mkdir build && cd build
+#   cmake ..
+#   # Or with manual library path:
+#   cmake -DGEOMETRY_LIB=/path/to/libgeometry_core.a ..
+#   make
+#
+# ==============================================================================
