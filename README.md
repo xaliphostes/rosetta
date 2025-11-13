@@ -51,6 +51,7 @@ Rosetta supports two complementary workflows:
    - **Multiple constructors**
    - **Inheritance & polymorphism** — Virtual methods, multiple inheritance
    - **Const correctness** — Differentiates const/non-const methods
+   - **Method Complete Overload Access**
    - **Functors**
    - **Virtual fields** - From `setDummy`/`getDummy` methods, create the virtual field `Dummy`
    - **Static methods**
@@ -60,7 +61,7 @@ Rosetta supports two complementary workflows:
 5.  **Validation system** — Runtime constraints and checks
 6.  **Serialization**
 7.  **Documentation generation** — Markdown / HTML export
-8.  **IDL language**
+8.  **IDL language** - See [this example](./idl/example/geometry.yaml) 
   
 ## 📊 Comparison with Other Systems
 
@@ -74,6 +75,7 @@ Rosetta supports two complementary workflows:
 | Free functions | ✅ | ❌ | ✅ | ❌ |
 | Python bindings | ✅ | ✅ | ⚠️ | ❌ |
 | Serialization | ✅ | ✅ | ✅ | ⚠️ |
+| IDL support | ✅ | ❌ | ❌ | ❌ |
 
 ### Legends
 

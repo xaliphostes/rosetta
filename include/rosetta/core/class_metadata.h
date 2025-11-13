@@ -1,7 +1,7 @@
 // ============================================================================
 // rosetta/core/class_metadata.hpp
 //
-// Class metadata for Rosetta introspection system.
+// Class metadata for Rosetta introspection system - FIXED FOR OVERLOADS
 // ============================================================================
 #pragma once
 #include "any.h"
@@ -32,11 +32,17 @@ namespace rosetta::core {
         std::string     name_;
         InheritanceInfo inheritance_;
 
-        std::unordered_map<std::string, std::function<Any(Class &)>>       field_getters_;
-        std::unordered_map<std::string, std::function<void(Class &, Any)>> field_setters_;
-        std::unordered_map<std::string, std::function<Any(Class &, std::vector<Any>)>> methods_;
-        std::unordered_map<std::string, std::function<Any(const Class &, std::vector<Any>)>>
-            const_methods_;
+    public:
+        template <typename T> using umap  = std::unordered_map<std::string, T>;
+        template <typename T> using umapv = std::unordered_map<std::string, std::vector<T>>;
+
+    private:
+        umap<std::function<Any(Class &)>>       field_getters_;
+        umap<std::function<void(Class &, Any)>> field_setters_;
+
+        // Store multiple invokers per method name to support overloads
+        umapv<std::function<Any(Class &, std::vector<Any>)>>       methods_;
+        umapv<std::function<Any(const Class &, std::vector<Any>)>> const_methods_;
 
         // ----------------------------------------
 
@@ -54,12 +60,13 @@ namespace rosetta::core {
 
         std::vector<std::string> field_names_;
         // Store type information for fields (for JS binding)
-        std::unordered_map<std::string, std::type_index> field_types_;
+        umap<std::type_index> field_types_;
 
         // ----------------------------------------
 
         std::vector<std::string> method_names_;
 
+    public:
         struct MethodInfo {
             std::function<Any(Class &, std::vector<Any>)> invoker;
             std::vector<std::type_index>                  arg_types;
@@ -67,7 +74,11 @@ namespace rosetta::core {
             size_t          arity       = 0;
             bool            is_static   = false; // Flag to identify static methods
         };
-        std::unordered_map<std::string, MethodInfo> method_info_;
+
+    private:
+
+        // Store multiple MethodInfo per method name to support overloads
+        umapv<MethodInfo> method_info_;
 
         // ----------------------------------------
         // Static methods storage (no object instance needed)
@@ -79,7 +90,8 @@ namespace rosetta::core {
             std::type_index                      return_type = std::type_index(typeid(void));
             size_t                               arity       = 0;
         };
-        std::unordered_map<std::string, StaticMethodInfo> static_methods_;
+        // Store multiple StaticMethodInfo per method name to support overloads
+        umapv<StaticMethodInfo> static_methods_;
 
         // ----------------------------------------
 
@@ -120,24 +132,6 @@ namespace rosetta::core {
          * @param name Name of the virtual field
          * @param getter Pointer to const getter method (returns by const reference)
          * @param setter Pointer to setter method
-         *
-         * This allows registering a "field" even when the underlying member is private,
-         * as long as you have public getter/setter methods.
-         *
-         * Example:
-         * ```cpp
-         * class Model {
-         *     std::vector<Surface> surfaces_;  // private!
-         * public:
-         *     const std::vector<Surface>& getSurfaces() const { return surfaces_; }
-         *     void setSurfaces(const std::vector<Surface>& s) { surfaces_ = s; }
-         * };
-         *
-         * ROSETTA_REGISTER_CLASS(Model)
-         *     .property<std::vector<Surface>>("surfaces",
-         *                                     &Model::getSurfaces,
-         *                                     &Model::setSurfaces);
-         * ```
          */
         template <typename T>
         ClassMetadata &property(const std::string &name, const T &(Class::*getter)() const,
@@ -145,21 +139,6 @@ namespace rosetta::core {
 
         /**
          * @brief Register a virtual field - variant with getter returning by value
-         *
-         * This overload handles getters that return by value instead of const reference.
-         *
-         * Example:
-         * ```cpp
-         * class Rectangle {
-         *     double width_;
-         * public:
-         *     double getWidth() const { return width_; }  // Returns by value
-         *     void setWidth(double w) { width_ = w; }
-         * };
-         *
-         * ROSETTA_REGISTER_CLASS(Rectangle)
-         *     .property<double>("width", &Rectangle::getWidth, &Rectangle::setWidth);
-         * ```
          */
         template <typename T>
         ClassMetadata &property(const std::string &name, T (Class::*getter)() const,
@@ -167,8 +146,6 @@ namespace rosetta::core {
 
         /**
          * @brief Register a virtual field - variant with non-const reference getter
-         *
-         * This overload handles getters that return a non-const reference.
          */
         template <typename T>
         ClassMetadata &property(const std::string &name, T &(Class::*getter)(),
@@ -176,22 +153,6 @@ namespace rosetta::core {
 
         /**
          * @brief Register a virtual field - setter takes value by value (not const ref)
-         *
-         * This overload handles setters that take the value by value instead of const reference.
-         * Common for primitive types (int, double, float, bool, etc.) in third-party libraries.
-         *
-         * Example:
-         * ```cpp
-         * class Sphere {
-         *     double radius_;
-         * public:
-         *     double getRadius() const { return radius_; }
-         *     void setRadius(double r) { radius_ = r; }  // Takes by value, not const double&
-         * };
-         *
-         * ROSETTA_REGISTER_CLASS(Sphere)
-         *     .property("radius", &Sphere::getRadius, &Sphere::setRadius);
-         * ```
          */
         template <typename T>
         ClassMetadata &property(const std::string &name, const T &(Class::*getter)() const,
@@ -199,19 +160,6 @@ namespace rosetta::core {
 
         /**
          * @brief Register a virtual field - getter by value, setter by value
-         *
-         * This overload handles both getter returning by value and setter taking by value.
-         * Very common pattern for primitive types in third-party libraries.
-         *
-         * Example:
-         * ```cpp
-         * class Point {
-         *     double x_;
-         * public:
-         *     double getX() const { return x_; }  // Returns by value
-         *     void setX(double x) { x_ = x; }     // Takes by value
-         * };
-         * ```
          */
         template <typename T>
         ClassMetadata &property(const std::string &name, T (Class::*getter)() const,
@@ -226,20 +174,6 @@ namespace rosetta::core {
 
         /**
          * @brief Register a read-only virtual field (getter only, no setter)
-         *
-         * For getters returning by const reference.
-         *
-         * Example:
-         * ```cpp
-         * class Rectangle {
-         *     double width_, height_;
-         * public:
-         *     double getArea() const { return width_ * height_; }  // Computed, no setter
-         * };
-         *
-         * ROSETTA_REGISTER_CLASS(Rectangle)
-         *     .readonly_property<double>("area", &Rectangle::getArea);
-         * ```
          */
         template <typename T>
         ClassMetadata &readonly_property(const std::string &name,
@@ -247,16 +181,12 @@ namespace rosetta::core {
 
         /**
          * @brief Register a read-only virtual field - variant returning by value
-         *
-         * This is the most common case for computed properties with primitive types.
          */
         template <typename T>
         ClassMetadata &readonly_property(const std::string &name, T (Class::*getter)() const);
 
         /**
          * @brief Register a write-only virtual field (setter only, no getter)
-         *
-         * Useful for write-only properties or when the getter isn't const.
          */
         template <typename T>
         ClassMetadata &writeonly_property(const std::string &name,
@@ -292,20 +222,6 @@ namespace rosetta::core {
 
         /**
          * @brief Register a constructor
-         * @example
-         * ```cpp
-         * ROSETTA_REGISTER_CLASS(Vector3D)
-         *   .constructor<>()
-         *   .constructor<double, double, double>();
-         * ```
-         *
-         * @example
-         * ```cpp
-         * auto &meta = ROSETTA_GET_META(Vector3D);
-         *
-         * Vector3D v1 = meta.construct().as<Vector3D>();                    // default
-         * Vector3D v2 = meta.construct(3.0, 4.0, 5.0).as<Vector3D>();       // parametric
-         * ```
          */
         template <typename... Args> ClassMetadata &constructor();
 
@@ -371,24 +287,6 @@ namespace rosetta::core {
          * @tparam Args Types of parameters
          * @param name Name of the static method
          * @param ptr Pointer to the static function
-         *
-         * Static methods don't require an instance to call, but we store them
-         * in the metadata for completeness and for binding generation.
-         *
-         * Example:
-         * ```cpp
-         * class MyClass {
-         * public:
-         *     static double pi() { return 3.14159; }
-         *     static std::string greet(const std::string& name) {
-         *         return "Hello, " + name;
-         *     }
-         * };
-         *
-         * ROSETTA_REGISTER_CLASS(MyClass)
-         *     .static_method("pi", &MyClass::pi)
-         *     .static_method("greet", &MyClass::greet);
-         * ```
          */
         template <typename Ret, typename... Args>
         ClassMetadata &static_method(const std::string &name, Ret (*ptr)(Args...));
@@ -397,11 +295,16 @@ namespace rosetta::core {
         // METHODS FROM BASE CLASSES
         // ========================================================================
 
-        size_t get_method_arity(const std::string &name) const;
+        // CHANGED: Return vector of infos to support overloads
+        std::vector<size_t> get_method_arities(const std::string &name) const;
+        std::vector<std::vector<std::type_index>>
+                                     get_method_arg_types_all(const std::string &name) const;
+        std::vector<std::type_index> get_method_return_types(const std::string &name) const;
 
+        // Keep old API for backward compatibility (returns first overload)
+        size_t                              get_method_arity(const std::string &name) const;
         const std::vector<std::type_index> &get_method_arg_types(const std::string &name) const;
-
-        std::type_index get_method_return_type(const std::string &name) const;
+        std::type_index                     get_method_return_type(const std::string &name) const;
 
         /**
          * @brief Register non const method from base class
@@ -456,23 +359,6 @@ namespace rosetta::core {
 
         /**
          * @brief Automatically detect and register properties from getter/setter pairs
-         *
-         * Scans all registered methods for patterns like:
-         * - getXyz() / setXyz(value) â†’ property "xyz"
-         * - GetXyz() / SetXyz(value) â†’ property "xyz"
-         *
-         * The getter must have 0 parameters and a non-void return type.
-         * The setter must have 1 parameter and match the getter's return type.
-         *
-         * @return Reference to this for chaining
-         *
-         * @example
-         * ```cpp
-         * ROSETTA_REGISTER_CLASS(Model)
-         *     .method("getSurfaces", &Model::getSurfaces)
-         *     .method("setSurfaces", &Model::setSurfaces)
-         *     .auto_detect_properties();  // Creates "surfaces" property
-         * ```
          */
         ClassMetadata &auto_detect_properties();
 
@@ -520,6 +406,14 @@ namespace rosetta::core {
         const std::vector<std::string> &methods() const;
 
         /**
+         * @brief Get all overloads information for a specific method
+         * @param method_name Name of the method
+         * @return Const reference to vector of MethodInfo for all overloads
+         * @throws std::runtime_error if method not found
+         */
+        const std::vector<MethodInfo> &method_info(const std::string &method_name) const;
+
+        /**
          * @brief Recuperation de la valeur d'un champs
          */
         Any get_field(Class &obj, const std::string &name) const;
@@ -530,36 +424,23 @@ namespace rosetta::core {
         void set_field(Class &obj, const std::string &name, Any value) const;
 
         /**
-         * @brief Invoke a method on an object
+         * @brief Invoke a method on an object (with automatic overload resolution)
          */
         Any invoke_method(Class &obj, const std::string &name, std::vector<Any> args = {}) const;
 
         /**
-         * @brief Invoke a method on an object (const version)
+         * @brief Invoke a method on an object (const version with automatic overload resolution)
          */
         Any invoke_method(const Class &obj, const std::string &name,
                           std::vector<Any> args = {}) const;
 
         /**
          * @brief Invoke a static method (no object instance required)
-         * @param name Name of the static method
-         * @param args Arguments to pass to the method
-         * @return Result wrapped in Any
-         * @throws std::runtime_error if method not found or is not static
-         *
-         * Example:
-         * ```cpp
-         * auto& meta = ROSETTA_GET_META(MyClass);
-         * auto result = meta.invoke_static_method("pi");
-         * double pi = result.as<double>();
-         * ```
          */
         Any invoke_static_method(const std::string &name, std::vector<Any> args = {}) const;
 
         /**
          * @brief Check if a method is static
-         * @param name Name of the method
-         * @return true if the method is static, false otherwise
          */
         bool is_static_method(const std::string &name) const;
 
@@ -570,8 +451,6 @@ namespace rosetta::core {
 
         /**
          * @brief Get the type of a field
-         * @param name Nom du champ
-         * @return type_index of the field, or typeid(void) if not found
          */
         std::type_index get_field_type(const std::string &name) const;
 

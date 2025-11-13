@@ -74,36 +74,45 @@ namespace rosetta::core {
             os << "  - " << name << " : " << type_name << "\n";
         }
 
-        // Methods - now with argument types and count (demangled)
-        const auto &m = methods();
-        os << "Methods (" << m.size() << "):\n";
+        const auto &m               = methods();
+        size_t      total_overloads = 0;
+
+        // Count total overloads
         for (const auto &name : m) {
             auto it = method_info_.find(name);
             if (it != method_info_.end()) {
-                const MethodInfo &info = it->second;
+                total_overloads += it->second.size();
+            }
+        }
 
-                // Display return type (demangled)
-                std::string return_type = get_readable_type_name(info.return_type);
-                os << "  - " << return_type << " " << name << "(";
+        os << "Methods (" << total_overloads << "):\n";
+        for (const auto &name : m) {
+            auto it = method_info_.find(name);
+            if (it != method_info_.end()) {
+                // Iterate through ALL overloads
+                for (const auto &info : it->second) {
+                    // Display return type (demangled)
+                    std::string return_type = get_readable_type_name(info.return_type);
+                    os << "  - " << return_type << " " << name << "(";
 
-                // Display argument types (demangled)
-                for (size_t i = 0; i < info.arg_types.size(); ++i) {
-                    std::string arg_type = get_readable_type_name(info.arg_types[i]);
-                    os << arg_type;
-                    if (i < info.arg_types.size() - 1) {
-                        os << ", ";
+                    // Display argument types (demangled)
+                    for (size_t i = 0; i < info.arg_types.size(); ++i) {
+                        std::string arg_type = get_readable_type_name(info.arg_types[i]);
+                        os << arg_type;
+                        if (i < info.arg_types.size() - 1) {
+                            os << ", ";
+                        }
                     }
-                }
-                os << ")";
+                    os << ")";
 
-                // Display arity and static indicator
-                os << " [" << info.arity << " arg" << (info.arity == 1 ? "" : "s") << "]";
-                if (info.is_static) {
-                    os << " [static]";
+                    // Display arity and static indicator
+                    os << " [" << info.arity << " arg" << (info.arity == 1 ? "" : "s") << "]";
+                    if (info.is_static) {
+                        os << " [static]";
+                    }
+                    os << "\n";
                 }
-                os << "\n";
             } else {
-                // Fallback for methods without stored info
                 os << "  - " << name << " (no type info available)\n";
             }
         }
@@ -467,7 +476,10 @@ namespace rosetta::core {
                                                               Ret (Class::*ptr)(Args...)) {
         // auto_register_function_converters(ptr);
 
-        method_names_.push_back(name);
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
 
         // Create and store method info
         MethodInfo info;
@@ -488,8 +500,8 @@ namespace rosetta::core {
             }
         };
 
-        method_info_[name] = info;
-        methods_[name]     = info.invoker;
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
 
         return *this;
     }
@@ -504,15 +516,18 @@ namespace rosetta::core {
                                                               Ret (Class::*ptr)(Args...) const) {
         // auto_register_function_converters(ptr);
 
-        method_names_.push_back(name);
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
 
         // Create and store method info
         MethodInfo info;
         info.arity       = sizeof...(Args);
         info.return_type = std::type_index(typeid(Ret));
-        info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.arg_types   = {std::type_index(typeid(Args))...};
 
-        const_methods_[name] = [ptr](const Class &obj, std::vector<Any> args) -> Any {
+        auto const_invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
             if constexpr (sizeof...(Args) == 0) {
                 if constexpr (std::is_void_v<Ret>) {
                     (obj.*ptr)();
@@ -525,7 +540,7 @@ namespace rosetta::core {
             }
         };
 
-        // Wrapper pour appel depuis objet non-const
+        // Wrapper for non-const objects
         info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
             const Class &const_obj = obj;
             if constexpr (sizeof...(Args) == 0) {
@@ -541,8 +556,10 @@ namespace rosetta::core {
             }
         };
 
-        method_info_[name] = info;
-        methods_[name]     = info.invoker;
+        // CHANGED: Append to vectors instead of replacing
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
+        const_methods_[name].push_back(const_invoker);
 
         return *this;
     }
@@ -555,7 +572,10 @@ namespace rosetta::core {
     template <typename Ret, typename... Args>
     inline ClassMetadata<Class> &ClassMetadata<Class>::static_method(const std::string &name,
                                                                      Ret (*ptr)(Args...)) {
-        method_names_.push_back(name);
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
 
         // Create and store static method info (no object instance needed)
         StaticMethodInfo static_info;
@@ -577,7 +597,7 @@ namespace rosetta::core {
             }
         };
 
-        static_methods_[name] = static_info;
+        static_methods_[name].push_back(static_info);
 
         // Also create regular MethodInfo for backward compatibility
         MethodInfo info;
@@ -602,11 +622,11 @@ namespace rosetta::core {
             }
         };
 
-        method_info_[name] = info;
-        methods_[name]     = info.invoker;
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
 
         // Also add to const_methods_ so it can be called on const objects
-        const_methods_[name] = [ptr](const Class &, std::vector<Any> args) -> Any {
+        auto const_invoker = [ptr](const Class &, std::vector<Any> args) -> Any {
             if constexpr (sizeof...(Args) == 0) {
                 if constexpr (std::is_void_v<Ret>) {
                     (*ptr)();
@@ -618,6 +638,7 @@ namespace rosetta::core {
                 return invoke_static_with_args(ptr, args, std::index_sequence_for<Args...>{});
             }
         };
+        const_methods_[name].push_back(const_invoker);
 
         return *this;
     }
@@ -626,21 +647,79 @@ namespace rosetta::core {
     // METHODS FROM BASE CLASSES
     // ========================================================================
 
+    // Get all overload arities
+    template <typename Class>
+    inline std::vector<size_t>
+    ClassMetadata<Class>::get_method_arities(const std::string &name) const {
+        std::vector<size_t> arities;
+        auto                it = method_info_.find(name);
+        if (it != method_info_.end()) {
+            for (const auto &info : it->second) {
+                arities.push_back(info.arity);
+            }
+        }
+        return arities;
+    }
+
+    // Get all overload argument types
+    template <typename Class>
+    inline std::vector<std::vector<std::type_index>>
+    ClassMetadata<Class>::get_method_arg_types_all(const std::string &name) const {
+        std::vector<std::vector<std::type_index>> all_args;
+        auto                                      it = method_info_.find(name);
+        if (it != method_info_.end()) {
+            for (const auto &info : it->second) {
+                all_args.push_back(info.arg_types);
+            }
+        }
+        return all_args;
+    }
+
+    // Get all overload return types
+    template <typename Class>
+    inline std::vector<std::type_index>
+    ClassMetadata<Class>::get_method_return_types(const std::string &name) const {
+        std::vector<std::type_index> return_types;
+        auto                         it = method_info_.find(name);
+        if (it != method_info_.end()) {
+            for (const auto &info : it->second) {
+                return_types.push_back(info.return_type);
+            }
+        }
+        return return_types;
+    }
+
     template <typename Class>
     inline size_t ClassMetadata<Class>::get_method_arity(const std::string &name) const {
-        return method_info_.at(name).arity;
+        // return method_info_.at(name).arity;
+        auto it = method_info_.find(name);
+        if (it != method_info_.end() && !it->second.empty()) {
+            return it->second[0].arity; // Return first overload
+        }
+        throw std::runtime_error("Method not found: " + name);
     }
 
     template <typename Class>
     inline const std::vector<std::type_index> &
     ClassMetadata<Class>::get_method_arg_types(const std::string &name) const {
-        return method_info_.at(name).arg_types;
+        // return method_info_.at(name).arg_types;
+        auto it = method_info_.find(name);
+        if (it != method_info_.end() && !it->second.empty()) {
+            return it->second[0].arg_types; // Return first overload
+        }
+        static std::vector<std::type_index> empty;
+        return empty;
     }
 
     template <typename Class>
     inline std::type_index
     ClassMetadata<Class>::get_method_return_type(const std::string &name) const {
-        return method_info_.at(name).return_type;
+        // return method_info_.at(name).return_type;
+        auto it = method_info_.find(name);
+        if (it != method_info_.end() && !it->second.empty()) {
+            return it->second[0].return_type; // Return first overload
+        }
+        return std::type_index(typeid(void));
     }
 
     template <typename Class>
@@ -649,7 +728,10 @@ namespace rosetta::core {
                                                                    Ret (Base::*ptr)(Args...)) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
-        method_names_.push_back(name);
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
 
         MethodInfo info;
         info.arity       = sizeof...(Args);
@@ -670,8 +752,8 @@ namespace rosetta::core {
             }
         };
 
-        method_info_[name] = std::move(info);
-        methods_[name]     = info.invoker; // Keep backward compatibility
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
 
         return *this;
     }
@@ -682,7 +764,10 @@ namespace rosetta::core {
     ClassMetadata<Class>::base_method(const std::string &name, Ret (Base::*ptr)(Args...) const) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
-        method_names_.push_back(name);
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
 
         MethodInfo info;
         info.arity       = sizeof...(Args);
@@ -703,9 +788,9 @@ namespace rosetta::core {
             }
         };
 
-        method_info_[name]   = std::move(info);
-        methods_[name]       = info.invoker; // Keep backward compatibility
-        const_methods_[name] = info.invoker; // Keep backward compatibility
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
+        const_methods_[name].push_back(info.invoker);
 
         return *this;
     }
@@ -795,8 +880,9 @@ namespace rosetta::core {
 
                         // Verify it's a valid getter (0 args, non-void return)
                         auto it = method_info_.find(method_name);
-                        if (it != method_info_.end() && it->second.arity == 0 &&
-                            it->second.return_type != std::type_index(typeid(void))) {
+                        if (it != method_info_.end() && !it->second.empty() &&
+                            it->second[0].arity == 0 &&
+                            it->second[0].return_type != std::type_index(typeid(void))) {
                             getters[property_name] = method_name;
                         }
                     }
@@ -816,7 +902,8 @@ namespace rosetta::core {
 
                         // Verify it's a valid setter (1 arg)
                         auto it = method_info_.find(method_name);
-                        if (it != method_info_.end() && it->second.arity == 1) {
+                        if (it != method_info_.end() && !it->second.empty() &&
+                            it->second[0].arity == 1) {
                             setters[property_name] = method_name;
                         }
                     }
@@ -833,8 +920,9 @@ namespace rosetta::core {
                 const std::string &setter_name = setter_it->second;
 
                 // Verify type compatibility (getter return type == setter param type)
-                auto &getter_info = method_info_[getter_name];
-                auto &setter_info = method_info_[setter_name];
+                // Use first overload for property detection
+                const auto &getter_info = method_info_[getter_name][0];
+                const auto &setter_info = method_info_[setter_name][0];
 
                 if (getter_info.return_type == setter_info.arg_types[0]) {
                     // Types match! Create a virtual property
@@ -843,7 +931,7 @@ namespace rosetta::core {
                 }
             } else {
                 // Only getter, create read-only property
-                auto &getter_info = method_info_[getter_name];
+                const auto &getter_info = method_info_[getter_name][0];
                 register_readonly_property_from_method(property_name, getter_name,
                                                        getter_info.return_type);
             }
@@ -940,6 +1028,16 @@ namespace rosetta::core {
     }
 
     template <typename Class>
+    inline const std::vector<typename ClassMetadata<Class>::MethodInfo> &
+    ClassMetadata<Class>::method_info(const std::string &method_name) const {
+        auto it = method_info_.find(method_name);
+        if (it == method_info_.end()) {
+            throw std::runtime_error("Method not found: " + method_name);
+        }
+        return it->second;
+    }
+
+    template <typename Class>
     inline Any ClassMetadata<Class>::get_field(Class &obj, const std::string &name) const {
         return field_getters_.at(name)(obj);
     }
@@ -953,23 +1051,178 @@ namespace rosetta::core {
     template <typename Class>
     inline Any ClassMetadata<Class>::invoke_method(Class &obj, const std::string &name,
                                                    std::vector<Any> args) const {
-        return methods_.at(name)(obj, std::move(args));
+        // return methods_.at(name)(obj, std::move(args));
+        auto it = methods_.find(name);
+        if (it == methods_.end()) {
+            throw std::runtime_error("Method not found: " + name);
+        }
+
+        const auto &overloads = it->second;
+        auto        info_it   = method_info_.find(name);
+
+        // Try each overload
+        std::vector<std::string> tried_signatures;
+        for (size_t i = 0; i < overloads.size(); ++i) {
+            const auto &invoker = overloads[i];
+            const auto &info    = info_it->second[i];
+
+            // Check arity match
+            if (args.size() != info.arity) {
+                // Build signature for error message
+                std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                    sig += get_readable_type_name(info.arg_types[j]);
+                    if (j < info.arg_types.size() - 1)
+                        sig += ", ";
+                }
+                sig += ")";
+                tried_signatures.push_back(sig);
+                continue;
+            }
+
+            // Try to invoke - if it succeeds, return
+            try {
+                return invoker(obj, args);
+            } catch (const std::bad_cast &) {
+                // Type mismatch - try next overload
+                std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                    sig += get_readable_type_name(info.arg_types[j]);
+                    if (j < info.arg_types.size() - 1)
+                        sig += ", ";
+                }
+                sig += ")";
+                tried_signatures.push_back(sig);
+                continue;
+            }
+        }
+
+        // No matching overload found
+        std::string error = "No matching overload found for method '" + name + "' with " +
+                            std::to_string(args.size()) + " arguments.\n";
+        error += "Tried overloads:\n";
+        for (const auto &sig : tried_signatures) {
+            error += "  - " + sig + "\n";
+        }
+        throw std::runtime_error(error);
     }
 
     template <typename Class>
     inline Any ClassMetadata<Class>::invoke_method(const Class &obj, const std::string &name,
                                                    std::vector<Any> args) const {
-        return const_methods_.at(name)(obj, std::move(args));
+        // return const_methods_.at(name)(obj, std::move(args));
+        auto it = const_methods_.find(name);
+        if (it == const_methods_.end()) {
+            throw std::runtime_error("Const method not found: " + name);
+        }
+
+        const auto &overloads = it->second;
+        auto        info_it   = method_info_.find(name);
+
+        // Try each overload
+        std::vector<std::string> tried_signatures;
+        for (size_t i = 0; i < overloads.size(); ++i) {
+            const auto &invoker = overloads[i];
+            const auto &info    = info_it->second[i];
+
+            // Check arity match
+            if (args.size() != info.arity) {
+                std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                    sig += get_readable_type_name(info.arg_types[j]);
+                    if (j < info.arg_types.size() - 1)
+                        sig += ", ";
+                }
+                sig += ") const";
+                tried_signatures.push_back(sig);
+                continue;
+            }
+
+            // Try to invoke
+            try {
+                return invoker(obj, args);
+            } catch (const std::bad_cast &) {
+                std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                    sig += get_readable_type_name(info.arg_types[j]);
+                    if (j < info.arg_types.size() - 1)
+                        sig += ", ";
+                }
+                sig += ") const";
+                tried_signatures.push_back(sig);
+                continue;
+            }
+        }
+
+        // No matching overload found
+        std::string error = "No matching const overload found for method '" + name + "' with " +
+                            std::to_string(args.size()) + " arguments.\n";
+        error += "Tried overloads:\n";
+        for (const auto &sig : tried_signatures) {
+            error += "  - " + sig + "\n";
+        }
+        throw std::runtime_error(error);
     }
 
     template <typename Class>
     inline Any ClassMetadata<Class>::invoke_static_method(const std::string &name,
                                                           std::vector<Any>   args) const {
+        // auto it = static_methods_.find(name);
+        // if (it == static_methods_.end()) {
+        //     throw std::runtime_error("Static method '" + name + "' not found or is not static");
+        // }
+        // return it->second.invoker(std::move(args));
         auto it = static_methods_.find(name);
         if (it == static_methods_.end()) {
             throw std::runtime_error("Static method '" + name + "' not found or is not static");
         }
-        return it->second.invoker(std::move(args));
+
+        const auto &overloads = it->second; // Vector of static method overloads
+
+        // Try each overload
+        std::vector<std::string> tried_signatures;
+        for (size_t i = 0; i < overloads.size(); ++i) {
+            const auto &static_info = overloads[i];
+
+            // Check arity match
+            if (args.size() != static_info.arity) {
+                std::string sig =
+                    get_readable_type_name(static_info.return_type) + " " + name + "(";
+                for (size_t j = 0; j < static_info.arg_types.size(); ++j) {
+                    sig += get_readable_type_name(static_info.arg_types[j]);
+                    if (j < static_info.arg_types.size() - 1)
+                        sig += ", ";
+                }
+                sig += ") [static]";
+                tried_signatures.push_back(sig);
+                continue;
+            }
+
+            // Try to invoke
+            try {
+                return static_info.invoker(args);
+            } catch (const std::bad_cast &) {
+                std::string sig =
+                    get_readable_type_name(static_info.return_type) + " " + name + "(";
+                for (size_t j = 0; j < static_info.arg_types.size(); ++j) {
+                    sig += get_readable_type_name(static_info.arg_types[j]);
+                    if (j < static_info.arg_types.size() - 1)
+                        sig += ", ";
+                }
+                sig += ") [static]";
+                tried_signatures.push_back(sig);
+                continue;
+            }
+        }
+
+        // No matching overload found
+        std::string error = "No matching static overload found for method '" + name + "' with " +
+                            std::to_string(args.size()) + " arguments.\n";
+        error += "Tried overloads:\n";
+        for (const auto &sig : tried_signatures) {
+            error += "  - " + sig + "\n";
+        }
+        throw std::runtime_error(error);
     }
 
     template <typename Class>
