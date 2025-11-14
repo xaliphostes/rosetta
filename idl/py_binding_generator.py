@@ -367,7 +367,7 @@ if __name__ == "__main__":
     sys.exit(0 if success else 1)
 
 
-    
+
 # #!/usr/bin/env python3
 # """
 # Rosetta Python Binding Generator

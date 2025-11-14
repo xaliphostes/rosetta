@@ -76,7 +76,6 @@ namespace rosetta::core {
         };
 
     private:
-
         // Store multiple MethodInfo per method name to support overloads
         umapv<MethodInfo> method_info_;
 
@@ -335,11 +334,18 @@ namespace rosetta::core {
         ClassMetadata &virtual_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         /**
-         * @brief Register pure virtual method
+         * @brief Register pure virtual method - template-only version (non-const)
+         * Use when you don't have/need the function pointer
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &pure_virtual_method(const std::string &name,
-                                           Ret (Class::*ptr)(Args...) = nullptr);
+        ClassMetadata &pure_virtual_method(const std::string &name);
+
+        /**
+         * @brief Register pure virtual method - template-only version (const)
+         * Use when you don't have/need the function pointer
+         */
+        template <typename Ret, typename... Args>
+        ClassMetadata &pure_virtual_method_const(const std::string &name);
 
         /**
          * @brief Register non-const method that overrides a base virtual method
@@ -432,6 +438,35 @@ namespace rosetta::core {
          * @brief Invoke a method on an object (const version with automatic overload resolution)
          */
         Any invoke_method(const Class &obj, const std::string &name,
+                          std::vector<Any> args = {}) const;
+
+        /**
+         * @brief Invoke a method on a pointer to an object (with automatic overload resolution)
+         * Performs dynamic_cast to ensure type safety
+         */
+        template <typename BasePtr>
+        Any invoke_method(BasePtr *ptr, const std::string &name, std::vector<Any> args = {}) const ;
+
+        /**
+         * @brief Invoke a method on a shared_ptr to an object (with automatic overload resolution)
+         */
+        template <typename BasePtr>
+        Any invoke_method(const std::shared_ptr<BasePtr> &ptr, const std::string &name,
+                          std::vector<Any> args = {}) const;
+
+        /**
+         * @brief Invoke a method on a unique_ptr to an object (with automatic overload resolution)
+         */
+        template <typename BasePtr>
+        Any invoke_method(const std::unique_ptr<BasePtr> &ptr, const std::string &name,
+                          std::vector<Any> args = {}) const;
+
+        /**
+         * @brief Invoke a method on a pointer to a const object (with automatic overload
+         * resolution)
+         */
+        template <typename BasePtr>
+        Any invoke_method(const BasePtr *ptr, const std::string &name,
                           std::vector<Any> args = {}) const;
 
         /**
