@@ -136,7 +136,7 @@ void register_container_classes() {
 // ------------------------------------------------------
 // Python Module Definition
 // ------------------------------------------------------
-BEGIN_PY_MODULE(rosetta_example, "Python bindings demonstrating map, set, array support") {
+BEGIN_PY_MODULE(container, "Python bindings demonstrating map, set, array support") {
     register_container_classes();
     BIND_PY_CLASS(DataContainer);
     BIND_PY_CLASS(MathUtils);

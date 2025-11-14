@@ -4,7 +4,7 @@ Test script for dynamic container type binding
 Demonstrates the new bind_*_type() functions
 """
 
-import rosetta_example as db
+import dynamic as db
 import sys
 
 def print_section(title):

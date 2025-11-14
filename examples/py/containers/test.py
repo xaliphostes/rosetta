@@ -3,7 +3,7 @@
 Test script demonstrating std::map, std::set, and std::array support
 """
 
-import rosetta_example as ce
+import container as ce
 
 print("=" * 60)
 print("Testing DataContainer with various container types")

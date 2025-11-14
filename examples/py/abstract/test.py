@@ -1,4 +1,4 @@
-import rosetta_example as rosetta
+import abstract as rosetta
 
 def main():
     try:

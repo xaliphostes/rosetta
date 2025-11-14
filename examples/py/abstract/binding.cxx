@@ -12,8 +12,8 @@ public:
     void run() override { std::cerr << "Hello world!" << std::endl; }
 };
 
-BEGIN_PY_MODULE(rosetta_example, "Testing abstract class") {
-    ROSETTA_REGISTER_CLASS(Base).pure_virtual_method("run", &Base::run);
+BEGIN_PY_MODULE(abstract, "Testing abstract class") {
+    ROSETTA_REGISTER_CLASS(Base).pure_virtual_method<void, void>("run");
     ROSETTA_REGISTER_CLASS(Derived).virtual_method("run", &Derived::run);
     
     BIND_PY_CLASS(Base);

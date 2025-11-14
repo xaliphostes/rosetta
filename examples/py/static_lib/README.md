@@ -10,11 +10,15 @@ The third party library that we cannot modify. A static library is generated.
 
 The Rosetta introspection + python binding. Only the headers of the library `flower` are used
 
-## Compilation
+## Compilation 1
 
 - Go to the **flower** folder, create a `build` directory and run `cmake .. && make`
 
 - Go to the **pyflower** folder, create a `build` directory and run `cmake .. && make`
+
+## Compilation 2
+
+Create a `build` directory and run `cmake .. && make`
 
 ## Testing
 

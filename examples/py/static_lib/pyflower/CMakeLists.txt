@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
-project(rosetta_pyflower)
+project(rosetta_python_bindings)
+
+set(MODULE_NAME "pyflower")
 
 # C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -34,55 +36,43 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${Python_INCLUDE_DIRS}
+    ../../../include
     ../../../../include
 )
 
 # =============================================================================
 # Create the Python module
 # =============================================================================
-pybind11_add_module(pyflower
+pybind11_add_module(${MODULE_NAME}
     binding.cxx
 )
 
 # Set include directories for the target
-target_include_directories(pyflower PRIVATE
+target_include_directories(${MODULE_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 # Link with Python libraries if needed (Windows)
 if(WIN32 AND Python_LIBRARIES)
-    target_link_libraries(pyflower PRIVATE ${Python_LIBRARIES})
-endif()
-
-# Find and link against flower.a
-if(NOT DEFINED FLOWER_LIB_PATH)
-    set(FLOWER_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../lib/libflower.a" CACHE FILEPATH "../lib/libflower.a")
-endif()
-
-if(EXISTS ${FLOWER_LIB_PATH})
-    message(STATUS "Found flower library at: ${FLOWER_LIB_PATH}")
-    target_link_libraries(pyflower PUBLIC ${FLOWER_LIB_PATH})
-else()
-    message(WARNING "libflower.a not found at: ${FLOWER_LIB_PATH}")
-    message(WARNING "Specify with: cmake -DFLOWER_LIB_PATH=/path/to/libflower.a")
+    target_link_libraries(${MODULE_NAME} PRIVATE ${Python_LIBRARIES})
 endif()
 
 # Set output directory
-set_target_properties(pyflower PROPERTIES
+set_target_properties(${MODULE_NAME} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 
 # On Windows, ensure .pyd extension
 if(WIN32)
-    set_target_properties(pyflower PROPERTIES SUFFIX ".pyd")
+    set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".pyd")
 endif()
 
 # =============================================================================
 # Installation
 # =============================================================================
-install(TARGETS pyflower
+install(TARGETS ${MODULE_NAME}
     LIBRARY DESTINATION .
     RUNTIME DESTINATION .
 )
@@ -93,8 +83,8 @@ install(TARGETS pyflower
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test.py)
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/test.py
-        ${CMAKE_BINARY_DIR}/test.py
+        ${CMAKE_BINARY_DIR}/test_${MODULE_NAME}.py
         COPYONLY
     )
-    message(STATUS "Copied test.py to build directory")
+    message(STATUS "Copied test.py to test_${MODULE_NAME}.py in build directory")
 endif()

@@ -4,7 +4,7 @@ Test script for Rosetta Python bindings
 Demonstrates non-intrusive C++ class binding to Python
 """
 
-import rosetta_example as rosetta
+import complex as rosetta
 
 surface = rosetta.Surface(
     [0.1, 0.1, 0.1, 1.1, 0.1, 0.1, 0.1, 1.1, 0.1],

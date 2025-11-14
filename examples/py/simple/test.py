@@ -4,7 +4,7 @@ Test script for Rosetta Python bindings
 Demonstrates non-intrusive C++ class binding to Python
 """
 
-import rosetta_example as rosetta
+import simple as rosetta
 import math
 
 def print_header(title):

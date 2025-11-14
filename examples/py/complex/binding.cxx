@@ -101,7 +101,7 @@ void register_rosetta_classes() {
 // Python Module Definition
 // ============================================================================
 
-BEGIN_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta introspection") {
+BEGIN_PY_MODULE(complex, "Python bindings for C++ classes using Rosetta introspection") {
     register_rosetta_classes();
 
     // *** IMPORTANT: Register function converters BEFORE binding classes ***

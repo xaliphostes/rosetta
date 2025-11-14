@@ -1,5 +1,4 @@
-#ifndef FLOWER_H
-#define FLOWER_H
+#pragma once
 
 class Flower {
 public:
@@ -24,5 +23,3 @@ public:
      */
     long long computeFibonacci(int n);
 };
-
-#endif // FLOWER_H

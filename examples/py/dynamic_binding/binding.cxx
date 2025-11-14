@@ -113,7 +113,7 @@ void register_dynamic_binding_classes() {
 }
 
 // Python Module Definition
-BEGIN_PY_MODULE(rosetta_example, "Demonstration of dynamic container type binding") {
+BEGIN_PY_MODULE(dynamic, "Demonstration of dynamic container type binding") {
     register_dynamic_binding_classes();
 
     // *** CRITICAL: Register container types BEFORE binding classes ***

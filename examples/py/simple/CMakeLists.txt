@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(rosetta_python_bindings)
 
+set(MODULE_NAME "simple")
+
 # C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -40,36 +42,36 @@ include_directories(
 # =============================================================================
 # Create the Python module
 # =============================================================================
-pybind11_add_module(rosetta_example
+pybind11_add_module(${MODULE_NAME}
     binding.cxx
 )
 
 # Set include directories for the target
-target_include_directories(rosetta_example PRIVATE
+target_include_directories(${MODULE_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 # Link with Python libraries if needed (Windows)
 if(WIN32 AND Python_LIBRARIES)
-    target_link_libraries(rosetta_example PRIVATE ${Python_LIBRARIES})
+    target_link_libraries(${MODULE_NAME} PRIVATE ${Python_LIBRARIES})
 endif()
 
 # Set output directory
-set_target_properties(rosetta_example PROPERTIES
+set_target_properties(${MODULE_NAME} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 
 # On Windows, ensure .pyd extension
 if(WIN32)
-    set_target_properties(rosetta_example PROPERTIES SUFFIX ".pyd")
+    set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".pyd")
 endif()
 
 # =============================================================================
 # Installation
 # =============================================================================
-install(TARGETS rosetta_example
+install(TARGETS ${MODULE_NAME}
     LIBRARY DESTINATION .
     RUNTIME DESTINATION .
 )
@@ -80,25 +82,8 @@ install(TARGETS rosetta_example
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test.py)
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/test.py
-        ${CMAKE_BINARY_DIR}/test.py
+        ${CMAKE_BINARY_DIR}/test_${MODULE_NAME}.py
         COPYONLY
     )
-    message(STATUS "Copied test.py to build directory")
+    message(STATUS "Copied test.py to test_${MODULE_NAME}.py in build directory")
 endif()
-
-# =============================================================================
-# Print configuration summary
-# =============================================================================
-message(STATUS "")
-message(STATUS "=== Configuration Summary ===")
-message(STATUS "Python executable: ${Python_EXECUTABLE}")
-message(STATUS "Python version: ${PYTHON_VERSION_STRING}")
-message(STATUS "Python include dirs: ${Python_INCLUDE_DIRS}")
-message(STATUS "Python libraries: ${Python_LIBRARIES}")
-if(pybind11_VERSION)
-    message(STATUS "pybind11 version: ${pybind11_VERSION}")
-endif()
-message(STATUS "C++ standard: C++${CMAKE_CXX_STANDARD}")
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "=============================")
-message(STATUS "")
