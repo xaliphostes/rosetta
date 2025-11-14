@@ -827,27 +827,28 @@ namespace rosetta::core {
         std::string signature = make_signature<Ret, Args...>();
         VirtualMethodRegistry::instance().register_virtual_method<Class>(name, signature, true);
         inheritance_.vtable.add_virtual_method(name, signature, true);
-        
+
         // Only add name once to method_names_
         if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
             method_names_.push_back(name);
         }
-        
+
         // Create MethodInfo for the pure virtual method
         MethodInfo info;
         info.arity       = sizeof...(Args);
         info.return_type = std::type_index(typeid(Ret));
         info.arg_types   = {std::type_index(typeid(Args))...};
         info.is_static   = false;
-        
+
         // For pure virtual methods, we can't provide a real invoker
         // Create a dummy invoker that throws an exception
         info.invoker = [name](Class &, std::vector<Any>) -> Any {
             throw std::runtime_error("Cannot invoke pure virtual method: " + name);
         };
-        
+
+        // Add to method_info_ to make it discoverable
         method_info_[name].push_back(info);
-        
+
         return *this;
     }
 
@@ -1309,11 +1310,6 @@ namespace rosetta::core {
         }
     }
 
-    // Helper type trait to detect std::shared_ptr
-    template <typename T> struct is_shared_ptr : std::false_type {};
-    template <typename T> struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
-    template <typename T> inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
-
     // Helper to extract argument with numeric conversion support
     template <typename Class>
     template <typename T>
@@ -1327,64 +1323,6 @@ namespace rosetta::core {
         // Direct match
         if (actual_type == expected_type) {
             return any_val.as<RawType>();
-        }
-
-        // Handle std::shared_ptr<U> conversion
-        // If expecting shared_ptr<U>, try to convert from raw U* or U
-        if constexpr (is_shared_ptr_v<RawType>) {
-            using ElementType = typename RawType::element_type;
-            
-            // Try to extract as shared_ptr directly first
-            try {
-                return any_val.as<RawType>();
-            } catch (...) {
-                // If that fails, try to extract as raw pointer
-                std::type_index ptr_type = std::type_index(typeid(ElementType*));
-                if (actual_type == ptr_type) {
-                    ElementType* raw_ptr = any_val.as<ElementType*>();
-                    // Wrap in shared_ptr without taking ownership (dangerous!)
-                    // Better: create a copy if ElementType is copyable
-                    if (raw_ptr) {
-                        if constexpr (std::is_copy_constructible_v<ElementType>) {
-                            return std::make_shared<ElementType>(*raw_ptr);
-                        } else {
-                            // For non-copyable types, we have to use the raw pointer
-                            // This is risky but necessary for polymorphic types
-                            return std::shared_ptr<ElementType>(raw_ptr, [](ElementType*){
-                                // Empty deleter - Python owns the object
-                            });
-                        }
-                    }
-                }
-                
-                // Try to extract as the actual element type
-                std::type_index elem_type = std::type_index(typeid(ElementType));
-                if (actual_type == elem_type) {
-                    // Can't extract by value for abstract types
-                    if constexpr (!std::is_abstract_v<ElementType> && std::is_copy_constructible_v<ElementType>) {
-                        ElementType elem = any_val.as<ElementType>();
-                        return std::make_shared<ElementType>(std::move(elem));
-                    }
-                }
-                
-                // If still not found, check for derived types (polymorphism)
-                // Get the raw void pointer and try to cast
-                const void* void_ptr = any_val.get_void_ptr();
-                if (void_ptr && std::is_polymorphic_v<ElementType>) {
-                    // Cast to base type pointer
-                    ElementType* elem_ptr = const_cast<ElementType*>(
-                        static_cast<const ElementType*>(void_ptr)
-                    );
-                    if (elem_ptr) {
-                        return std::shared_ptr<ElementType>(elem_ptr, [](ElementType*){
-                            // Empty deleter - Python owns the object
-                        });
-                    }
-                }
-                
-                // Rethrow if we couldn't convert
-                throw;
-            }
         }
 
         // Numeric conversions

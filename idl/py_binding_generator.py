@@ -33,6 +33,29 @@ class PythonBindingGenerator:
     def __init__(self, idl: InterfaceDefinition):
         self.idl = idl
 
+    def _has_shared_ptr_params(self, method: Method) -> bool:
+        """Check if a method has any shared_ptr parameters"""
+        for param in method.parameters:
+            if 'std::shared_ptr<' in param.type:
+                return True
+        return False
+    
+    def _extract_shared_ptr_element_type(self, type_str: str) -> str:
+        """Extract T from std::shared_ptr<T>"""
+        if 'std::shared_ptr<' not in type_str:
+            return ""
+        start = type_str.find('<') + 1
+        end = type_str.rfind('>')
+        return type_str[start:end].strip()
+    
+    def _needs_shared_ptr_wrapper(self, cls: Class) -> List[Method]:
+        """Return list of methods that need shared_ptr wrappers"""
+        methods_needing_wrappers = []
+        for method in cls.methods:
+            if self._has_shared_ptr_params(method):
+                methods_needing_wrappers.append(method)
+        return methods_needing_wrappers
+
     def generate(self, output_path: Path):
         """Generate the binding file"""
         with open(output_path, 'w') as f:
@@ -104,6 +127,10 @@ class PythonBindingGenerator:
             for cls in self.idl.classes:
                 f.write(f"    BIND_PY_CLASS({cls.cpp_name});\n")
             f.write("\n")
+        
+        # Add shared_ptr parameter wrappers
+        if self.idl.classes:
+            self._write_shared_ptr_wrappers(f)
         
         # Bind free functions
         if self.idl.functions:
@@ -204,6 +231,78 @@ class PythonBindingGenerator:
         cpp_name = func.cpp_function_name
         doc = func.description or ""
         f.write(f'    BIND_FUNCTION({cpp_name}, "{doc}");\n')
+    
+    def _write_shared_ptr_wrappers(self, f: TextIO):
+        """Write lambda wrappers for methods with shared_ptr parameters"""
+        has_wrappers = False
+        
+        for cls in self.idl.classes:
+            methods_needing_wrappers = self._needs_shared_ptr_wrapper(cls)
+            
+            if not methods_needing_wrappers:
+                continue
+            
+            if not has_wrappers:
+                f.write("    // Add wrappers for methods with shared_ptr parameters\n")
+                f.write("    // These allow Python to pass raw pointers that get wrapped in shared_ptr\n")
+                has_wrappers = True
+            
+            f.write(f"    {{\n")
+            f.write(f"        // Get the pybind11 class for {cls.cpp_name}\n")
+            f.write(f"        auto cls_{cls.cpp_name} = py::class_<{cls.cpp_name}>(m, \"{cls.cpp_name}\", py::module_local());\n")
+            f.write(f"        \n")
+            
+            for method in methods_needing_wrappers:
+                self._write_method_wrapper(f, cls, method)
+            
+            f.write(f"    }}\n")
+        
+        if has_wrappers:
+            f.write("\n")
+    
+    def _write_method_wrapper(self, f: TextIO, cls: Class, method: Method):
+        """Write a wrapper for a single method with shared_ptr parameters"""
+        # Build parameter list for wrapper (converting shared_ptr<T> to T*)
+        wrapper_params = []
+        call_params = []
+        param_args = []
+        
+        for i, param in enumerate(method.parameters):
+            if 'std::shared_ptr<' in param.type:
+                # Convert shared_ptr<T> to T*
+                element_type = self._extract_shared_ptr_element_type(param.type)
+                wrapper_params.append(f"{element_type}* {param.name}")
+                # Wrap in non-owning shared_ptr when calling
+                call_params.append(f"std::shared_ptr<{element_type}>({param.name}, []({element_type}*){{}})")
+                param_args.append(f'py::arg("{param.name}")')
+            else:
+                # Keep parameter as-is
+                wrapper_params.append(f"{param.type} {param.name}")
+                call_params.append(param.name)
+                param_args.append(f'py::arg("{param.name}")')
+        
+        wrapper_param_str = ", ".join(wrapper_params)
+        call_param_str = ", ".join(call_params)
+        param_args_str = ", ".join(param_args)
+        
+        # Generate wrapper lambda
+        f.write(f"        // Wrapper for {method.name} with shared_ptr parameters\n")
+        f.write(f"        cls_{cls.cpp_name}.def(\"{method.name}\",\n")
+        f.write(f"            []({cls.cpp_name}& obj{', ' + wrapper_param_str if wrapper_params else ''}) {{\n")
+        
+        if method.returns and method.returns != "void":
+            f.write(f"                return obj.{method.name}({call_param_str});\n")
+        else:
+            f.write(f"                obj.{method.name}({call_param_str});\n")
+        
+        f.write(f"            }},\n")
+        f.write(f"            {param_args_str}")
+        
+        if method.description:
+            f.write(f',\n            "{method.description}"')
+        
+        f.write(f"\n        );\n")
+        f.write(f"        \n")
 
 
 # ============================================================================
@@ -266,3 +365,274 @@ if __name__ == "__main__":
     
     success = generate_python_bindings(idl_file, output_file)
     sys.exit(0 if success else 1)
+
+
+    
+# #!/usr/bin/env python3
+# """
+# Rosetta Python Binding Generator
+# =================================
+
+# Generates Python bindings from Rosetta IDL files.
+# Uses the IDL parser to create pybind11 binding code.
+
+# This generator creates a minimal binding file that:
+# 1. Includes necessary headers
+# 2. Declares the external registration function
+# 3. Defines the Python module with BEGIN_PY_MODULE/END_PY_MODULE
+# 4. Calls the registration function and binds classes/functions
+
+# The actual Rosetta class registration is done in XXX_registration.cxx
+# which is generated by rosetta_idl_parser.py
+
+# Author: xaliphostes
+# License: MIT
+# """
+
+# from typing import List, TextIO
+# from pathlib import Path
+# from rosetta_idl_parser import (
+#     InterfaceDefinition, Class, Method, Function, Field,
+#     Constructor, AccessMode, TypeConverter, Include
+# )
+
+
+# class PythonBindingGenerator:
+#     """Generate Python bindings from IDL"""
+
+#     def __init__(self, idl: InterfaceDefinition):
+#         self.idl = idl
+
+#     def generate(self, output_path: Path):
+#         """Generate the binding file"""
+#         with open(output_path, 'w') as f:
+#             self._write_header(f)
+#             self._write_includes(f)
+#             self._write_forward_declaration(f)
+#             self._write_module_definition(f)
+
+#     def _write_header(self, f: TextIO):
+#         """Write file header"""
+#         f.write(f"""// Auto-generated Python bindings for {self.idl.module.name}
+# // Generated by Rosetta Python Binding Generator
+# // DO NOT EDIT THIS FILE MANUALLY
+# //
+# // This file provides Python bindings using the Rosetta introspection system.
+# // Class registrations are defined in {self.idl.module.name}_registration.cxx
+
+# """)
+
+#     def _write_includes(self, f: TextIO):
+#         """Write include directives"""
+#         # Rosetta includes
+#         f.write("#include <rosetta/extensions/generators/py_generator.h>\n")
+#         f.write("#include <rosetta/rosetta.h>\n")
+        
+#         # User includes from IDL
+#         for include in self.idl.includes:
+#             f.write(f"{include.formatted}\n")
+        
+#         f.write("\n")
+        
+#         # Namespace declaration
+#         if self.idl.module.namespace:
+#             f.write(f"using namespace {self.idl.module.namespace};\n\n")
+
+#     def _write_forward_declaration(self, f: TextIO):
+#         """Write forward declaration for the external registration function"""
+#         f.write(f"// Forward declaration of Rosetta registration function\n")
+#         f.write(f"// This function is defined in {self.idl.module.name}_registration.cxx\n")
+#         f.write(f"extern void register_{self.idl.module.name}_classes();\n\n")
+
+#     def _write_module_definition(self, f: TextIO):
+#         """Write pybind11 module definition"""
+#         module_name = self.idl.module.name
+#         doc = self.idl.module.description or f"Python bindings for {module_name}"
+        
+#         f.write(f"// =============================================================================\n")
+#         f.write(f"// Python Module Definition\n")
+#         f.write(f"// =============================================================================\n\n")
+        
+#         f.write(f'BEGIN_PY_MODULE({module_name}, "{doc}") {{\n')
+        
+#         # Call the registration function from XXX_registration.cxx
+#         f.write(f"    // Register all classes with Rosetta introspection\n")
+#         f.write(f"    // (defined in {module_name}_registration.cxx)\n")
+#         f.write(f"    register_{module_name}_classes();\n\n")
+        
+#         # Register type converters BEFORE binding classes
+#         if self.idl.converters:
+#             f.write("    // Register type converters\n")
+#             for converter in self.idl.converters:
+#                 self._write_converter_registration(f, converter)
+#             f.write("\n")
+        
+#         # Bind classes using the registered Rosetta metadata
+#         if self.idl.classes:
+#             f.write("    // Bind classes to Python\n")
+#             f.write("    // These use the Rosetta metadata registered above\n")
+#             for cls in self.idl.classes:
+#                 f.write(f"    BIND_PY_CLASS({cls.cpp_name});\n")
+#             f.write("\n")
+        
+#         # Bind free functions
+#         if self.idl.functions:
+#             f.write("    // Bind free functions\n")
+#             for func in self.idl.functions:
+#                 self._write_function_binding(f, func)
+#             f.write("\n")
+        
+#         # Add utility functions
+#         if self.idl.utilities and any([
+#             self.idl.utilities.version_info,
+#             self.idl.utilities.list_classes,
+#             self.idl.utilities.type_inspection
+#         ]):
+#             f.write("    // Add utility functions\n")
+#             f.write("    BIND_PY_UTILITIES();\n")
+        
+#         f.write("}\n")
+#         f.write("END_PY_MODULE()\n")
+
+#     def _write_converter_registration(self, f: TextIO, converter: TypeConverter):
+#         """Write type converter registration"""
+#         type_str = converter.type
+        
+#         # Handle standard library containers
+#         if type_str.startswith("std::vector<"):
+#             elem_type = type_str[12:-1].strip()
+#             f.write(f"    rosetta::py::bind_vector_type<{elem_type}>();\n")
+        
+#         elif type_str.startswith("std::map<"):
+#             inner = type_str[9:-1].strip()
+#             key_type, val_type = self._split_template_args(inner)
+#             f.write(f"    rosetta::py::bind_map_type<{key_type}, {val_type}>();\n")
+        
+#         elif type_str.startswith("std::set<"):
+#             elem_type = type_str[9:-1].strip()
+#             f.write(f"    rosetta::py::bind_set_type<{elem_type}>();\n")
+        
+#         elif type_str.startswith("std::array<"):
+#             inner = type_str[11:-1].strip()
+#             parts = self._split_template_args(inner)
+#             if len(parts) == 2:
+#                 elem_type, size = parts
+#                 f.write(f"    rosetta::py::bind_array_type<{elem_type}, {size}>();\n")
+        
+#         elif type_str.startswith("std::unordered_map<"):
+#             inner = type_str[19:-1].strip()
+#             key_type, val_type = self._split_template_args(inner)
+#             f.write(f"    rosetta::py::bind_unordered_map_type<{key_type}, {val_type}>();\n")
+        
+#         elif type_str.startswith("std::unordered_set<"):
+#             elem_type = type_str[19:-1].strip()
+#             f.write(f"    rosetta::py::bind_unordered_set_type<{elem_type}>();\n")
+        
+#         elif type_str.startswith("std::deque<"):
+#             elem_type = type_str[11:-1].strip()
+#             f.write(f"    rosetta::py::bind_deque_type<{elem_type}>();\n")
+        
+#         elif type_str.startswith("std::list<"):
+#             elem_type = type_str[10:-1].strip()
+#             f.write(f"    rosetta::py::bind_list_type<{elem_type}>();\n")
+        
+#         # Custom converter if specified
+#         elif converter.custom_converter:
+#             f.write(f"    {converter.custom_converter}();\n")
+
+#     def _split_template_args(self, args_str: str) -> List[str]:
+#         """
+#         Split template arguments handling nested templates
+        
+#         Example:
+#             "int, std::vector<double>" -> ["int", "std::vector<double>"]
+#         """
+#         result = []
+#         current = ""
+#         depth = 0
+        
+#         for char in args_str:
+#             if char == '<':
+#                 depth += 1
+#                 current += char
+#             elif char == '>':
+#                 depth -= 1
+#                 current += char
+#             elif char == ',' and depth == 0:
+#                 result.append(current.strip())
+#                 current = ""
+#             else:
+#                 current += char
+        
+#         if current:
+#             result.append(current.strip())
+        
+#         return result
+
+#     def _write_function_binding(self, f: TextIO, func: Function):
+#         """Write free function binding"""
+#         cpp_name = func.cpp_function_name
+#         doc = func.description or ""
+#         f.write(f'    BIND_FUNCTION({cpp_name}, "{doc}");\n')
+
+
+# # ============================================================================
+# # Main Entry Point
+# # ============================================================================
+
+# def generate_python_bindings(idl_file: Path, output_file: Path) -> bool:
+#     """
+#     Generate Python bindings from an IDL file
+    
+#     Args:
+#         idl_file: Path to the YAML IDL file
+#         output_file: Path where the binding .cpp file will be written
+        
+#     Returns:
+#         True if generation succeeded, False otherwise
+#     """
+#     from rosetta_idl_parser import parse_idl
+    
+#     # Parse the IDL file
+#     idl = parse_idl(idl_file)
+#     if not idl:
+#         print(f"❌ Failed to parse IDL file: {idl_file}")
+#         return False
+    
+#     # Generate the binding file
+#     try:
+#         generator = PythonBindingGenerator(idl)
+#         generator.generate(output_file)
+#         print(f"✅ Generated Python bindings: {output_file}")
+#         return True
+#     except Exception as e:
+#         print(f"❌ Failed to generate Python bindings: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return False
+
+
+# if __name__ == "__main__":
+#     import sys
+    
+#     if len(sys.argv) < 2:
+#         print("Usage: python py_binding_generator.py <idl_file.yaml> [output_file.cpp]")
+#         print()
+#         print("This script generates Python bindings from a Rosetta IDL file.")
+#         print("The output is a minimal .cpp file that uses the Rosetta introspection")
+#         print("system to bind C++ classes to Python.")
+#         print()
+#         print("Example:")
+#         print("  python py_binding_generator.py geometry.yaml geometry_binding.cpp")
+#         sys.exit(1)
+    
+#     idl_file = Path(sys.argv[1])
+    
+#     if len(sys.argv) >= 3:
+#         output_file = Path(sys.argv[2])
+#     else:
+#         # Default output filename
+#         output_file = Path(f"{idl_file.stem}_binding.cpp")
+    
+#     success = generate_python_bindings(idl_file, output_file)
+#     sys.exit(0 if success else 1)
