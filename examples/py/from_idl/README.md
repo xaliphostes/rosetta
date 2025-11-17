@@ -1,0 +1,1 @@
+# Copy of the IDL folder for `mylib`

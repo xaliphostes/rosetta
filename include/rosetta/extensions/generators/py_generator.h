@@ -138,6 +138,13 @@ namespace rosetta::py {
 
 #define BIND_CONSTANT(name, value) m.attr(name) = value;
 
+#define BIND_SHARED_PTR(T) rosetta::py::bind_shared_ptr_arg_type<T>()
+
+#define BIND_STD_VECTOR(T) rosetta::py::bind_vector_type<T>();
+#define BIND_STD_MAP(K, T) rosetta::py::bind_map_type<K, T>();
+#define BIND_STD_ARRAY(T, DIM) rosetta::py::bind_array_type<T, DIM>();
+#define BIND_STD_SET(T) rosetta::py::bind_set_type<T>();
+
 #define BIND_PY_UTILITIES() generator.add_utilities();
 
 /**

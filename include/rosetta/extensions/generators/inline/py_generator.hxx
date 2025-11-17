@@ -32,7 +32,7 @@ namespace rosetta::py {
                 try {
                     // For abstract classes or polymorphic types, work with pointers
                     if constexpr (std::is_abstract_v<T> || std::is_polymorphic_v<T>) {
-                        T* cpp_ptr = obj.cast<T*>();
+                        T *cpp_ptr = obj.cast<T *>();
                         return core::Any(cpp_ptr);
                     } else {
                         // Try to cast the Python object to the C++ type
@@ -94,7 +94,7 @@ namespace rosetta::py {
             cast_funcs_[std::type_index(typeid(T))] = [](const core::Any &value) -> pyb11::object {
                 try {
                     if constexpr (std::is_abstract_v<T> || std::is_polymorphic_v<T>) {
-                        T* obj = value.as<T*>();
+                        T *obj = value.as<T *>();
                         return pyb11::cast(obj);
                     } else {
                         T obj = value.as<T>();
@@ -665,6 +665,18 @@ namespace rosetta::py {
         TypeCastRegistry::instance().register_cast<std::deque<T>>();
     }
 
+    template <typename T> inline void bind_shared_ptr_arg_type() {
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(std::shared_ptr<T>)), [](const pyb11::object &obj) -> core::Any {
+                T                 *raw_ptr = obj.cast<T *>();
+                std::shared_ptr<T> shared_ptr(raw_ptr, [](T *) {}); // Non-owning
+                return core::Any(shared_ptr);
+            });
+        TypeCastRegistry::instance().register_cast<std::shared_ptr<T>>();
+    }
+
+    // ========================================================================
+
     /**
      * @brief Wrapper to convert Python callable to std::function
      * This allows Python lambdas to be used where C++ expects std::function
@@ -742,7 +754,8 @@ namespace rosetta::py {
             // For abstract/polymorphic classes, use std::vector<std::shared_ptr<T>>
             // For concrete classes, use std::vector<T>
             if constexpr (std::is_abstract_v<T> || std::is_polymorphic_v<T>) {
-                TypeConverterRegistry::instance().register_converter<std::vector<std::shared_ptr<T>>>();
+                TypeConverterRegistry::instance()
+                    .register_converter<std::vector<std::shared_ptr<T>>>();
                 TypeCastRegistry::instance().register_cast<std::vector<std::shared_ptr<T>>>();
             } else {
                 TypeConverterRegistry::instance().register_converter<std::vector<T>>();
@@ -751,15 +764,16 @@ namespace rosetta::py {
 
             // Get inheritance information
             const auto &inh = meta.inheritance();
-            
+
             // Create the pybind11 class with appropriate holder type and base class if needed
             // For abstract or polymorphic classes, use std::shared_ptr as holder
             pyb11::class_<T, std::shared_ptr<T>> py_class(m, final_name.c_str());
-            
+
             // Note: pybind11 base class declaration would need to be done at compile-time
-            // with a template parameter like: pyb11::class_<Derived, Base, std::shared_ptr<Derived>>
-            // Since we're doing runtime binding, we can't automatically add base classes here
-            // Users should manually declare inheritance when calling BIND_PY_CLASS
+            // with a template parameter like: pyb11::class_<Derived, Base,
+            // std::shared_ptr<Derived>> Since we're doing runtime binding, we can't automatically
+            // add base classes here Users should manually declare inheritance when calling
+            // BIND_PY_CLASS
 
             // Bind constructors (abstract classes won't have constructors)
             if constexpr (!std::is_abstract_v<T>) {
@@ -781,7 +795,7 @@ namespace rosetta::py {
          * @brief Bind all constructors
          */
         static void bind_constructors(pyb11::class_<T, std::shared_ptr<T>> &py_class,
-                                      const core::ClassMetadata<T> &meta) {
+                                      const core::ClassMetadata<T>         &meta) {
             // Check if we have constructor_infos() method (new API)
             if constexpr (requires { meta.constructor_infos(); }) {
                 const auto &ctor_infos = meta.constructor_infos();
@@ -838,7 +852,8 @@ namespace rosetta::py {
          * @brief Bind a constructor with known parameter types
          */
         template <typename CtorInfo>
-        static void bind_typed_constructor(pyb11::class_<T, std::shared_ptr<T>> &py_class, const CtorInfo &ctor_info) {
+        static void bind_typed_constructor(pyb11::class_<T, std::shared_ptr<T>> &py_class,
+                                           const CtorInfo                       &ctor_info) {
             py_class.def(pyb11::init([ctor = ctor_info.invoker, param_types = ctor_info.param_types,
                                       arity = ctor_info.arity](pyb11::args args) {
                 if (args.size() != arity) {
@@ -964,7 +979,8 @@ namespace rosetta::py {
         /**
          * @brief Bind all fields as properties
          */
-        static void bind_fields(pyb11::class_<T, std::shared_ptr<T>> &py_class, const core::ClassMetadata<T> &meta) {
+        static void bind_fields(pyb11::class_<T, std::shared_ptr<T>> &py_class,
+                                const core::ClassMetadata<T>         &meta) {
             const auto &fields = meta.fields();
 
             for (const auto &field_name : fields) {
@@ -1000,7 +1016,8 @@ namespace rosetta::py {
         /**
          * @brief Bind all methods
          */
-        static void bind_methods(pyb11::class_<T, std::shared_ptr<T>> &py_class, const core::ClassMetadata<T> &meta) {
+        static void bind_methods(pyb11::class_<T, std::shared_ptr<T>> &py_class,
+                                 const core::ClassMetadata<T>         &meta) {
             const auto &methods = meta.methods();
 
             for (const auto &method_name : methods) {
@@ -1074,7 +1091,8 @@ namespace rosetta::py {
             // For abstract/polymorphic classes, use std::vector<std::shared_ptr<Derived>>
             // For concrete classes, use std::vector<Derived>
             if constexpr (std::is_abstract_v<Derived> || std::is_polymorphic_v<Derived>) {
-                TypeConverterRegistry::instance().register_converter<std::vector<std::shared_ptr<Derived>>>();
+                TypeConverterRegistry::instance()
+                    .register_converter<std::vector<std::shared_ptr<Derived>>>();
                 TypeCastRegistry::instance().register_cast<std::vector<std::shared_ptr<Derived>>>();
             } else {
                 TypeConverterRegistry::instance().register_converter<std::vector<Derived>>();
@@ -1087,23 +1105,24 @@ namespace rosetta::py {
             // Bind constructors (derived concrete classes will have constructors)
             if constexpr (!std::is_abstract_v<Derived>) {
                 PyClassBinder<Derived>::bind_constructors(
-                    reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>>&>(py_class), 
+                    reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>> &>(py_class),
                     meta);
             }
 
             // Bind fields
             PyClassBinder<Derived>::bind_fields(
-                reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>>&>(py_class), 
+                reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>> &>(py_class),
                 meta);
 
             // Bind methods
             PyClassBinder<Derived>::bind_methods(
-                reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>>&>(py_class), 
+                reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>> &>(py_class),
                 meta);
 
             // Add __repr__ for better debugging
-            py_class.def("__repr__",
-                         [final_name](const Derived &obj) { return "<" + final_name + " object>"; });
+            py_class.def("__repr__", [final_name](const Derived &obj) {
+                return "<" + final_name + " object>";
+            });
         }
     };
 
@@ -1119,7 +1138,7 @@ namespace rosetta::py {
         return *this;
     }
 
-    template <typename Derived, typename Base> 
+    template <typename Derived, typename Base>
     inline PyGenerator &PyGenerator::bind_derived_class(const std::string &py_name) {
         PyDerivedClassBinder<Derived, Base>::bind(module_, py_name);
         return *this;
