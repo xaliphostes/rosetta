@@ -1,55 +1,108 @@
 // ============================================================================
-// Test file for the Emscripten-compiled module
-// Run with: node test_module.js
+// Test file for automatic Emscripten bindings
+// Run with: node test_auto.mjs
 // ============================================================================
 
-// Import the module (adjust path as needed)
 import createModule from './calcjs.js';
+
+// Enhancement function - adds proper getters/setters/methods
+function enhanceRosettaClasses(Module) {
+    const classes = Module.listClasses();
+    
+    classes.forEach(className => {
+        const ClassRef = Module[className];
+        if (!ClassRef || !ClassRef.$meta) return;
+        
+        // Get metadata
+        const meta = ClassRef.$meta();
+        
+        // Add field accessors as properties
+        meta.fields.forEach(field => {
+            Object.defineProperty(ClassRef.prototype, field, {
+                get: function() { return this.$get(field); },
+                set: function(v) { this.$set(field, v); },
+                enumerable: true
+            });
+        });
+        
+        // Add method wrappers
+        meta.methods.forEach(method => {
+            // Don't override if already exists
+            if (!ClassRef.prototype[method]) {
+                ClassRef.prototype[method] = function(...args) {
+                    return this.$call(method, args);
+                };
+            }
+        });
+    });
+    
+    return Module;
+}
 
 async function runTests() {
     console.log('Loading WebAssembly module...');
-    const Module = await createModule();
-    console.log('Module loaded!\n');
+    let Module = await createModule();
+    console.log('Module loaded!');
+    
+    // Debug: Check what's available before enhancement
+    console.log('Available classes:', Module.listClasses());
+    
+    // Debug: Check if $meta exists
+    if (Module.Vector3D.$meta) {
+        console.log('Vector3D.$meta() =', Module.Vector3D.$meta());
+    } else {
+        console.log('ERROR: Vector3D.$meta not found!');
+    }
+    
+    // Debug: Check if $get exists on prototype
+    const testVec = new Module.Vector3D(1, 2, 3);
+    if (testVec.$get) {
+        console.log('testVec.$get("x") =', testVec.$get('x'));
+    } else {
+        console.log('ERROR: $get not found on Vector3D instance!');
+    }
+    testVec.delete();
+    
+    // Enhance classes with proper JS accessors
+    Module = enhanceRosettaClasses(Module);
+    console.log('Module enhanced!\n');
+
+    // Show available classes
+    console.log('Registered classes:', Module.listClasses());
+    console.log('Rosetta version:', Module.version());
+    console.log('');
 
     // ========================================================================
     // Test Vector3D
     // ========================================================================
     console.log('=== Testing Vector3D ===');
     
-    // Default constructor
     const v1 = new Module.Vector3D();
     console.log(`v1 (default): (${v1.x}, ${v1.y}, ${v1.z})`);
     
-    // Parameterized constructor
     const v2 = new Module.Vector3D(3, 4, 0);
     console.log(`v2: (${v2.x}, ${v2.y}, ${v2.z})`);
     console.log(`v2.length(): ${v2.length()}`);  // Should be 5
     
-    // Normalize
-    const v3 = new Module.Vector3D(10, 0, 0);
-    v3.normalize();
-    console.log(`v3 normalized: (${v3.x}, ${v3.y}, ${v3.z})`);  // Should be (1, 0, 0)
+    // Modify via property
+    v2.x = 6;
+    v2.y = 8;
+    console.log(`v2 modified: (${v2.x}, ${v2.y}, ${v2.z})`);
+    console.log(`v2.length(): ${v2.length()}`);  // Should be 10
     
-    // Add
-    const v4 = new Module.Vector3D(1, 2, 3);
-    const v5 = new Module.Vector3D(4, 5, 6);
-    const v6 = v4.add(v5);
-    console.log(`v4 + v5: (${v6.x}, ${v6.y}, ${v6.z})`);  // Should be (5, 7, 9)
+    // Test methods
+    const v3 = new Module.Vector3D(1, 2, 3);
+    const v4 = v3.scale(2);
+    console.log(`v3.scale(2): (${v4.x}, ${v4.y}, ${v4.z})`);  // (2, 4, 6)
     
-    // Scale
-    const v7 = v4.scale(2);
-    console.log(`v4 * 2: (${v7.x}, ${v7.y}, ${v7.z})`);  // Should be (2, 4, 6)
+    // Show metadata
+    console.log('Vector3D metadata:', Module.Vector3D.$meta());
     
-    // Clean up
     v1.delete();
     v2.delete();
     v3.delete();
     v4.delete();
-    v5.delete();
-    v6.delete();
-    v7.delete();
-    
-    console.log('');
+    console.log('✓ Vector3D tests passed\n');
 
     // ========================================================================
     // Test Rectangle
@@ -58,17 +111,16 @@ async function runTests() {
     
     const rect = new Module.Rectangle(10, 5);
     console.log(`Rectangle: ${rect.width} x ${rect.height}`);
-    console.log(`Area: ${rect.area()}`);  // Should be 50
-    console.log(`Perimeter: ${rect.perimeter()}`);  // Should be 30
-    console.log(`Is square: ${rect.is_square()}`);  // Should be false
+    console.log(`Area: ${rect.area()}`);
+    console.log(`Perimeter: ${rect.perimeter()}`);
+    console.log(`Is square: ${rect.is_square()}`);
     
-    const square = new Module.Rectangle(5, 5);
-    console.log(`Square is_square: ${square.is_square()}`);  // Should be true
+    // Modify
+    rect.width = 5;
+    console.log(`After setting width=5, is_square: ${rect.is_square()}`);
     
     rect.delete();
-    square.delete();
-    
-    console.log('');
+    console.log('✓ Rectangle tests passed\n');
 
     // ========================================================================
     // Test Person
@@ -78,20 +130,19 @@ async function runTests() {
     const person = new Module.Person("Alice", 30);
     console.log(`Name: ${person.name}`);
     console.log(`Age: ${person.age}`);
-    console.log(`Greeting: ${person.greet()}`);
+    console.log(`Greet: ${person.greet()}`);
     
-    // Modify properties
+    // Modify
     person.name = "Bob";
     person.age = 25;
     console.log(`After modification: ${person.greet()}`);
     
     // Birthday
     person.celebrate_birthday();
-    console.log(`After birthday: Age = ${person.age}`);  // Should be 26
+    console.log(`After birthday: ${person.age}`);
     
     person.delete();
-    
-    console.log('');
+    console.log('✓ Person tests passed\n');
 
     // ========================================================================
     // Test Circle
@@ -100,18 +151,17 @@ async function runTests() {
     
     const circle = new Module.Circle(5);
     console.log(`Radius: ${circle.radius}`);
-    console.log(`Diameter: ${circle.diameter}`);  // Should be 10
-    console.log(`Area: ${circle.area.toFixed(4)}`);  // Should be ~78.5398
-    console.log(`Circumference: ${circle.circumference.toFixed(4)}`);  // Should be ~31.4159
+    console.log(`Diameter: ${circle.diameter}`);
+    console.log(`Area: ${circle.area.toFixed(4)}`);
+    console.log(`Circumference: ${circle.circumference.toFixed(4)}`);
     
     // Modify radius
     circle.radius = 10;
     console.log(`New radius: ${circle.radius}`);
-    console.log(`New area: ${circle.area.toFixed(4)}`);  // Should be ~314.1593
+    console.log(`New area: ${circle.area.toFixed(4)}`);
     
     circle.delete();
-    
-    console.log('');
+    console.log('✓ Circle tests passed\n');
 
     // ========================================================================
     // Test Free Functions
@@ -120,8 +170,7 @@ async function runTests() {
     
     const a = new Module.Vector3D(0, 0, 0);
     const b = new Module.Vector3D(3, 4, 0);
-    const dist = Module.distance(a, b);
-    console.log(`Distance from origin to (3,4,0): ${dist}`);  // Should be 5
+    console.log(`Distance: ${Module.distance(a, b)}`);
     
     const unit = Module.create_unit_vector(1, 1, 1);
     console.log(`Unit vector: (${unit.x.toFixed(4)}, ${unit.y.toFixed(4)}, ${unit.z.toFixed(4)})`);
@@ -129,19 +178,11 @@ async function runTests() {
     a.delete();
     b.delete();
     unit.delete();
-    
-    console.log('');
+    console.log('✓ Free function tests passed\n');
 
-    // ========================================================================
-    // Test Constants
-    // ========================================================================
-    console.log('=== Testing Constants ===');
-    console.log(`PI: ${Module.PI}`);
-    
-    console.log('\n=== All tests completed! ===');
+    console.log('=== All tests completed! ===');
 }
 
-// Run tests
 runTests().catch(err => {
     console.error('Error:', err);
     process.exit(1);

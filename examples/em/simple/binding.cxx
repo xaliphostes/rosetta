@@ -180,13 +180,28 @@ void register_rosetta_classes() {
 
 BEGIN_EM_MODULE(simple) {
     register_rosetta_classes();
-    
+
     BIND_EM_UTILITIES();
 
-    BIND_EM_CLASS(Vector3D);
-    BIND_EM_CLASS(Rectangle);
-    BIND_EM_CLASS(Person);
-    BIND_EM_CLASS(Circle);
+    BIND_EM_CLASS_AUTO(Vector3D,
+                       std::tuple<>,                      // default constructor
+                       std::tuple<double, double, double> // Vector3D(x, y, z)
+    );
+
+    BIND_EM_CLASS_AUTO(Rectangle,
+                       std::tuple<>,              // default
+                       std::tuple<double, double> // Rectangle(w, h)
+    );
+
+    BIND_EM_CLASS_AUTO(Person,
+                       std::tuple<>,                // default
+                       std::tuple<std::string, int> // Person(name, age)
+    );
+
+    BIND_EM_CLASS_AUTO(Circle,
+                       std::tuple<>,      // default
+                       std::tuple<double> // Circle(radius)
+    );
 
     BIND_EM_FUNCTION(distance);
     BIND_EM_FUNCTION(create_unit_vector);
