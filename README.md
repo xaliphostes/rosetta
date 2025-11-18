@@ -75,7 +75,7 @@ Rosetta supports two complementary workflows:
 | Free functions | ✅ | ❌ | ✅ | ❌ |
 | Python bindings | ✅ | ✅ | ⚠️ | ❌ |
 | Serialization | ✅ | ✅ | ✅ | ⚠️ |
-| IDL support | ✅ | ❌ | ❌ | ❌ |
+| IDL support | 🚧 | ❌ | ❌ | ❌ |
 
 ### Legends
 
@@ -86,9 +86,15 @@ Rosetta supports two complementary workflows:
 | ❌ | **Not Supported** | Feature is not available or not applicable |
 | 🚧 | **In Progress** | Feature is being developed or planned |
 
-## Testing the lib
+## Testing the lib for Python
 
-Go to the folder `examples/py/containers` (for example) and read [this file](./examples/README.md) before.
+Go to the folder `examples/py` create a `build` folder, go inside and type
+```sh
+cmake ..
+make -j10
+make run
+```
+This will compile all Python examples and run them.
 
 ## Short overview
 

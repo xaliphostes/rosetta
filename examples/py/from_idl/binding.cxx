@@ -1,13 +1,13 @@
 #include <rosetta/extensions/generators/py_generator.h>
 #include <rosetta/rosetta.h>
 
-#include "Matrix4x4.h"
-#include "Scene.h"
-#include "Shape.h"
-#include "Sphere.h"
-#include "Transform.h"
-#include "Vector3D.h"
-#include "geometry_functions.h"
+#include "mylib/Matrix4x4.h"
+#include "mylib/Scene.h"
+#include "mylib/Shape.h"
+#include "mylib/Sphere.h"
+#include "mylib/Transform.h"
+#include "mylib/Vector3D.h"
+#include "mylib/geometry_functions.h"
 // -------------------------------------
 #include <map>
 #include <memory>
@@ -20,7 +20,7 @@ using namespace mylib;
 // =============================================================================
 // Rosetta Definition (for all generators)
 // =============================================================================
-void register_pygeometry_classes() {
+void register_rosetta() {
     // Register Vector3D
     ROSETTA_REGISTER_CLASS(Vector3D)
         .constructor<>()
@@ -93,42 +93,55 @@ void register_pygeometry_classes() {
 // Python Module Definition using Rosetta registration above
 // =============================================================================
 BEGIN_PY_MODULE(from_idl, "Complete geometry library with advanced features") {
-    // Register all classes with Rosetta introspection
-    register_pygeometry_classes();
 
+    // ----------------------------------
+    // Register all classes with Rosetta
+    // introspection
+    // ----------------------------------
+    register_rosetta();
+
+    // ----------------------------------
     // Register type converters
     // (use Rosetta introspection)
+    // ----------------------------------
     BIND_STD_VECTOR(Vector3D);
     BIND_STD_VECTOR(Transform);
     BIND_STD_MAP(std::string, Vector3D);
     BIND_STD_MAP(int, Transform);
     BIND_STD_ARRAY(double, 16);
-    BIND_STD_SET(int);
 
+    // ----------------------------------
     // Bind classes to Python
     // (use Rosetta introspection)
+    // ----------------------------------
     BIND_PY_CLASS(Vector3D);
     BIND_PY_CLASS(Matrix4x4);
     BIND_PY_CLASS(Shape);
-    BIND_PY_DERIVED_CLASS(Sphere, Shape);
+    BIND_PY_DERIVED_CLASS(Sphere, Shape); // !
     BIND_PY_CLASS(Transform);
     BIND_PY_CLASS(Scene);
 
+    // ----------------------------------
     // These allow Python to pass raw pointers that get wrapped in shared_ptr
     // (use Rosetta introspection)
+    // ----------------------------------
     BIND_SHARED_PTR(Shape);
     BIND_SHARED_PTR(Sphere);
 
+    // ----------------------------------
     // Bind free functions
     // (use Rosetta introspection)
+    // ----------------------------------
     BIND_FUNCTION(create_vector, "Create a new Vector3D");
     BIND_FUNCTION(distance, "Calculate distance between two points");
     BIND_FUNCTION(lerp, "Linear interpolation between two vectors");
     BIND_FUNCTION(create_sphere, "Create a new sphere");
     BIND_FUNCTION(load_scene, "Load a scene from file");
 
+    // ----------------------------------
     // Add utility functions
     // (use Rosetta introspection)
+    // ----------------------------------
     BIND_PY_UTILITIES();
 }
 END_PY_MODULE()
