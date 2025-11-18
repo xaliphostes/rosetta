@@ -4,6 +4,7 @@
 // ============================================================================
 
 import createModule from './calcjs.js';
+import { writeFileSync } from 'fs';
 
 // Enhancement function - adds proper getters/setters/methods
 function enhanceRosettaClasses(Module) {
@@ -43,6 +44,10 @@ async function runTests() {
     console.log('Loading WebAssembly module...');
     let Module = await createModule();
     console.log('Module loaded!');
+
+    // Export TypeScript denfinition
+    const tsDeclarations = Module.generateTypeScript();
+    writeFileSync('module.d.ts', tsDeclarations);
     
     // Debug: Check what's available before enhancement
     console.log('Available classes:', Module.listClasses());
