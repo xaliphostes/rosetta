@@ -44,6 +44,12 @@ namespace rosetta::core {
         Any() = default;
 
         /**
+         * @brief Constructor for C-style strings (converts to std::string)
+         * This allows {5.0, "hello"} syntax without explicit Any() wrapping
+         */
+        Any(const char *str) : holder_(new HolderImpl<std::string>(std::string(str))) {}
+
+        /**
          * @brief Constructor with value
          * @tparam T Type of the value
          * @param value Value to store

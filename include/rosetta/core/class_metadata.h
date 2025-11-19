@@ -72,6 +72,7 @@ namespace rosetta::core {
             std::type_index return_type = std::type_index(typeid(void));
             size_t          arity       = 0;
             bool            is_static   = false; // Flag to identify static methods
+            std::string     inherited_from; // Empty if not inherited, base class name otherwise
         };
 
     private:
@@ -444,7 +445,7 @@ namespace rosetta::core {
          * Performs dynamic_cast to ensure type safety
          */
         template <typename BasePtr>
-        Any invoke_method(BasePtr *ptr, const std::string &name, std::vector<Any> args = {}) const ;
+        Any invoke_method(BasePtr *ptr, const std::string &name, std::vector<Any> args = {}) const;
 
         /**
          * @brief Invoke a method on a shared_ptr to an object (with automatic overload resolution)

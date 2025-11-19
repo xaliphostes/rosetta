@@ -55,24 +55,27 @@ TEST(functions, basic) {
 
     // Call add(5, 3)
     std::cout << "\nCalling add(5, 3):\n";
-    rosetta::Any result = rosetta::FunctionRegistry::instance().invoke("add", {rosetta::Any(5), rosetta::Any(3)});
+    rosetta::Any result = rosetta::FunctionRegistry::instance().invoke("add", {5, 3});
     std::cout << "Result: " << result.as<int>() << "\n";
+    EXPECT_EQ(result.as<int>(), 8);
 
     // Call calculate(10, 20.5, 5.5f)
     std::cout << "\nCalling calculate(10, 20.5, 5.5f):\n";
-    result = rosetta::FunctionRegistry::instance().invoke("calculate", {rosetta::Any(10), rosetta::Any(20.5), rosetta::Any(5.5f)});
+    result = rosetta::FunctionRegistry::instance().invoke("calculate", {10, 20.5, 5.5f});
     std::cout << "Result: " << result.as<double>() << "\n";
+    EXPECT_EQ(result.as<double>(), 36);
 
     // Call greet("Alice", 30)
     std::cout << "\nCalling greet(\"Alice\", 30):\n";
-    result = rosetta::FunctionRegistry::instance().invoke("greet", {rosetta::Any(std::string("Alice")), rosetta::Any(30)});
+    result = rosetta::FunctionRegistry::instance().invoke("greet", {"Alice", 30});
     std::cout << "Result: " << result.as<std::string>() << "\n";
+    EXPECT_EQ(result.as<std::string>(), "Hello, Alice! You are 30 years old.");
 
     // Call complex_calc(5, 10.5, 2.5f, 3L)
     std::cout << "\nCalling complex_calc(5, 10.5, 2.5f, 3L):\n";
-    result = rosetta::FunctionRegistry::instance().invoke("complex_calc",
-                                                 {rosetta::Any(5), rosetta::Any(10.5), rosetta::Any(2.5f), rosetta::Any(3L)});
+    result = rosetta::FunctionRegistry::instance().invoke("complex_calc", {5, 10.5, 2.5f, 3L});
     std::cout << "Result: " << result.as<double>() << "\n";
+    EXPECT_EQ(result.as<double>(), 52);
 
     // Query function metadata
     std::cout << "\n=== Querying Function Metadata ===\n\n";
@@ -81,15 +84,15 @@ TEST(functions, basic) {
     std::cout << "Return type: " << rosetta::get_readable_type_name(add_meta.return_type()) << "\n";
     std::cout << "Parameter types:\n";
     for (size_t i = 0; i < add_meta.param_types().size(); ++i) {
-        std::cout << "  [" << i << "] " << rosetta::get_readable_type_name(add_meta.param_types()[i])
-                  << "\n";
+        std::cout << "  [" << i << "] "
+                  << rosetta::get_readable_type_name(add_meta.param_types()[i]) << "\n";
     }
 
     // Error handling
     std::cout << "\n=== Error Handling ===\n\n";
     try {
         // Wrong number of arguments
-        rosetta::FunctionRegistry::instance().invoke("add", {rosetta::Any(5)});
+        rosetta::FunctionRegistry::instance().invoke("add", {5});
     } catch (const std::exception &e) {
         std::cout << "Error: " << e.what() << "\n";
     }

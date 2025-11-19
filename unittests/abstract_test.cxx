@@ -20,7 +20,8 @@ public:
 
 class Derived : public Base1, public Base2 {
 public:
-    void run() override { std::cerr << "Hello world!" << std::endl; }
+    void        run() override { std::cerr << "Hello world!" << std::endl; }
+    std::string name() const { return "Hector"; }
 };
 
 void initFct() {
@@ -32,8 +33,8 @@ void initFct() {
     ROSETTA_REGISTER_CLASS(Derived)
         .inherits_from<Base1>("Base1")
         .inherits_from<Base2>("Base2")
-        .virtual_method("run", &Derived::run);
-    // .base_method<Base>("help", &Base::help); // No longer needed!
+        .override_method("run", &Derived::run)
+        .method("name", &Derived::name);
 }
 
 TEST(Abstract, basic) {
@@ -42,12 +43,12 @@ TEST(Abstract, basic) {
     auto &meta = ROSETTA_GET_META(Derived);
     meta.dump(std::cerr);
 
-    // Static invoke
     Derived d;
-    meta.invoke_method(d, "run");
-    meta.invoke_method(d, "help");
-    meta.invoke_method(d, "hello", {rosetta::Any(5), rosetta::Any(std::string("coucou"))});
-    meta.invoke_method(d, "doit");
+    meta.invoke_method(d, "run");                    // from Base1
+    meta.invoke_method(d, "help");                   // from Base1
+    meta.invoke_method(d, "doit");                   // from Base2
+    meta.invoke_method(d, "hello", {5.0, "coucou"}); // from Base2
+    meta.invoke_method(d, "name");                   // from Derived
 }
 
 RUN_TESTS();

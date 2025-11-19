@@ -107,8 +107,24 @@ namespace rosetta::core {
                     }
                     os << ")";
 
-                    // Display arity and static indicator
+                    // Display arity
                     os << " [" << info.arity << " arg" << (info.arity == 1 ? "" : "s") << "]";
+
+                    // Check if this is a virtual/override method
+                    const auto *vmethod = inheritance_.vtable.find_method(method_name);
+                    if (vmethod) {
+                        if (vmethod->is_override) {
+                            os << " [override]";
+                        } else if (vmethod->is_pure_virtual) {
+                            os << " [pure virtual]";
+                        } else {
+                            os << " [virtual]";
+                        }
+                        if (vmethod->is_final) {
+                            os << " [final]";
+                        }
+                    }
+
                     if (info.is_static) {
                         os << " [static]";
                     }
@@ -116,6 +132,71 @@ namespace rosetta::core {
                 }
             } else {
                 os << "  - " << method_name << " (no type info available)\n";
+            }
+        }
+
+        // Display inherited methods (methods available through base classes but not registered
+        // locally)
+        std::vector<std::tuple<std::string, std::string, bool>>
+            inherited_methods; // (method_name, base_name, is_virtual)
+
+        // Check normal base classes
+        for (const auto &base_info : inheritance_.base_classes) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (!base_holder)
+                continue;
+
+            auto base_methods = base_holder->get_methods();
+            for (const auto &base_method_name : base_methods) {
+                // Check if this method is NOT in our local methods
+                bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
+                if (!is_local) {
+                    // Check if already added from another base
+                    bool already_added = false;
+                    for (const auto &[name, _, __] : inherited_methods) {
+                        if (name == base_method_name) {
+                            already_added = true;
+                            break;
+                        }
+                    }
+                    if (!already_added) {
+                        inherited_methods.push_back({base_method_name, base_info.name, false});
+                    }
+                }
+            }
+        }
+
+        // Check virtual base classes
+        for (const auto &base_info : inheritance_.virtual_bases) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (!base_holder)
+                continue;
+
+            auto base_methods = base_holder->get_methods();
+            for (const auto &base_method_name : base_methods) {
+                bool is_local      = std::find(m.begin(), m.end(), base_method_name) != m.end();
+                bool already_added = false;
+                for (const auto &[name, _, __] : inherited_methods) {
+                    if (name == base_method_name) {
+                        already_added = true;
+                        break;
+                    }
+                }
+                if (!is_local && !already_added) {
+                    inherited_methods.push_back({base_method_name, base_info.name, true});
+                }
+            }
+        }
+
+        // Display inherited methods
+        if (!inherited_methods.empty()) {
+            os << "Inherited methods (" << inherited_methods.size() << "):\n";
+            for (const auto &[method_name, base_name, is_virtual] : inherited_methods) {
+                os << "  - " << method_name << " (from " << base_name;
+                if (is_virtual) {
+                    os << ", virtual inheritance";
+                }
+                os << ")\n";
             }
         }
 
@@ -132,81 +213,83 @@ namespace rosetta::core {
         }
 
         // ========================================================================
-        // NEW: Display inherited methods from base classes
+        // Display inherited methods from base classes
         // ========================================================================
 
         // Collect all inherited methods (avoiding duplicates with local methods)
-        std::vector<std::pair<std::string, std::string>>
-            inherited_methods; // (method_name, base_class_name)
+        // {
+        //     std::vector<std::pair<std::string, std::string>>
+        //         inherited_methods; // (method_name, base_class_name)
 
-        // Helper lambda to collect methods from a base class
-        auto collect_base_methods = [&](const BaseClassInfo &base_info) {
-            auto *base_holder = Registry::instance().get_by_name(base_info.name);
-            if (!base_holder)
-                return;
+        //     // Helper lambda to collect methods from a base class
+        //     auto collect_base_methods = [&](const BaseClassInfo &base_info) {
+        //         auto *base_holder = Registry::instance().get_by_name(base_info.name);
+        //         if (!base_holder)
+        //             return;
 
-            // Get the base class methods through the holder's virtual interface
-            // We need to check each method name and see if it exists in base
-            // Since MetadataHolder doesn't expose method list directly, we'll use has_method
+        //         // Get the base class methods through the holder's virtual interface
+        //         // We need to check each method name and see if it exists in base
+        //         // Since MetadataHolder doesn't expose method list directly, we'll use has_method
 
-            // Unfortunately we need access to the base's method list
-            // Let's iterate through common method names or use a different approach
-            // Actually, we need to add a get_methods() virtual function to MetadataHolder
+        //         // Unfortunately we need access to the base's method list
+        //         // Let's iterate through common method names or use a different approach
+        //         // Actually, we need to add a get_methods() virtual function to MetadataHolder
 
-            // For now, let's work with what we have - check if base has methods we don't
-            // This requires the base holder to expose its method list
-        };
+        //         // For now, let's work with what we have - check if base has methods we don't
+        //         // This requires the base holder to expose its method list
+        //     };
 
-        // Check each base class for methods
-        bool has_inherited = false;
-        for (const auto &base_info : inh.base_classes) {
-            auto *base_holder = Registry::instance().get_by_name(base_info.name);
-            if (!base_holder)
-                continue;
+        //     // Check each base class for methods
+        //     bool has_inherited = false;
+        //     for (const auto &base_info : inh.base_classes) {
+        //         auto *base_holder = Registry::instance().get_by_name(base_info.name);
+        //         if (!base_holder)
+        //             continue;
 
-            // Get methods from base using the virtual interface
-            auto base_methods = base_holder->get_methods();
+        //         // Get methods from base using the virtual interface
+        //         auto base_methods = base_holder->get_methods();
 
-            for (const auto &base_method_name : base_methods) {
-                // Check if this method is NOT in our local methods
-                bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
-                if (!is_local) {
-                    inherited_methods.push_back({base_method_name, base_info.name});
-                }
-            }
-        }
+        //         for (const auto &base_method_name : base_methods) {
+        //             // Check if this method is NOT in our local methods
+        //             bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
+        //             if (!is_local) {
+        //                 inherited_methods.push_back({base_method_name, base_info.name});
+        //             }
+        //         }
+        //     }
 
-        // Also check virtual bases
-        for (const auto &base_info : inh.virtual_bases) {
-            auto *base_holder = Registry::instance().get_by_name(base_info.name);
-            if (!base_holder)
-                continue;
+        //     // Also check virtual bases
+        //     for (const auto &base_info : inh.virtual_bases) {
+        //         auto *base_holder = Registry::instance().get_by_name(base_info.name);
+        //         if (!base_holder)
+        //             continue;
 
-            auto base_methods = base_holder->get_methods();
+        //         auto base_methods = base_holder->get_methods();
 
-            for (const auto &base_method_name : base_methods) {
-                bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
-                // Also check if already added from another base
-                bool already_added = false;
-                for (const auto &[name, _] : inherited_methods) {
-                    if (name == base_method_name) {
-                        already_added = true;
-                        break;
-                    }
-                }
-                if (!is_local && !already_added) {
-                    inherited_methods.push_back({base_method_name, base_info.name});
-                }
-            }
-        }
+        //         for (const auto &base_method_name : base_methods) {
+        //             bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
+        //             // Also check if already added from another base
+        //             bool already_added = false;
+        //             for (const auto &[name, _] : inherited_methods) {
+        //                 if (name == base_method_name) {
+        //                     already_added = true;
+        //                     break;
+        //                 }
+        //             }
+        //             if (!is_local && !already_added) {
+        //                 inherited_methods.push_back({base_method_name, base_info.name});
+        //             }
+        //         }
+        //     }
 
-        // Display inherited methods
-        if (!inherited_methods.empty()) {
-            os << "Inherited methods (" << inherited_methods.size() << "):\n";
-            for (const auto &[method_name, base_name] : inherited_methods) {
-                os << "  - " << method_name << " (from " << base_name << ")\n";
-            }
-        }
+        //     // Display inherited methods
+        //     if (!inherited_methods.empty()) {
+        //         os << "Inherited methods (" << inherited_methods.size() << "):\n";
+        //         for (const auto &[method_name, base_name] : inherited_methods) {
+        //             os << "  - " << method_name << " (from " << base_name << ")\n";
+        //         }
+        //     }
+        // }
 
         os << "===============================================\n";
     }
@@ -816,9 +899,11 @@ namespace rosetta::core {
         }
 
         MethodInfo info;
-        info.arity       = sizeof...(Args);
-        info.return_type = std::type_index(typeid(Ret));
-        info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.arity          = sizeof...(Args);
+        info.return_type    = std::type_index(typeid(Ret));
+        info.arg_types      = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.inherited_from = typeid(Base).name();                // TODO: use a demangled name
+        // std::cerr << __FILE__ << ":" << __LINE__ << ": " << info.inherited_from << std::endl ;
 
         info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
             Base &base = static_cast<Base &>(obj);
@@ -840,43 +925,6 @@ namespace rosetta::core {
         return *this;
     }
 
-    // template <typename Class>
-    // template <typename Base, typename Ret, typename... Args>
-    // inline ClassMetadata<Class> &
-    // ClassMetadata<Class>::base_method(const std::string &name, Ret (Base::*ptr)(Args...) const) {
-    //     static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
-
-    //     // Only add name once to method_names_
-    //     if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
-    //         method_names_.push_back(name);
-    //     }
-
-    //     MethodInfo info;
-    //     info.arity       = sizeof...(Args);
-    //     info.return_type = std::type_index(typeid(Ret));
-    //     info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
-
-    //     info.invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
-    //         const Base &base = static_cast<const Base &>(obj);
-    //         if constexpr (sizeof...(Args) == 0) {
-    //             if constexpr (std::is_void_v<Ret>) {
-    //                 (base.*ptr)();
-    //                 return Any(0);
-    //             } else {
-    //                 return Any((base.*ptr)());
-    //             }
-    //         } else {
-    //             return invoke_const_with_args(base, ptr, args,
-    //             std::index_sequence_for<Args...>{});
-    //         }
-    //     };
-
-    //     method_info_[name].push_back(info);
-    //     methods_[name].push_back(info.invoker);
-    //     const_methods_[name].push_back(info.invoker);
-
-    //     return *this;
-    // }
     template <typename Class>
     template <typename Base, typename Ret, typename... Args>
     inline ClassMetadata<Class> &
@@ -889,9 +937,11 @@ namespace rosetta::core {
         }
 
         MethodInfo info;
-        info.arity       = sizeof...(Args);
-        info.return_type = std::type_index(typeid(Ret));
-        info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.arity          = sizeof...(Args);
+        info.return_type    = std::type_index(typeid(Ret));
+        info.arg_types      = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.inherited_from = typeid(Base).name();                // TODO: use a demangled name
+        // std::cerr << __FILE__ << ":" << __LINE__ << ": " << info.inherited_from << std::endl ;
 
         // Non-const invoker for methods_ and method_info_
         info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
