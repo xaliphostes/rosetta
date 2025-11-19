@@ -17,7 +17,7 @@ add_library(inheritance SHARED binding.cxx)
 add_executable(inheritancejs binding.cxx)
 set_target_properties(inheritancejs PROPERTIES
     SUFFIX ".js"
-    LINK_FLAGS "--bind -s MODULARIZE=1 -s EXPORT_NAME='InheritanceModule' -s SINGLE_FILE=1"
+    LINK_FLAGS "--bind -s MODULARIZE=1 -s EXPORT_NAME='InheritanceModule' -s SINGLE_FILE=1 -s NO_DISABLE_EXCEPTION_CATCHING"
 )
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_module.mjs)

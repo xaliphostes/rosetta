@@ -218,7 +218,7 @@ void register_inheritance_classes() {
 
     // Register Circle2D
     ROSETTA_REGISTER_CLASS(Circle2D)
-        .inherits_from<Shape>()
+        .inherits_from<Shape>("Shape")
         .constructor<>()
         .constructor<double>()
         .property<double>("radius", &Circle2D::getRadius, &Circle2D::setRadius)
@@ -228,7 +228,7 @@ void register_inheritance_classes() {
 
     // Register Rectangle2D
     ROSETTA_REGISTER_CLASS(Rectangle2D)
-        .inherits_from<Shape>()
+        .inherits_from<Shape>("Shape")
         .constructor<>()
         .constructor<double, double>()
         .property<double>("width", &Rectangle2D::getWidth, &Rectangle2D::setWidth)
@@ -240,7 +240,7 @@ void register_inheritance_classes() {
 
     // Register Square (inherits from Rectangle2D which inherits from Shape)
     ROSETTA_REGISTER_CLASS(Square)
-        .inherits_from<Rectangle2D>()
+        .inherits_from<Rectangle2D>("Reactangle2D")
         .constructor<>()
         .constructor<double>()
         .property<double>("side", &Square::getSide, &Square::setSide)

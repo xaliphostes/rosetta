@@ -449,8 +449,19 @@ namespace rosetta::core {
                                                                      AccessSpecifier    access) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
-        std::string name   = base_name.empty() ? typeid(Base).name() : base_name;
-        size_t      offset = calculate_base_offset<Base>();
+        std::string name;
+        if (!base_name.empty()) {
+            name = base_name;
+        } else {
+            // Try to get the registered name from the Registry
+            name = Registry::instance().get_class_name(typeid(Base));
+            if (name.empty()) {
+                // Fall back to mangled name if not registered
+                name = typeid(Base).name();
+            }
+        }
+
+        size_t offset = calculate_base_offset<Base>();
 
         inheritance_.add_base(name, &typeid(Base), InheritanceType::Normal, access, offset);
 
@@ -464,8 +475,19 @@ namespace rosetta::core {
                                                   AccessSpecifier    access) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
-        std::string name   = base_name.empty() ? typeid(Base).name() : base_name;
-        size_t      offset = 0;
+        std::string name;
+        if (!base_name.empty()) {
+            name = base_name;
+        } else {
+            // Try to get the registered name from the Registry
+            name = Registry::instance().get_class_name(typeid(Base));
+            if (name.empty()) {
+                // Fall back to mangled name if not registered
+                name = typeid(Base).name();
+            }
+        }
+
+        size_t offset = 0;
 
         inheritance_.add_base(name, &typeid(Base), InheritanceType::Virtual, access, offset);
 

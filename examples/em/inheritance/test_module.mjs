@@ -4,6 +4,8 @@ import { writeFileSync } from 'fs';
 async function runTests() {
     console.log('Loading WebAssembly module...');
     let Module = await createModule();
+    // enhanceRosettaClasses(Module);
+    
     console.log('Module loaded!');
 
     // Export TypeScript declarations
