@@ -152,11 +152,124 @@ straightforward as long as the generator for a given language is available:
 3. For...??
    Just ask.
 
+## Example of introspection features
+```cpp
+class Base1 {
+public:
+    virtual ~Base1() {}
+    virtual void run() = 0;
+    void help() const;
+};
+
+class Base2 {
+public:
+    void doit() const;
+    double hello(double d, const std::string &s);
+};
+
+class Derived : public Base1, public Base2 {
+public:
+    Derived();
+    Derived(double, int);
+    
+    void run() override;
+    std::string name() const;
+
+    void setTolerence(double);
+    double getTolerence() const;
+
+    bool active;
+};
+```
+
+Rosetta registration
+```cpp
+ROSETTA_REGISTER_CLASS(Base1)
+    .pure_virtual_method<void>("run")
+    .method("help", &Base1::help);
+
+ROSETTA_REGISTER_CLASS(Base2)
+    .method("doit", &Base2::doit)
+    .method("hello", &Base2::hello);
+
+ROSETTA_REGISTER_CLASS(Derived)
+    .constructor<>()
+    .constructor<double, int>()
+    .inherits_from<Base1>("Base1")
+    .inherits_from<Base2>("Base2")
+    .override_method("run", &Derived::run)
+    .method("name", &Derived::name)
+    .property("tolerence", &Derived::getTolerence, &Derived::setTolerence)
+    .field("active", &Derived::active);
+```
+
+Output information:
+
+```txt
+===============================================
+===    Rosetta metadata for class: Base1    ===
+===============================================
+Instantiable: false
+Constructors (0):
+Fields (0):
+Methods (2):
+  - void run() [0 args] [pure virtual]
+  - void help() [0 args]
+Inheritance flags:
+  is_abstract            = true
+  is_polymorphic         = true
+  has_virtual_destructor = true
+  base_count             = 0
+===============================================
+
+===============================================
+===    Rosetta metadata for class: Base2    ===
+===============================================
+Instantiable: true
+Constructors (0):
+Fields (0):
+Methods (2):
+  - void doit() [0 args]
+  - double hello(double, string) [2 args]
+Inheritance flags:
+  is_abstract            = false
+  is_polymorphic         = false
+  has_virtual_destructor = false
+  base_count             = 0
+===============================================
+
+===============================================
+===   Rosetta metadata for class: Derived   ===
+===============================================
+Instantiable: true
+Constructors (2):
+  - [0] (0 params)
+  - [1] (2 params)
+Fields (2):
+  - tolerence : double
+  - active : bool
+Methods (2):
+  - void run() [0 args] [virtual]
+  - string name() [0 args]
+Inherited methods (3):
+  - help (from Base1)
+  - doit (from Base2)
+  - hello (from Base2)
+Inheritance flags:
+  is_abstract            = false
+  is_polymorphic         = true
+  has_virtual_destructor = true
+  base_count             = 2
+    base_name             = Base1
+    base_name             = Base2
+===============================================
+```
+
 ## 💡 Contribute Your Own Generator
 
 You’re very welcome to create a generator based on **Rosetta introspection** for other scripting languages — such as **Lua**, **Julia**, or **Ruby**!
 
-👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python** and **JavaScript** generators for inspiration.
+👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python**, **JavaScript** and **emscripten** generators for inspiration.
 
 Every new generator helps expand the ecosystem — contributions are always appreciated ❤️
 

@@ -1,7 +1,5 @@
 // ============================================================================
-// example/example.cpp
-//
-// Exemple complet d'utilisation de la bibliothèque Rosetta
+// Using the C++ introspection with Rosetta
 // ============================================================================
 
 #include <cmath>
@@ -163,7 +161,7 @@ void demo_introspection() {
     auto    &meta = ROSETTA_GET_META(Vector3D);
 
     std::cout << "\nVector3D initial: " << vec.to_string() << "\n";
-    std::cout << "Champs enregistrés: ";
+    std::cout << "Registered fields: ";
     for (const auto &field : meta.fields()) {
         std::cout << field << " ";
     }
@@ -171,18 +169,18 @@ void demo_introspection() {
 
     // Accès dynamique
     auto x_value = meta.get_field(vec, "x");
-    std::cout << "Valeur de x (dynamique): " << x_value.as<double>() << "\n";
+    std::cout << "Value of x (dynamique): " << x_value.as<double>() << "\n";
 
     // Modification dynamique
     meta.set_field(vec, "x", rosetta::Any(10.0));
-    std::cout << "Après modification: " << vec.to_string() << "\n";
+    std::cout << "After modif: " << vec.to_string() << "\n";
 
     // Appel de méthode
     auto length = meta.invoke_method(vec, "length");
-    std::cout << "Longueur: " << length.as<double>() << "\n";
+    std::cout << "Length: " << length.as<double>() << "\n";
 
     meta.invoke_method(vec, "normalize");
-    std::cout << "Après normalisation: " << vec.to_string() << "\n";
+    std::cout << "After normalisation: " << vec.to_string() << "\n";
 }
 
 void demo_introspection_A() {
@@ -205,7 +203,7 @@ void demo_introspection_A() {
     {
         auto        x_value = meta.get_field(a, "areas");
         const auto &v       = x_value.as<std::vector<double>>();
-        std::cout << "Valeur de areas (dynamique): " << "\n";
+        std::cout << "Value of areas (dynamique): " << "\n";
         for (auto m : v) {
             std::cout << "  " << m << std::endl;
         }
@@ -213,7 +211,7 @@ void demo_introspection_A() {
     {
         auto        x_value = meta.get_field(a, "positions");
         const auto &v       = x_value.as<std::vector<Vector3D>>();
-        std::cout << "Valeur de areas (dynamique): " << "\n";
+        std::cout << "Value of areas (dynamique): " << "\n";
         for (auto m : v) {
             std::cout << "  " << m.to_string() << std::endl;
         }
@@ -227,19 +225,19 @@ void demo_introspection_A() {
 
 void demo_inheritance() {
     std::cout << "\n" << std::string(60, '=') << "\n";
-    std::cout << "DEMO 2: HÉRITAGE\n";
+    std::cout << "DEMO 2: INHERITANCE\n";
     std::cout << std::string(60, '=') << "\n";
 
     auto       &sphere_meta = ROSETTA_GET_META(Sphere);
     const auto &inheritance = sphere_meta.inheritance();
 
     std::cout << "\nSphere:\n";
-    std::cout << "  Est abstraite: " << inheritance.is_abstract << "\n";
-    std::cout << "  Est polymorphique: " << inheritance.is_polymorphic << "\n";
-    std::cout << "  Nombre de classes de base: " << inheritance.base_classes.size() << "\n";
+    std::cout << "  Is abstract: " << inheritance.is_abstract << "\n";
+    std::cout << "  Is polymorphic: " << inheritance.is_polymorphic << "\n";
+    std::cout << "  Nb of base classes: " << inheritance.base_classes.size() << "\n";
 
     if (!inheritance.base_classes.empty()) {
-        std::cout << "  Hérite de: " << inheritance.base_classes[0].name << "\n";
+        std::cout << "  Inherite of: " << inheritance.base_classes[0].name << "\n";
     }
 
     // Test polymorphisme
@@ -247,12 +245,12 @@ void demo_inheritance() {
     sphere.name = "Big Sphere";
 
     auto vol = sphere_meta.invoke_method(sphere, "volume");
-    std::cout << "\nVolume de la sphère: " << vol.as<double>() << "\n";
+    std::cout << "\nVolume of the sphère: " << vol.as<double>() << "\n";
 }
 
 void demo_serialization() {
     std::cout << "\n" << std::string(60, '=') << "\n";
-    std::cout << "DEMO 4: SÉRIALISATION\n";
+    std::cout << "DEMO 4: SERIALISATION\n";
     std::cout << std::string(60, '=') << "\n";
 
     Vector3D vec(1.5, 2.5, 3.5);
@@ -293,7 +291,7 @@ void demo_validation() {
     std::vector<std::string> errors;
 
     if (ConstraintValidator::instance().validate(valid_sphere, errors)) {
-        std::cout << "\nSphère valide ✓\n";
+        std::cout << "\nSphere valid ✓\n";
     }
 
     // Test avec valeur invalide
@@ -301,7 +299,7 @@ void demo_validation() {
     errors.clear();
 
     if (!ConstraintValidator::instance().validate(invalid_sphere, errors)) {
-        std::cout << "\nSphère invalide ✗\n";
+        std::cout << "\nSphere invalid ✗\n";
         for (const auto &error : errors) {
             std::cout << "  Erreur: " << error << "\n";
         }
@@ -310,7 +308,7 @@ void demo_validation() {
 
 void demo_documentation() {
     std::cout << "\n" << std::string(60, '=') << "\n";
-    std::cout << "DEMO 6: GÉNÉRATION DE DOCUMENTATION\n";
+    std::cout << "DEMO 6: GENERATE DOC\n";
     std::cout << std::string(60, '=') << "\n";
 
     // Markdown
@@ -325,14 +323,15 @@ template <typename T> void displayMeta() {
     std::cout << typeid(T).name() << " enregistré: " << (ROSETTA_HAS_CLASS(Vector3D) ? "Yes" : "No")
               << "\n";
     auto &meta = ROSETTA_GET_META(T);
-    std::cout << "Fields:\n";
-    for (const auto &field : meta.fields()) {
-        std::cout << "  - " << field << "\n";
-    }
-    std::cout << "Methods:\n";
-    for (const auto &meth : meta.methods()) {
-        std::cout << "  - " << meth << "\n";
-    }
+    meta.dump(std::cerr);
+    // std::cout << "Fields:\n";
+    // for (const auto &field : meta.fields()) {
+    //     std::cout << "  - " << field << "\n";
+    // }
+    // std::cout << "Methods:\n";
+    // for (const auto &meth : meta.methods()) {
+    //     std::cout << "  - " << meth << "\n";
+    // }
     std::cout << "\n\n";
 }
 
@@ -343,18 +342,18 @@ void demo_registry() {
 
     auto &registry = rosetta::Registry::instance();
 
-    std::cout << "\nClasses enregistrées: " << registry.size() << "\n";
+    std::cout << "\nRegistered classes: " << registry.size() << "\n";
     std::cout << "Liste:\n";
     for (const auto &name : registry.list_classes()) {
         std::cout << "  - " << name << "\n";
     }
 
-    std::cout << "\nVérifications:\n";
+    std::cout << "\nChecks:\n";
+    displayMeta<A>();
     displayMeta<Vector3D>();
     displayMeta<Shape>();
     displayMeta<Sphere>();
     displayMeta<Box>();
-    displayMeta<A>();
 }
 
 // ============================================================================

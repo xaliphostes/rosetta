@@ -20,7 +20,9 @@ namespace rosetta::core {
     }
 
     template <typename Class> inline void ClassMetadata<Class>::dump(std::ostream &os) const {
-        os << "\n=== Rosetta metadata for class: " << name() << " ===\n";
+        os << "\n===============================================\n";
+        os << "=== Rosetta metadata for class: " << name() << " ===\n";
+        os << "===============================================\n";
 
         // Instantiability
         os << "Instantiable: " << (is_instantiable() ? "true" : "false") << "\n";
@@ -211,85 +213,6 @@ namespace rosetta::core {
         for (const auto &base : inh.base_classes) {
             os << "    base_name             = " << base.name << "\n";
         }
-
-        // ========================================================================
-        // Display inherited methods from base classes
-        // ========================================================================
-
-        // Collect all inherited methods (avoiding duplicates with local methods)
-        // {
-        //     std::vector<std::pair<std::string, std::string>>
-        //         inherited_methods; // (method_name, base_class_name)
-
-        //     // Helper lambda to collect methods from a base class
-        //     auto collect_base_methods = [&](const BaseClassInfo &base_info) {
-        //         auto *base_holder = Registry::instance().get_by_name(base_info.name);
-        //         if (!base_holder)
-        //             return;
-
-        //         // Get the base class methods through the holder's virtual interface
-        //         // We need to check each method name and see if it exists in base
-        //         // Since MetadataHolder doesn't expose method list directly, we'll use has_method
-
-        //         // Unfortunately we need access to the base's method list
-        //         // Let's iterate through common method names or use a different approach
-        //         // Actually, we need to add a get_methods() virtual function to MetadataHolder
-
-        //         // For now, let's work with what we have - check if base has methods we don't
-        //         // This requires the base holder to expose its method list
-        //     };
-
-        //     // Check each base class for methods
-        //     bool has_inherited = false;
-        //     for (const auto &base_info : inh.base_classes) {
-        //         auto *base_holder = Registry::instance().get_by_name(base_info.name);
-        //         if (!base_holder)
-        //             continue;
-
-        //         // Get methods from base using the virtual interface
-        //         auto base_methods = base_holder->get_methods();
-
-        //         for (const auto &base_method_name : base_methods) {
-        //             // Check if this method is NOT in our local methods
-        //             bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
-        //             if (!is_local) {
-        //                 inherited_methods.push_back({base_method_name, base_info.name});
-        //             }
-        //         }
-        //     }
-
-        //     // Also check virtual bases
-        //     for (const auto &base_info : inh.virtual_bases) {
-        //         auto *base_holder = Registry::instance().get_by_name(base_info.name);
-        //         if (!base_holder)
-        //             continue;
-
-        //         auto base_methods = base_holder->get_methods();
-
-        //         for (const auto &base_method_name : base_methods) {
-        //             bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
-        //             // Also check if already added from another base
-        //             bool already_added = false;
-        //             for (const auto &[name, _] : inherited_methods) {
-        //                 if (name == base_method_name) {
-        //                     already_added = true;
-        //                     break;
-        //                 }
-        //             }
-        //             if (!is_local && !already_added) {
-        //                 inherited_methods.push_back({base_method_name, base_info.name});
-        //             }
-        //         }
-        //     }
-
-        //     // Display inherited methods
-        //     if (!inherited_methods.empty()) {
-        //         os << "Inherited methods (" << inherited_methods.size() << "):\n";
-        //         for (const auto &[method_name, base_name] : inherited_methods) {
-        //             os << "  - " << method_name << " (from " << base_name << ")\n";
-        //         }
-        //     }
-        // }
 
         os << "===============================================\n";
     }

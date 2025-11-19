@@ -20,27 +20,48 @@ public:
 
 class Derived : public Base1, public Base2 {
 public:
+    Derived() {}
+    Derived(double, int) {}
+    
     void        run() override { std::cerr << "Hello world!" << std::endl; }
     std::string name() const { return "Hector"; }
+
+    void setTolerence(double) {}
+    double getTolerence() const {return 1e-6;}
+
+    bool active{true};
 };
 
 void initFct() {
     using namespace rosetta;
 
-    // Vector3D
-    ROSETTA_REGISTER_CLASS(Base1).pure_virtual_method<void>("run").method("help", &Base1::help);
-    ROSETTA_REGISTER_CLASS(Base2).method("doit", &Base2::doit).method("hello", &Base2::hello);
+    ROSETTA_REGISTER_CLASS(Base1)
+        .pure_virtual_method<void>("run")
+        .method("help", &Base1::help);
+    ROSETTA_REGISTER_CLASS(Base2)
+        .method("doit", &Base2::doit)
+        .method("hello", &Base2::hello);
     ROSETTA_REGISTER_CLASS(Derived)
+        .constructor<>()
+        .constructor<double, int>()
         .inherits_from<Base1>("Base1")
         .inherits_from<Base2>("Base2")
         .override_method("run", &Derived::run)
-        .method("name", &Derived::name);
+        .method("name", &Derived::name)
+        .property("tolerence", &Derived::getTolerence, &Derived::setTolerence)
+        .field("active", &Derived::active);
 }
 
 TEST(Abstract, basic) {
     initFct();
 
-    auto &meta = ROSETTA_GET_META(Derived);
+    auto meta1 = ROSETTA_GET_META(Base1);
+    meta1.dump(std::cerr);
+
+    auto meta2 = ROSETTA_GET_META(Base2);
+    meta2.dump(std::cerr);
+
+    auto meta = ROSETTA_GET_META(Derived);
     meta.dump(std::cerr);
 
     Derived d;
