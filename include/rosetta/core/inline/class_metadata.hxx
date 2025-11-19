@@ -761,6 +761,43 @@ namespace rosetta::core {
         return *this;
     }
 
+    // template <typename Class>
+    // template <typename Base, typename Ret, typename... Args>
+    // inline ClassMetadata<Class> &
+    // ClassMetadata<Class>::base_method(const std::string &name, Ret (Base::*ptr)(Args...) const) {
+    //     static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
+
+    //     // Only add name once to method_names_
+    //     if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+    //         method_names_.push_back(name);
+    //     }
+
+    //     MethodInfo info;
+    //     info.arity       = sizeof...(Args);
+    //     info.return_type = std::type_index(typeid(Ret));
+    //     info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+
+    //     info.invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
+    //         const Base &base = static_cast<const Base &>(obj);
+    //         if constexpr (sizeof...(Args) == 0) {
+    //             if constexpr (std::is_void_v<Ret>) {
+    //                 (base.*ptr)();
+    //                 return Any(0);
+    //             } else {
+    //                 return Any((base.*ptr)());
+    //             }
+    //         } else {
+    //             return invoke_const_with_args(base, ptr, args,
+    //             std::index_sequence_for<Args...>{});
+    //         }
+    //     };
+
+    //     method_info_[name].push_back(info);
+    //     methods_[name].push_back(info.invoker);
+    //     const_methods_[name].push_back(info.invoker);
+
+    //     return *this;
+    // }
     template <typename Class>
     template <typename Base, typename Ret, typename... Args>
     inline ClassMetadata<Class> &
@@ -777,7 +814,23 @@ namespace rosetta::core {
         info.return_type = std::type_index(typeid(Ret));
         info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
 
-        info.invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
+        // Non-const invoker for methods_ and method_info_
+        info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
+            const Base &base = static_cast<const Base &>(obj);
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (base.*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((base.*ptr)());
+                }
+            } else {
+                return invoke_const_with_args(base, ptr, args, std::index_sequence_for<Args...>{});
+            }
+        };
+
+        // Const invoker for const_methods_
+        auto const_invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
             const Base &base = static_cast<const Base &>(obj);
             if constexpr (sizeof...(Args) == 0) {
                 if constexpr (std::is_void_v<Ret>) {
@@ -793,7 +846,7 @@ namespace rosetta::core {
 
         method_info_[name].push_back(info);
         methods_[name].push_back(info.invoker);
-        const_methods_[name].push_back(info.invoker);
+        const_methods_[name].push_back(const_invoker);
 
         return *this;
     }

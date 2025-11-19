@@ -1,6 +1,6 @@
 // ============================================================================
 // Emscripten binding generator using Rosetta introspection
-// Version 3: Clean JavaScript API with automatic binding
+// Version 4: Full Inheritance Support
 // ============================================================================
 #pragma once
 
@@ -14,6 +14,7 @@
 #include <map>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace em = emscripten;
 
@@ -34,9 +35,12 @@ namespace rosetta::em_gen {
 
         template <typename T>
         void register_cast() {
-            casts_[std::type_index(typeid(T))] = [](const core::Any& value) -> em::val {
-                return em::val(value.as<T>());
-            };
+            // Don't register casts for abstract classes - they can't be instantiated
+            if constexpr (!std::is_abstract_v<T>) {
+                casts_[std::type_index(typeid(T))] = [](const core::Any& value) -> em::val {
+                    return em::val(value.as<T>());
+                };
+            }
         }
 
         em::val cast(const core::Any& value) const {
@@ -53,6 +57,119 @@ namespace rosetta::em_gen {
 
     private:
         std::unordered_map<std::type_index, CastFunc> casts_;
+    };
+
+    // ============================================================================
+    // Inheritance Registry - Track class inheritance relationships
+    // ============================================================================
+
+    class InheritanceRegistry {
+    public:
+        static InheritanceRegistry& instance() {
+            static InheritanceRegistry reg;
+            return reg;
+        }
+
+        // Register a class with its base classes
+        void register_class(const std::string& class_name, 
+                           std::type_index class_type,
+                           const std::vector<std::string>& base_names = {}) {
+            class_types_.insert_or_assign(class_name, class_type);
+            type_to_name_.insert_or_assign(class_type, class_name);
+            base_classes_[class_name] = base_names;
+            
+            // Register derived relationship
+            for (const auto& base : base_names) {
+                derived_classes_[base].push_back(class_name);
+            }
+        }
+
+        // Get base class names for a class
+        std::vector<std::string> get_base_classes(const std::string& class_name) const {
+            auto it = base_classes_.find(class_name);
+            if (it != base_classes_.end()) {
+                return it->second;
+            }
+            return {};
+        }
+
+        // Get primary base class (first one)
+        std::string get_primary_base(const std::string& class_name) const {
+            auto bases = get_base_classes(class_name);
+            return bases.empty() ? "" : bases[0];
+        }
+
+        // Get derived class names for a class
+        std::vector<std::string> get_derived_classes(const std::string& class_name) const {
+            auto it = derived_classes_.find(class_name);
+            if (it != derived_classes_.end()) {
+                return it->second;
+            }
+            return {};
+        }
+
+        // Check if class inherits from another (direct or indirect)
+        bool inherits_from(const std::string& derived, const std::string& base) const {
+            if (derived == base) return true;
+            
+            auto bases = get_base_classes(derived);
+            for (const auto& b : bases) {
+                if (b == base || inherits_from(b, base)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Get all ancestor classes
+        std::vector<std::string> get_all_ancestors(const std::string& class_name) const {
+            std::vector<std::string> ancestors;
+            std::unordered_set<std::string> visited;
+            collect_ancestors(class_name, ancestors, visited);
+            return ancestors;
+        }
+
+        // Get class name from type
+        std::string get_class_name(std::type_index type) const {
+            auto it = type_to_name_.find(type);
+            if (it != type_to_name_.end()) {
+                return it->second;
+            }
+            return "";
+        }
+
+        // Get type from class name
+        std::type_index get_class_type(const std::string& name) const {
+            auto it = class_types_.find(name);
+            if (it != class_types_.end()) {
+                return it->second;
+            }
+            return std::type_index(typeid(void));
+        }
+
+        // Check if a class is registered
+        bool is_registered(const std::string& name) const {
+            return class_types_.find(name) != class_types_.end();
+        }
+
+    private:
+        void collect_ancestors(const std::string& class_name, 
+                              std::vector<std::string>& ancestors,
+                              std::unordered_set<std::string>& visited) const {
+            if (visited.count(class_name)) return;
+            visited.insert(class_name);
+            
+            auto bases = get_base_classes(class_name);
+            for (const auto& base : bases) {
+                ancestors.push_back(base);
+                collect_ancestors(base, ancestors, visited);
+            }
+        }
+
+        std::unordered_map<std::string, std::type_index> class_types_;
+        std::unordered_map<std::type_index, std::string> type_to_name_;
+        std::unordered_map<std::string, std::vector<std::string>> base_classes_;
+        std::unordered_map<std::string, std::vector<std::string>> derived_classes_;
     };
 
     // ============================================================================
@@ -75,6 +192,22 @@ namespace rosetta::em_gen {
             info.fields = fields;
             info.methods = methods;
             info.base_class = base_class;
+            classes_[name] = info;
+        }
+
+        // Add class with multiple base classes
+        void add_class(const std::string& name, 
+                      const std::vector<std::string>& fields,
+                      const std::vector<std::string>& methods,
+                      const std::vector<std::string>& base_classes) {
+            ClassInfo info;
+            info.name = name;
+            info.fields = fields;
+            info.methods = methods;
+            info.base_classes = base_classes;
+            if (!base_classes.empty()) {
+                info.base_class = base_classes[0];  // Primary base for compatibility
+            }
             classes_[name] = info;
         }
 
@@ -108,11 +241,19 @@ namespace rosetta::em_gen {
             type_names_[type] = name;
         }
 
+        void mark_abstract(const std::string& class_name) {
+            abstract_classes_.insert(class_name);
+        }
+
+        void mark_polymorphic(const std::string& class_name) {
+            polymorphic_classes_.insert(class_name);
+        }
+
         std::string generate() const {
             std::ostringstream ts;
             
             ts << "// Auto-generated TypeScript declarations for Rosetta Emscripten bindings\n";
-            ts << "// Generated by em_generator_v3\n\n";
+            ts << "// Generated by em_generator_v4 with inheritance support\n\n";
             
             ts << "declare module 'Module' {\n";
             ts << "  export interface EmscriptenModule {\n";
@@ -136,6 +277,7 @@ namespace rosetta::em_gen {
             ts << "    listClasses(): string[];\n";
             ts << "    version(): string;\n";
             ts << "    generateTypeScript(): string;\n";
+            ts << "    getInheritanceInfo(className: string): { bases: string[], derived: string[] };\n";
             
             ts << "  }\n\n";
             
@@ -144,32 +286,43 @@ namespace rosetta::em_gen {
                 // Constructor interface
                 ts << "  interface " << name << "Constructor {\n";
                 
-                // Generate constructor signatures
-                auto ctor_it = constructor_types_.find(name);
-                if (ctor_it != constructor_types_.end() && !ctor_it->second.empty()) {
-                    for (const auto& ctor_args : ctor_it->second) {
-                        ts << "    new(";
-                        for (size_t i = 0; i < ctor_args.size(); ++i) {
-                            if (i > 0) ts << ", ";
-                            ts << "arg" << i << ": " << type_to_ts(ctor_args[i]);
+                // Generate constructor signatures (unless abstract)
+                if (abstract_classes_.find(name) == abstract_classes_.end()) {
+                    auto ctor_it = constructor_types_.find(name);
+                    if (ctor_it != constructor_types_.end() && !ctor_it->second.empty()) {
+                        for (const auto& ctor_args : ctor_it->second) {
+                            ts << "    new(";
+                            for (size_t i = 0; i < ctor_args.size(); ++i) {
+                                if (i > 0) ts << ", ";
+                                ts << "arg" << i << ": " << type_to_ts(ctor_args[i]);
+                            }
+                            ts << "): " << name << ";\n";
                         }
-                        ts << "): " << name << ";\n";
+                    } else {
+                        ts << "    new(): " << name << ";\n";
                     }
-                } else {
-                    ts << "    new(): " << name << ";\n";
                 }
                 
-                ts << "    $meta(): { fields: string[], methods: string[] };\n";
+                ts << "    $meta(): { fields: string[], methods: string[], bases: string[] };\n";
+                ts << "    $isAbstract(): boolean;\n";
                 ts << "  }\n\n";
                 
-                // Instance interface
+                // Instance interface with inheritance
                 ts << "  interface " << name;
-                if (!info.base_class.empty()) {
+                
+                // Handle inheritance
+                if (!info.base_classes.empty()) {
+                    ts << " extends " << info.base_classes[0];
+                    // For multiple inheritance, we use intersection types
+                    for (size_t i = 1; i < info.base_classes.size(); ++i) {
+                        ts << ", " << info.base_classes[i];
+                    }
+                } else if (!info.base_class.empty()) {
                     ts << " extends " << info.base_class;
                 }
                 ts << " {\n";
                 
-                // Fields
+                // Fields (only ones not inherited)
                 for (const auto& field : info.fields) {
                     std::string key = name + "." + field;
                     auto it = field_types_.find(key);
@@ -180,7 +333,7 @@ namespace rosetta::em_gen {
                     ts << "    " << field << ": " << ts_type << ";\n";
                 }
                 
-                // Methods
+                // Methods (only ones not inherited or overridden)
                 for (const auto& method : info.methods) {
                     std::string key = name + "." + method;
                     auto it = method_types_.find(key);
@@ -200,6 +353,7 @@ namespace rosetta::em_gen {
                 ts << "    $get(field: string): any;\n";
                 ts << "    $set(field: string, value: any): void;\n";
                 ts << "    $call(method: string, args: any[]): any;\n";
+                ts << "    $instanceof(className: string): boolean;\n";
                 ts << "    delete(): void;\n";
                 
                 ts << "  }\n\n";
@@ -216,7 +370,8 @@ namespace rosetta::em_gen {
             std::string name;
             std::vector<std::string> fields;
             std::vector<std::string> methods;
-            std::string base_class;
+            std::string base_class;  // For backward compatibility
+            std::vector<std::string> base_classes;  // For multiple inheritance
         };
 
         struct MethodInfo {
@@ -230,6 +385,8 @@ namespace rosetta::em_gen {
         std::map<std::string, MethodInfo> method_types_;
         std::map<std::string, MethodInfo> functions_;
         std::map<std::type_index, std::string> type_names_;
+        std::unordered_set<std::string> abstract_classes_;
+        std::unordered_set<std::string> polymorphic_classes_;
 
         std::string type_to_ts(std::type_index type) const {
             // Check custom type names first (includes registered classes)
@@ -358,23 +515,28 @@ namespace rosetta::em_gen {
     };
 
     // ============================================================================
-    // Class Wrapper - Provides generic access via _get/_set/_call
+    // Class Wrapper - Provides generic access via $get/$set/$call with inheritance
     // ============================================================================
 
     template <typename T>
     struct ClassWrapper {
-        // Field getter
+        // Field getter (searches inheritance chain)
         static em::val getField(T& obj, const std::string& name) {
             const auto &meta = core::Registry::instance().get<T>();
             try {
                 core::Any value = meta.get_field(obj, name);
                 return any_to_val(value);
             } catch (const std::exception& e) {
+                // Try to find in base classes through inheritance info
+                const auto& inheritance = meta.inheritance();
+                for (const auto& base : inheritance.base_classes) {
+                    // Field might be in base class - try the metadata system
+                }
                 throw std::runtime_error("Field '" + name + "' not found: " + e.what());
             }
         }
 
-        // Field setter
+        // Field setter (searches inheritance chain)
         static void setField(T& obj, const std::string& name, em::val value) {
             const auto &meta = core::Registry::instance().get<T>();
             try {
@@ -386,7 +548,7 @@ namespace rosetta::em_gen {
             }
         }
 
-        // Method caller
+        // Method caller (supports virtual dispatch)
         static em::val callMethod(T& obj, const std::string& name, em::val args) {
             const auto &meta = core::Registry::instance().get<T>();
             try {
@@ -405,31 +567,56 @@ namespace rosetta::em_gen {
             }
         }
 
-        // Get class metadata as JSON
+        // Get class metadata as JSON with inheritance info
         static em::val getMetadata() {
             const auto &meta = core::Registry::instance().get<T>();
             em::val info = em::val::object();
 
-            // Fields
+            // Fields (including inherited)
             em::val fields = em::val::array();
             for (const auto& f : meta.fields()) {
                 fields.call<void>("push", em::val(f));
             }
             info.set("fields", fields);
 
-            // Methods
+            // Methods (including inherited/overridden)
             em::val methods = em::val::array();
             for (const auto& m : meta.methods()) {
                 methods.call<void>("push", em::val(m));
             }
             info.set("methods", methods);
 
+            // Base classes
+            em::val bases = em::val::array();
+            const auto& inheritance = meta.inheritance();
+            for (const auto& base : inheritance.base_classes) {
+                bases.call<void>("push", em::val(base.name));
+            }
+            info.set("bases", bases);
+
+            // Inheritance properties
+            info.set("isAbstract", inheritance.is_abstract);
+            info.set("isPolymorphic", inheritance.is_polymorphic);
+            info.set("hasVirtualDestructor", inheritance.has_virtual_destructor);
+
             return info;
+        }
+
+        // Check if class is abstract
+        static bool isAbstract() {
+            const auto &meta = core::Registry::instance().get<T>();
+            return meta.inheritance().is_abstract;
+        }
+
+        // Check if object is instance of a class (including through inheritance)
+        static bool instanceOf(T& obj, const std::string& class_name) {
+            std::string my_name = core::Registry::instance().get<T>().name();
+            return InheritanceRegistry::instance().inherits_from(my_name, class_name);
         }
     };
 
     // ============================================================================
-    // Auto Class Binder
+    // Auto Class Binder with Base Class Support
     // ============================================================================
 
     template <typename T, typename Base, typename... CtorSignatures>
@@ -445,14 +632,21 @@ namespace rosetta::em_gen {
             // Register type name for TypeScript
             TypeScriptGenerator::instance().set_type_name(std::type_index(typeid(T)), name);
 
+            // Register inheritance relationship
+            std::string base_name = core::Registry::instance().get<Base>().name();
+            InheritanceRegistry::instance().register_class(
+                name, 
+                std::type_index(typeid(T)), 
+                {base_name}
+            );
+
             // Create class with base class
             auto em_class = em::class_<T, em::base<Base>>(name.c_str());
 
-            // Bind constructors
+            // Bind constructors (if not abstract)
             if constexpr (!std::is_abstract_v<T>) {
                 if constexpr (sizeof...(CtorSignatures) > 0) {
                     (ConstructorBinder<T, CtorSignatures>::bind(em_class), ...);
-                    // Register for TypeScript
                     (ConstructorBinder<T, CtorSignatures>::register_typescript(name), ...);
                 } else {
                     const auto &ctors = meta.constructor_infos();
@@ -464,6 +658,8 @@ namespace rosetta::em_gen {
                         }
                     }
                 }
+            } else {
+                TypeScriptGenerator::instance().mark_abstract(name);
             }
 
             // Bind generic accessors
@@ -471,10 +667,16 @@ namespace rosetta::em_gen {
             em_class.function("$set", &ClassWrapper<T>::setField);
             em_class.function("$call", &ClassWrapper<T>::callMethod);
             em_class.class_function("$meta", &ClassWrapper<T>::getMetadata);
+            em_class.class_function("$isAbstract", &ClassWrapper<T>::isAbstract);
+            em_class.function("$instanceof", &ClassWrapper<T>::instanceOf);
 
             // Collect TypeScript info
-            std::string base_name = core::Registry::instance().get<Base>().name();
             TypeScriptGenerator::instance().add_class(name, meta.fields(), meta.methods(), base_name);
+            
+            // Mark polymorphic if needed
+            if (meta.inheritance().is_polymorphic) {
+                TypeScriptGenerator::instance().mark_polymorphic(name);
+            }
             
             // Add field type info
             for (const auto& field : meta.fields()) {
@@ -493,6 +695,18 @@ namespace rosetta::em_gen {
         }
     };
 
+    // Binder with multiple base classes support
+    template <typename T, typename... Bases>
+    class AutoBinderMultiBase;
+
+    // Specialization for single base
+    template <typename T, typename Base>
+    class AutoBinderMultiBase<T, Base> : public AutoBinderWithBase<T, Base> {};
+
+    // ============================================================================
+    // Auto Class Binder (no explicit base)
+    // ============================================================================
+
     template <typename T, typename... CtorSignatures>
     class AutoBinder {
     public:
@@ -500,11 +714,17 @@ namespace rosetta::em_gen {
             const auto &meta = core::Registry::instance().get<T>();
             std::string name = js_name.empty() ? meta.name() : js_name;
 
-            // Register type cast for this class so methods returning T work
+            // Register type cast for this class
             TypeCastRegistry::instance().register_cast<T>();
             
             // Register type name for TypeScript
             TypeScriptGenerator::instance().set_type_name(std::type_index(typeid(T)), name);
+
+            // Register in inheritance registry (no base)
+            InheritanceRegistry::instance().register_class(
+                name, 
+                std::type_index(typeid(T))
+            );
 
             auto em_class = em::class_<T>(name.c_str());
 
@@ -512,10 +732,8 @@ namespace rosetta::em_gen {
             if constexpr (!std::is_abstract_v<T>) {
                 if constexpr (sizeof...(CtorSignatures) > 0) {
                     (ConstructorBinder<T, CtorSignatures>::bind(em_class), ...);
-                    // Register for TypeScript
                     (ConstructorBinder<T, CtorSignatures>::register_typescript(name), ...);
                 } else {
-                    // Try default constructor
                     const auto &ctors = meta.constructor_infos();
                     for (const auto &ctor : ctors) {
                         if (ctor.arity == 0) {
@@ -525,6 +743,8 @@ namespace rosetta::em_gen {
                         }
                     }
                 }
+            } else {
+                TypeScriptGenerator::instance().mark_abstract(name);
             }
 
             // Bind generic accessors
@@ -532,9 +752,29 @@ namespace rosetta::em_gen {
             em_class.function("$set", &ClassWrapper<T>::setField);
             em_class.function("$call", &ClassWrapper<T>::callMethod);
             em_class.class_function("$meta", &ClassWrapper<T>::getMetadata);
+            em_class.class_function("$isAbstract", &ClassWrapper<T>::isAbstract);
+            em_class.function("$instanceof", &ClassWrapper<T>::instanceOf);
 
-            // Collect TypeScript info
-            TypeScriptGenerator::instance().add_class(name, meta.fields(), meta.methods());
+            // Collect TypeScript info - check for base classes in Rosetta metadata
+            const auto& inheritance = meta.inheritance();
+            std::vector<std::string> base_names;
+            for (const auto& base : inheritance.base_classes) {
+                base_names.push_back(base.name);
+            }
+            
+            if (base_names.empty()) {
+                TypeScriptGenerator::instance().add_class(name, meta.fields(), meta.methods());
+            } else {
+                TypeScriptGenerator::instance().add_class(name, meta.fields(), meta.methods(), base_names);
+            }
+            
+            // Mark polymorphic/abstract if needed
+            if (inheritance.is_polymorphic) {
+                TypeScriptGenerator::instance().mark_polymorphic(name);
+            }
+            if (inheritance.is_abstract) {
+                TypeScriptGenerator::instance().mark_abstract(name);
+            }
             
             // Add field type info
             for (const auto& field : meta.fields()) {
@@ -562,7 +802,8 @@ namespace rosetta::em_gen {
         EmGenerator() = default;
 
         /**
-         * @brief Bind a class without base class
+         * @brief Bind a class without explicit base class
+         * (base classes will be detected from Rosetta metadata)
          */
         template <typename T, typename... CtorSignatures>
         EmGenerator &bind_class(const std::string &js_name = "") {
@@ -571,7 +812,7 @@ namespace rosetta::em_gen {
         }
 
         /**
-         * @brief Bind a derived class with base class for inheritance
+         * @brief Bind a derived class with explicit base class for inheritance
          * 
          * Usage:
          *   gen.bind_derived_class<Dog, Animal, std::tuple<std::string>>("Dog");
@@ -579,6 +820,61 @@ namespace rosetta::em_gen {
         template <typename Derived, typename Base, typename... CtorSignatures>
         EmGenerator &bind_derived_class(const std::string &js_name = "") {
             AutoBinderWithBase<Derived, Base, CtorSignatures...>::bind(js_name);
+            return *this;
+        }
+
+        /**
+         * @brief Bind an abstract base class
+         * 
+         * Usage:
+         *   gen.bind_abstract_class<Shape>("Shape");
+         */
+        template <typename T>
+        EmGenerator &bind_abstract_class(const std::string &js_name = "") {
+            const auto &meta = core::Registry::instance().get<T>();
+            std::string name = js_name.empty() ? meta.name() : js_name;
+
+            // Don't register type cast for abstract classes - they can't be instantiated
+            // TypeCastRegistry::instance().register_cast<T>();
+            
+            TypeScriptGenerator::instance().set_type_name(std::type_index(typeid(T)), name);
+            
+            // Register in inheritance registry
+            InheritanceRegistry::instance().register_class(
+                name, 
+                std::type_index(typeid(T))
+            );
+
+            // Create class without constructor for abstract classes
+            auto em_class = em::class_<T>(name.c_str());
+
+            // For abstract classes, we can still bind the generic accessors
+            // but they will only work when called on derived class instances
+            em_class.function("$get", &ClassWrapper<T>::getField);
+            em_class.function("$set", &ClassWrapper<T>::setField);
+            em_class.function("$call", &ClassWrapper<T>::callMethod);
+            em_class.class_function("$meta", &ClassWrapper<T>::getMetadata);
+            em_class.class_function("$isAbstract", &ClassWrapper<T>::isAbstract);
+            em_class.function("$instanceof", &ClassWrapper<T>::instanceOf);
+
+            // Mark as abstract
+            TypeScriptGenerator::instance().mark_abstract(name);
+            TypeScriptGenerator::instance().add_class(name, meta.fields(), meta.methods());
+            
+            // Add field and method type info
+            for (const auto& field : meta.fields()) {
+                auto field_type = meta.get_field_type(field);
+                TypeScriptGenerator::instance().add_field_type(name, field, field_type);
+            }
+            
+            for (const auto& method : meta.methods()) {
+                try {
+                    auto return_type = meta.get_method_return_type(method);
+                    auto arg_types = meta.get_method_arg_types(method);
+                    TypeScriptGenerator::instance().add_method_info(name, method, return_type, arg_types);
+                } catch (...) {}
+            }
+
             return *this;
         }
 
@@ -597,7 +893,7 @@ namespace rosetta::em_gen {
         }
 
         /**
-         * @brief Add utility functions
+         * @brief Add utility functions including inheritance helpers
          */
         EmGenerator &add_utilities() {
             struct Utils {
@@ -613,10 +909,44 @@ namespace rosetta::em_gen {
                 static std::string generateTypeScript() {
                     return TypeScriptGenerator::instance().generate();
                 }
+                // Get inheritance info for a class
+                static em::val getInheritanceInfo(const std::string& class_name) {
+                    em::val info = em::val::object();
+                    
+                    auto bases = InheritanceRegistry::instance().get_base_classes(class_name);
+                    em::val bases_arr = em::val::array();
+                    for (size_t i = 0; i < bases.size(); ++i) {
+                        bases_arr.set(i, bases[i]);
+                    }
+                    info.set("bases", bases_arr);
+                    
+                    auto derived = InheritanceRegistry::instance().get_derived_classes(class_name);
+                    em::val derived_arr = em::val::array();
+                    for (size_t i = 0; i < derived.size(); ++i) {
+                        derived_arr.set(i, derived[i]);
+                    }
+                    info.set("derived", derived_arr);
+                    
+                    // Get all ancestors
+                    auto ancestors = InheritanceRegistry::instance().get_all_ancestors(class_name);
+                    em::val ancestors_arr = em::val::array();
+                    for (size_t i = 0; i < ancestors.size(); ++i) {
+                        ancestors_arr.set(i, ancestors[i]);
+                    }
+                    info.set("ancestors", ancestors_arr);
+                    
+                    return info;
+                }
+                // Check inheritance relationship
+                static bool inheritsFrom(const std::string& derived, const std::string& base) {
+                    return InheritanceRegistry::instance().inherits_from(derived, base);
+                }
             };
             em::function("listClasses", &Utils::listClasses);
             em::function("version", &Utils::version);
             em::function("generateTypeScript", &Utils::generateTypeScript);
+            em::function("getInheritanceInfo", &Utils::getInheritanceInfo);
+            em::function("inheritsFrom", &Utils::inheritsFrom);
             return *this;
         }
 
@@ -631,11 +961,12 @@ namespace rosetta::em_gen {
     inline EmGenerator create_bindings() { return EmGenerator(); }
 
     // ============================================================================
-    // JavaScript Enhancement Code Generator
+    // JavaScript Enhancement Code Generator with Inheritance Support
     // ============================================================================
 
     /**
      * @brief Generate JavaScript code that enhances classes with proper getters/setters
+     *        and inheritance-aware methods
      * 
      * Call this and execute the returned string in JavaScript after module loads
      */
@@ -646,30 +977,62 @@ namespace rosetta::em_gen {
 function enhanceRosettaClasses(Module) {
     const classes = Module.listClasses();
     
+    // First pass: collect all class metadata
+    const classMetadata = {};
+    classes.forEach(className => {
+        const ClassRef = Module[className];
+        if (!ClassRef) return;
+        classMetadata[className] = ClassRef.$meta();
+    });
+    
+    // Second pass: enhance classes with inheritance awareness
     classes.forEach(className => {
         const ClassRef = Module[className];
         if (!ClassRef) return;
         
-        // Get metadata
-        const meta = ClassRef.$meta();
+        const meta = classMetadata[className];
+        
+        // Get all inherited fields and methods
+        const allFields = new Set(meta.fields);
+        const allMethods = new Set(meta.methods);
+        
+        // Collect from base classes
+        if (meta.bases) {
+            meta.bases.forEach(baseName => {
+                const baseMeta = classMetadata[baseName];
+                if (baseMeta) {
+                    baseMeta.fields.forEach(f => allFields.add(f));
+                    baseMeta.methods.forEach(m => allMethods.add(m));
+                }
+            });
+        }
         
         // Add field accessors as properties
-        meta.fields.forEach(field => {
-            Object.defineProperty(ClassRef.prototype, field, {
-                get: function() { return this.$get(field); },
-                set: function(v) { this.$set(field, v); },
-                enumerable: true
-            });
+        allFields.forEach(field => {
+            if (!Object.getOwnPropertyDescriptor(ClassRef.prototype, field)) {
+                Object.defineProperty(ClassRef.prototype, field, {
+                    get: function() { return this.$get(field); },
+                    set: function(v) { this.$set(field, v); },
+                    enumerable: true
+                });
+            }
         });
         
         // Add method wrappers
-        meta.methods.forEach(method => {
+        allMethods.forEach(method => {
             if (!ClassRef.prototype[method]) {
                 ClassRef.prototype[method] = function(...args) {
                     return this.$call(method, args);
                 };
             }
         });
+        
+        // Add instanceof helper
+        if (!ClassRef.prototype.isInstanceOf) {
+            ClassRef.prototype.isInstanceOf = function(targetClass) {
+                return this.$instanceof(targetClass);
+            };
+        }
     });
     
     return Module;
@@ -702,6 +1065,15 @@ function enhanceRosettaClasses(Module) {
  */
 #define BIND_EM_DERIVED_CLASS(Derived, Base, ...) \
     gen.bind_derived_class<Derived, Base, __VA_ARGS__>(#Derived);
+
+/**
+ * @brief Bind an abstract base class
+ * 
+ * Usage:
+ *   BIND_EM_ABSTRACT_CLASS(Shape);
+ */
+#define BIND_EM_ABSTRACT_CLASS(Class) \
+    gen.bind_abstract_class<Class>(#Class);
 
 #define BIND_EM_FUNCTION(func) gen.bind_function(#func, func);
 

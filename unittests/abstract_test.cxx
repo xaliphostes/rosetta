@@ -3,6 +3,11 @@
 class Base {
 public:
     virtual void run() = 0;
+
+    // Check if a methd on base class can be call from a derived class
+    void help() const {
+        std::cerr << "help from base class" << std::endl ;
+    }
 };
 
 class Derived: public Base {
@@ -17,10 +22,13 @@ void initFct() {
 
     // Vector3D
     ROSETTA_REGISTER_CLASS(Base)
-        .pure_virtual_method<void, void>("run");
+        .pure_virtual_method<void>("run")
+        .method("help", &Base::help);
 
     ROSETTA_REGISTER_CLASS(Derived)
-        .virtual_method("run", &Derived::run);
+        .inherits_from<Base>("Base")
+        .virtual_method("run", &Derived::run)
+        .base_method<Base>("help", &Base::help); // Have to fix! Better to skip this.
 }
 
 TEST(Abstract, basic) {
@@ -33,8 +41,8 @@ TEST(Abstract, basic) {
 
     // Static invoke
     Derived d;
-
     meta.invoke_method(d, "run");
+    meta.invoke_method(d, "help");
 }
 
 RUN_TESTS();
