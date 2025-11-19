@@ -7,7 +7,6 @@
 #include "any.h"
 #include "demangler.h"
 #include "inheritance_info.h"
-// #include "function_auto_registration.h"
 #include "virtual_method_registry.h"
 #include <functional>
 #include <string>

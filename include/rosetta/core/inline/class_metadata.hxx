@@ -4,6 +4,8 @@
 #include <memory>
 #endif
 
+#include <rosetta/core/registry.h>
+
 namespace rosetta::core {
 
     // ============================================================================
@@ -68,32 +70,32 @@ namespace rosetta::core {
         // Fields
         const auto &f = fields();
         os << "Fields (" << f.size() << "):\n";
-        for (const auto &name : f) {
-            std::type_index ti        = get_field_type(name);
+        for (const auto &field_name : f) {
+            std::type_index ti        = get_field_type(field_name);
             std::string     type_name = get_readable_type_name(ti);
-            os << "  - " << name << " : " << type_name << "\n";
+            os << "  - " << field_name << " : " << type_name << "\n";
         }
 
         const auto &m               = methods();
         size_t      total_overloads = 0;
 
         // Count total overloads
-        for (const auto &name : m) {
-            auto it = method_info_.find(name);
+        for (const auto &method_name : m) {
+            auto it = method_info_.find(method_name);
             if (it != method_info_.end()) {
                 total_overloads += it->second.size();
             }
         }
 
         os << "Methods (" << total_overloads << "):\n";
-        for (const auto &name : m) {
-            auto it = method_info_.find(name);
+        for (const auto &method_name : m) {
+            auto it = method_info_.find(method_name);
             if (it != method_info_.end()) {
                 // Iterate through ALL overloads
                 for (const auto &info : it->second) {
                     // Display return type (demangled)
                     std::string return_type = get_readable_type_name(info.return_type);
-                    os << "  - " << return_type << " " << name << "(";
+                    os << "  - " << return_type << " " << method_name << "(";
 
                     // Display argument types (demangled)
                     for (size_t i = 0; i < info.arg_types.size(); ++i) {
@@ -113,7 +115,7 @@ namespace rosetta::core {
                     os << "\n";
                 }
             } else {
-                os << "  - " << name << " (no type info available)\n";
+                os << "  - " << method_name << " (no type info available)\n";
             }
         }
 
@@ -127,6 +129,83 @@ namespace rosetta::core {
         os << "  base_count             = " << inh.total_base_count() << "\n";
         for (const auto &base : inh.base_classes) {
             os << "    base_name             = " << base.name << "\n";
+        }
+
+        // ========================================================================
+        // NEW: Display inherited methods from base classes
+        // ========================================================================
+
+        // Collect all inherited methods (avoiding duplicates with local methods)
+        std::vector<std::pair<std::string, std::string>>
+            inherited_methods; // (method_name, base_class_name)
+
+        // Helper lambda to collect methods from a base class
+        auto collect_base_methods = [&](const BaseClassInfo &base_info) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (!base_holder)
+                return;
+
+            // Get the base class methods through the holder's virtual interface
+            // We need to check each method name and see if it exists in base
+            // Since MetadataHolder doesn't expose method list directly, we'll use has_method
+
+            // Unfortunately we need access to the base's method list
+            // Let's iterate through common method names or use a different approach
+            // Actually, we need to add a get_methods() virtual function to MetadataHolder
+
+            // For now, let's work with what we have - check if base has methods we don't
+            // This requires the base holder to expose its method list
+        };
+
+        // Check each base class for methods
+        bool has_inherited = false;
+        for (const auto &base_info : inh.base_classes) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (!base_holder)
+                continue;
+
+            // Get methods from base using the virtual interface
+            auto base_methods = base_holder->get_methods();
+
+            for (const auto &base_method_name : base_methods) {
+                // Check if this method is NOT in our local methods
+                bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
+                if (!is_local) {
+                    inherited_methods.push_back({base_method_name, base_info.name});
+                }
+            }
+        }
+
+        // Also check virtual bases
+        for (const auto &base_info : inh.virtual_bases) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (!base_holder)
+                continue;
+
+            auto base_methods = base_holder->get_methods();
+
+            for (const auto &base_method_name : base_methods) {
+                bool is_local = std::find(m.begin(), m.end(), base_method_name) != m.end();
+                // Also check if already added from another base
+                bool already_added = false;
+                for (const auto &[name, _] : inherited_methods) {
+                    if (name == base_method_name) {
+                        already_added = true;
+                        break;
+                    }
+                }
+                if (!is_local && !already_added) {
+                    inherited_methods.push_back({base_method_name, base_info.name});
+                }
+            }
+        }
+
+        // Display inherited methods
+        if (!inherited_methods.empty()) {
+            os << "Inherited methods (" << inherited_methods.size() << "):\n";
+            for (const auto &[method_name, base_name] : inherited_methods) {
+                os << "  - " << method_name << " (from " << base_name << ")\n";
+            }
         }
 
         os << "===============================================\n";
@@ -1155,6 +1234,7 @@ namespace rosetta::core {
         field_setters_.at(name)(obj, std::move(value));
     }
 
+    /*
     template <typename Class>
     inline Any ClassMetadata<Class>::invoke_method(Class &obj, const std::string &name,
                                                    std::vector<Any> args) const {
@@ -1269,6 +1349,165 @@ namespace rosetta::core {
             error += "  - " + sig + "\n";
         }
         throw std::runtime_error(error);
+    }
+    */
+
+    template <typename Class>
+    inline Any ClassMetadata<Class>::invoke_method(Class &obj, const std::string &name,
+                                                   std::vector<Any> args) const {
+        // First, try to find the method in this class
+        auto it = methods_.find(name);
+        if (it != methods_.end()) {
+            const auto &overloads = it->second;
+            auto        info_it   = method_info_.find(name);
+
+            // Try each overload
+            std::vector<std::string> tried_signatures;
+            for (size_t i = 0; i < overloads.size(); ++i) {
+                const auto &invoker = overloads[i];
+                const auto &info    = info_it->second[i];
+
+                // Check arity match
+                if (args.size() != info.arity) {
+                    // Build signature for error message
+                    std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                    for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                        sig += get_readable_type_name(info.arg_types[j]);
+                        if (j < info.arg_types.size() - 1)
+                            sig += ", ";
+                    }
+                    sig += ")";
+                    tried_signatures.push_back(sig);
+                    continue;
+                }
+
+                // Try to invoke - if it succeeds, return
+                try {
+                    return invoker(obj, args);
+                } catch (const std::bad_cast &) {
+                    // Type mismatch - try next overload
+                    std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                    for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                        sig += get_readable_type_name(info.arg_types[j]);
+                        if (j < info.arg_types.size() - 1)
+                            sig += ", ";
+                    }
+                    sig += ")";
+                    tried_signatures.push_back(sig);
+                    continue;
+                }
+            }
+
+            // If we had overloads but none matched, report error
+            if (!tried_signatures.empty()) {
+                std::string error = "No matching overload found for method '" + name + "' with " +
+                                    std::to_string(args.size()) + " arguments.\n";
+                error += "Tried overloads:\n";
+                for (const auto &sig : tried_signatures) {
+                    error += "  - " + sig + "\n";
+                }
+                throw std::runtime_error(error);
+            }
+        }
+
+        // Method not found locally - search in base classes
+        for (const auto &base_info : inheritance_.base_classes) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (base_holder && base_holder->has_method(name)) {
+                // Cast obj to void* and invoke through base class metadata
+                void *base_ptr = static_cast<void *>(&obj);
+                return base_holder->invoke_method_void_ptr(base_ptr, name, std::move(args));
+            }
+        }
+
+        // Also check virtual bases
+        for (const auto &base_info : inheritance_.virtual_bases) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (base_holder && base_holder->has_method(name)) {
+                void *base_ptr = static_cast<void *>(&obj);
+                return base_holder->invoke_method_void_ptr(base_ptr, name, std::move(args));
+            }
+        }
+
+        throw std::runtime_error("Method not found: " + name);
+    }
+
+    template <typename Class>
+    inline Any ClassMetadata<Class>::invoke_method(const Class &obj, const std::string &name,
+                                                   std::vector<Any> args) const {
+        // First, try to find the method in this class
+        auto it = const_methods_.find(name);
+        if (it != const_methods_.end()) {
+            const auto &overloads = it->second;
+            auto        info_it   = method_info_.find(name);
+
+            // Try each overload
+            std::vector<std::string> tried_signatures;
+            for (size_t i = 0; i < overloads.size(); ++i) {
+                const auto &invoker = overloads[i];
+                const auto &info    = info_it->second[i];
+
+                // Check arity match
+                if (args.size() != info.arity) {
+                    std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                    for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                        sig += get_readable_type_name(info.arg_types[j]);
+                        if (j < info.arg_types.size() - 1)
+                            sig += ", ";
+                    }
+                    sig += ") const";
+                    tried_signatures.push_back(sig);
+                    continue;
+                }
+
+                // Try to invoke
+                try {
+                    return invoker(obj, args);
+                } catch (const std::bad_cast &) {
+                    std::string sig = get_readable_type_name(info.return_type) + " " + name + "(";
+                    for (size_t j = 0; j < info.arg_types.size(); ++j) {
+                        sig += get_readable_type_name(info.arg_types[j]);
+                        if (j < info.arg_types.size() - 1)
+                            sig += ", ";
+                    }
+                    sig += ") const";
+                    tried_signatures.push_back(sig);
+                    continue;
+                }
+            }
+
+            // If we had overloads but none matched, report error
+            if (!tried_signatures.empty()) {
+                std::string error = "No matching const overload found for method '" + name +
+                                    "' with " + std::to_string(args.size()) + " arguments.\n";
+                error += "Tried overloads:\n";
+                for (const auto &sig : tried_signatures) {
+                    error += "  - " + sig + "\n";
+                }
+                throw std::runtime_error(error);
+            }
+        }
+
+        // Method not found locally - search in base classes
+        for (const auto &base_info : inheritance_.base_classes) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (base_holder && base_holder->has_method(name)) {
+                // Cast obj to void* and invoke through base class metadata
+                const void *base_ptr = static_cast<const void *>(&obj);
+                return base_holder->invoke_const_method_void_ptr(base_ptr, name, std::move(args));
+            }
+        }
+
+        // Also check virtual bases
+        for (const auto &base_info : inheritance_.virtual_bases) {
+            auto *base_holder = Registry::instance().get_by_name(base_info.name);
+            if (base_holder && base_holder->has_method(name)) {
+                const void *base_ptr = static_cast<const void *>(&obj);
+                return base_holder->invoke_const_method_void_ptr(base_ptr, name, std::move(args));
+            }
+        }
+
+        throw std::runtime_error("Const method not found: " + name);
     }
 
     template <typename Class>

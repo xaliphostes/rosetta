@@ -28,6 +28,16 @@ namespace rosetta::core {
             virtual ~MetadataHolder()                              = default;
             virtual std::string            get_name() const        = 0;
             virtual const InheritanceInfo &get_inheritance() const = 0;
+
+            // Type-erased method invocation for base class lookup
+            virtual bool has_method(const std::string &name) const                 = 0;
+            virtual Any  invoke_method_void_ptr(void *obj, const std::string &name,
+                                                std::vector<Any> args) const       = 0;
+            virtual Any  invoke_const_method_void_ptr(const void *obj, const std::string &name,
+                                                      std::vector<Any> args) const = 0;
+
+            // Get list of methods (for dump/introspection)
+            virtual std::vector<std::string> get_methods() const = 0;
         };
 
         /**
@@ -43,6 +53,25 @@ namespace rosetta::core {
             const InheritanceInfo &get_inheritance() const override {
                 return metadata.inheritance();
             }
+
+            bool has_method(const std::string &name) const override {
+                const auto &methods = metadata.methods();
+                return std::find(methods.begin(), methods.end(), name) != methods.end();
+            }
+
+            Any invoke_method_void_ptr(void *obj, const std::string &name,
+                                       std::vector<Any> args) const override {
+                Class *typed_obj = static_cast<Class *>(obj);
+                return metadata.invoke_method(*typed_obj, name, std::move(args));
+            }
+
+            Any invoke_const_method_void_ptr(const void *obj, const std::string &name,
+                                             std::vector<Any> args) const override {
+                const Class *typed_obj = static_cast<const Class *>(obj);
+                return metadata.invoke_method(*typed_obj, name, std::move(args));
+            }
+
+            std::vector<std::string> get_methods() const override { return metadata.methods(); }
         };
 
         std::unordered_map<std::string, std::unique_ptr<MetadataHolder>> classes_;
