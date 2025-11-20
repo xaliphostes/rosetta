@@ -1,26 +1,42 @@
 # Compiling and testing the examples
 
-## 1. For Python
+## 1. For the `all` example
+
+This example shows, from a third party library, how to generate one Rosetta introspection.
+This introspection is then use in Python, Emscripten, JavaScript... to generate the corresponding binding.
+All the bindings shared the same API defined with Rosetta.
+
+Go inside each folder and follow the README.md
+
+## 2. For Python
 Go to the `py` folder (not the sub folders) and type:
 
 ```sh
 mkdir build 
 cd build
 cmake .. && make
-make run
+make run # will run all subfolders
 ```
 
 **NOTE**: The CMakeFiles.txt is configured for Python 3.14 (toward the end). Make your change...
 
-## 2. For JavaScript (node.js)
+## 3. For JavaScript (node.js)
 
-For the moment, go inside each leaf folder, and then type:
+Go inside each leaf folder, and then type:
 
 ```sh
-npm i # first time, it will install (and compile as well)
+npm i
+node test.cjs
 ```
-then
+
+## 4. For Emscripten
+
+Go to the `em/XXX` folder and type
+
 ```sh
-npm run build # (compile)
-node test.js  #(run)
+mkdir build
+cd build
+emcmake cmake ..
+emmake make
+node test.mjs
 ```

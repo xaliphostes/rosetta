@@ -1299,8 +1299,9 @@ namespace rosetta::em_gen {
 #define BIND_EM_CLASS_AUTO(Class, ...) \
     gen.bind_class<Class, __VA_ARGS__>(#Class);
 
-#define BIND_EM_CLASS(Class) \
-    gen.bind_class<Class>(#Class);
+#define BIND_EM_CLASS(Class, ...) \
+    gen.bind_class<Class, __VA_ARGS__>(#Class);
+    // gen.bind_class<Class>(#Class);
 
 #define BIND_EM_DERIVED_CLASS(Derived, Base, ...) \
     gen.bind_derived_class<Derived, Base, __VA_ARGS__>(#Derived);

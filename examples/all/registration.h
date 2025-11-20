@@ -1,6 +1,8 @@
 #include <rosetta/rosetta.h>
 #include "third/common.h"
 
+// Setting up the Rosetta introspection for all bindings (Python, JavaScript, Emscripten, ...)
+
 void register_rosetta_classes() {
     ROSETTA_REGISTER_CLASS(Point)
         .constructor<>()

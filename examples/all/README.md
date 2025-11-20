@@ -8,3 +8,6 @@ In this folder,
    - Python (`py/binding.cxx`)
    - JavaScript (`js/binding.cxx`)
    - Emscipten (`em/binding.cxx`)
+
+## Compilation
+Go in each folder (`python`, `javascript`, ...) and read the README.md
