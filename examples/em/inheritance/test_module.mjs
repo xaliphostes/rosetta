@@ -23,14 +23,14 @@ async function runTests() {
     console.log(square.describe());      // "Square with area 4.0"
 
     // Access properties
-    console.log(circle.radius);          // 5.0
-    console.log(rect.width, rect.height);// 4.0 3.0
-    console.log(square.side);            // 2.0
+    console.log("circle radius", circle.radius);          // 5.0
+    console.log("react width and height", rect.width, rect.height);// 4.0 3.0
+    console.log("square side", square.side);            // 2.0
 
     // Call virtual methods through base class behavior
-    console.log(circle.area());          // 78.54...
-    console.log(rect.area());            // 12.0
-    console.log(square.area());          // 4.0
+    console.log("circle area", circle.area());          // 78.54...
+    console.log("react area", rect.area());            // 12.0
+    console.log("square area", square.area());          // 4.0
 
     // Use free functions with derived classes
     console.log(Module.totalArea(circle, rect));  // 90.54...
