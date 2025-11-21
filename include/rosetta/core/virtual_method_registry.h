@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/core/virtual_method_registry.hpp
-//
 // Registry global pour les informations sur les méthodes virtuelles
 // ============================================================================
 #pragma once
@@ -13,9 +11,6 @@
 
 namespace rosetta::core {
 
-    /**
-     * @brief Registry singleton pour stocker les informations sur les vtables
-     */
     class VirtualMethodRegistry {
         struct ClassVTable {
             VirtualTableInfo                                         vtable;
@@ -31,56 +26,15 @@ namespace rosetta::core {
         VirtualMethodRegistry &operator=(const VirtualMethodRegistry &) = delete;
 
     public:
-        /**
-         * @brief Obtient l'instance unique du registry
-         * @return Référence au registry
-         */
         static VirtualMethodRegistry &instance();
-
-        /**
-         * @brief Enregistre une méthode virtuelle pour une classe
-         * @tparam Class Type de la classe
-         * @param method_name Nom de la méthode
-         * @param signature Signature de la méthode
-         * @param is_pure true si la méthode est pure virtuelle
-         */
         template <typename Class>
         void register_virtual_method(const std::string &method_name, const std::string &signature,
                                      bool is_pure = false);
-
-        /**
-         * @brief Obtient la vtable d'une classe
-         * @tparam Class Type de la classe
-         * @return Pointeur vers la vtable, ou nullptr si non trouvée
-         */
         template <typename Class> const VirtualTableInfo *get_vtable() const;
-
-        /**
-         * @brief Obtient la vtable d'une classe (version non-const)
-         * @tparam Class Type de la classe
-         * @return Pointeur vers la vtable, ou nullptr si non trouvée
-         */
-        template <typename Class> VirtualTableInfo *get_vtable();
-
-        /**
-         * @brief Vérifie si une classe a des méthodes pures virtuelles
-         * @tparam Class Type de la classe
-         * @return true si la classe a au moins une méthode pure virtuelle
-         */
-        template <typename Class> bool has_pure_virtual_methods() const;
-
-        /**
-         * @brief Enregistre un thunk pour appeler une méthode virtuelle
-         * @tparam Class Type de la classe
-         * @param method_name Nom de la méthode
-         * @param thunk Fonction pour appeler la méthode
-         */
+        template <typename Class> VirtualTableInfo       *get_vtable();
+        template <typename Class> bool                    has_pure_virtual_methods() const;
         template <typename Class>
         void register_method_thunk(const std::string &method_name, std::function<void *()> thunk);
-
-        /**
-         * @brief Efface toutes les informations enregistrées
-         */
         void clear();
     };
 

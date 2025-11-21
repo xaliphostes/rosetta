@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/extensions/serialization/xml_serializer.hpp
-//
 // Sérialisation automatique en XML basée sur l'introspection
 // ============================================================================
 #pragma once
@@ -12,19 +10,8 @@
 
 namespace rosetta::extensions {
 
-    /**
-     * @brief Sérialiseur XML automatique utilisant les métadonnées Rosetta
-     */
     class XMLSerializer {
     public:
-        /**
-         * @brief Sérialise un objet en XML
-         * @tparam T Type de l'objet
-         * @param obj Objet à sérialiser
-         * @param root_name Nom de l'élément racine
-         * @param pretty Si true, formatte le XML avec indentation
-         * @return Chaîne XML
-         */
         template <typename T>
         static std::string serialize(const T &obj, const std::string &root_name = "object",
                                      bool pretty = true) {
@@ -36,13 +23,6 @@ namespace rosetta::extensions {
             return ss.str();
         }
 
-        /**
-         * @brief Désérialise un XML en objet
-         * @tparam T Type de l'objet
-         * @param xml Chaîne XML
-         * @return Objet désérialisé
-         * @note Implémentation simplifiée - nécessite un vrai parser XML
-         */
         template <typename T> static T deserialize(const std::string &xml) {
             T obj;
             // TODO: Implémenter un vrai parser XML

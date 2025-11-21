@@ -1,6 +1,6 @@
 // ============================================================================
 // Emscripten binding generator using Rosetta introspection
-// Version 5: Auto-bind inherited methods (no JS enhancement needed)
+// Auto-bind inherited methods (no JS enhancement needed)
 // ============================================================================
 #pragma once
 

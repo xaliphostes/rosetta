@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/extensions/validation/constraint_validator.hpp
-//
 // Système de validation avec contraintes
 // ============================================================================
 #pragma once

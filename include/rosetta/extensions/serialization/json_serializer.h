@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/extensions/serialization/json_serializer.hpp
-//
 // Sérialisation automatique en JSON basée sur l'introspection
 // ============================================================================
 #pragma once
@@ -13,31 +11,13 @@
 
 namespace rosetta::extensions {
 
-    /**
-     * @brief Sérialiseur JSON automatique utilisant les métadonnées Rosetta
-     */
     class JSONSerializer {
     public:
-        /**
-         * @brief Sérialise un objet en JSON
-         * @tparam T Type de l'objet
-         * @param obj Objet à sérialiser
-         * @param pretty Si true, formatte le JSON avec indentation
-         * @return Chaîne JSON
-         */
         template <typename T> static std::string serialize(const T &obj, bool pretty = true) {
             std::stringstream ss;
             serialize_object(ss, obj, 0, pretty);
             return ss.str();
         }
-
-        /**
-         * @brief Désérialise un JSON en objet
-         * @tparam T Type de l'objet
-         * @param json Chaîne JSON
-         * @return Objet désérialisé
-         * @note Implémentation simplifiée - nécessite un vrai parser JSON
-         */
         template <typename T> static T deserialize(const std::string &json) {
             T obj;
             // TODO: Implémenter un vrai parser JSON
@@ -104,9 +84,6 @@ namespace rosetta::extensions {
         }
     };
 
-    /**
-     * @brief Helper pour sérialiser des types primitifs
-     */
     template <typename T> std::string to_json_string(const T &value) {
         if constexpr (std::is_same_v<T, std::string>) {
             return "\"" + value + "\"";
@@ -119,9 +96,6 @@ namespace rosetta::extensions {
         }
     }
 
-    /**
-     * @brief Sérialisation de std::vector
-     */
     template <typename T> std::string serialize_vector(const std::vector<T> &vec) {
         std::stringstream ss;
         ss << "[";

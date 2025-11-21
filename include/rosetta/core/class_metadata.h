@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/core/class_metadata.hpp
-//
 // Class metadata for Rosetta introspection system - FIXED FOR OVERLOADS
 // ============================================================================
 #pragma once

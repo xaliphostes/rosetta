@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/extensions/documentation/doc_generator.hpp
-//
 // Génération automatique de documentation
 // ============================================================================
 #pragma once
@@ -11,28 +9,14 @@
 
 namespace rosetta::extensions {
 
-    /**
-     * @brief Format de documentation
-     */
     enum class DocFormat { Markdown, HTML, PlainText };
 
-    /**
-     * @brief Générateur de documentation automatique
-     */
     class DocGenerator {
         DocFormat format_;
 
     public:
-        /**
-         * @brief Constructeur
-         * @param format Format de sortie
-         */
         explicit DocGenerator(DocFormat format = DocFormat::Markdown) : format_(format) {}
 
-        /**
-         * @brief Génère la documentation complète
-         * @return Documentation formatée
-         */
         std::string generate() const {
             std::stringstream ss;
 
@@ -51,11 +35,6 @@ namespace rosetta::extensions {
             return ss.str();
         }
 
-        /**
-         * @brief Génère la documentation pour une classe spécifique
-         * @param class_name Nom de la classe
-         * @return Documentation de la classe
-         */
         std::string generate_class_doc(const std::string &class_name) const {
             std::stringstream ss;
 

@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/core/function_metadata.hpp
-//
 // Function metadata for Rosetta introspection system (free functions)
 // ============================================================================
 #pragma once

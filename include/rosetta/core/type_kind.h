@@ -1,6 +1,4 @@
 // ============================================================================
-// rosetta/core/type_kind.hpp
-//
 // Définit les énumérations de base pour la bibliothèque Rosetta
 // ============================================================================
 #pragma once
@@ -8,10 +6,10 @@
 namespace rosetta::core {
 
     /**
-     * @brief Catégories de types supportés par Rosetta
+     * @brief Category of types supported by Rosetta
      */
     enum class TypeKind {
-        // Types primitifs
+        // Primitif types
         Void,
         Bool,
         Int,
@@ -19,14 +17,14 @@ namespace rosetta::core {
         Double,
         String,
 
-        // Conteneurs STL
+        // STL conteners
         Vector,
         Map,
         Set,
         Array,
         Optional,
 
-        // Pointeurs et références
+        // Pointeurs and references
         RawPointer,
         SharedPtr,
         UniquePtr,
@@ -37,14 +35,7 @@ namespace rosetta::core {
         Object
     };
 
-    /**
-     * @brief Spécificateurs d'accès pour les membres de classe
-     */
     enum class AccessSpecifier { Public, Protected, Private };
-
-    /**
-     * @brief Type d'héritage
-     */
     enum class InheritanceType { Normal, Virtual };
 
 } // namespace rosetta::core
