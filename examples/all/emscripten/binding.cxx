@@ -4,9 +4,9 @@
 // NOTE: Don't know yet how to bind ctors
 // Emscipten requires explicit constructor argument types (requires compile-time types!)
 
-Surface *buildSurface(const em::val &vertices, const em::val &indices) {
-    std::vector<double> verts = rosetta::em_gen::EmValHelper::toVector<double>(vertices);
-    std::vector<int>    idxs  = rosetta::em_gen::EmValHelper::toVector<int>(indices);
+Surface *buildSurface(const emscripten::val &vertices, const emscripten::val &indices) {
+    std::vector<double> verts = rosetta::em::EmValHelper::toVector<double>(vertices);
+    std::vector<int>    idxs  = rosetta::em::EmValHelper::toVector<int>(indices);
     return new Surface(verts, idxs);
 }
 
