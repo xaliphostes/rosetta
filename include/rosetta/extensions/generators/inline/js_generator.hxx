@@ -1,5 +1,130 @@
 namespace rosetta::js {
 
+    // Forward decl
+    Napi::Value any_to_js(Napi::Env, const core::Any &);
+    core::Any   js_to_any(const Napi::Value &, std::type_index);
+
+    class FunctionConverterRegistry {
+    private:
+        using ConverterFunc = std::function<core::Any(const Napi::Value &)>;
+        std::unordered_map<std::type_index, ConverterFunc> converters_;
+
+        FunctionConverterRegistry() = default;
+
+    public:
+        static FunctionConverterRegistry &instance() {
+            static FunctionConverterRegistry registry;
+            return registry;
+        }
+
+        void register_converter(std::type_index type, ConverterFunc func) {
+            converters_[type] = std::move(func);
+        }
+
+        bool has_converter(std::type_index type) const {
+            return converters_.find(type) != converters_.end();
+        }
+
+        core::Any convert(const Napi::Value &js_val, std::type_index type) const {
+            auto it = converters_.find(type);
+            if (it != converters_.end()) {
+                return it->second(js_val);
+            }
+            return core::Any();
+        }
+    };
+
+    /**
+     * @brief Register a std::function converter
+     * @tparam Ret Return type
+     * @tparam Args Argument types
+     */
+    template <typename Ret, typename... Args> inline void register_function_converter() {
+        using FuncType = std::function<Ret(Args...)>;
+
+        FunctionConverterRegistry::instance().register_converter(
+            std::type_index(typeid(FuncType)), [](const Napi::Value &js_val) -> core::Any {
+                if (!js_val.IsFunction()) {
+                    throw std::runtime_error("Expected a JavaScript function");
+                }
+
+                // Create a shared_ptr to manage the FunctionReference lifetime
+                auto js_func_ptr = std::make_shared<Napi::FunctionReference>(
+                    Napi::Persistent(js_val.As<Napi::Function>()));
+
+                // Create C++ lambda that captures the shared_ptr
+                FuncType cpp_func = [js_func_ptr](Args... args) -> Ret {
+                    Napi::Env         env = js_func_ptr->Env();
+                    Napi::HandleScope scope(env);
+
+                    // Convert C++ arguments to JavaScript values
+                    std::vector<napi_value> js_args;
+                    (js_args.push_back(any_to_js(env, core::Any(args))), ...);
+
+                    // Call the JavaScript function
+                    Napi::Value result = js_func_ptr->Call(js_args);
+
+                    if constexpr (std::is_void_v<Ret>) {
+                        return;
+                    } else {
+                        // Convert result back to C++
+                        return js_to_any(result, std::type_index(typeid(Ret))).template as<Ret>();
+                    }
+                };
+
+                return core::Any(cpp_func);
+            });
+    }
+
+    // Type registry for custom class vectors
+    class VectorConverterRegistry {
+    private:
+        using ConverterFunc = std::function<Napi::Value(Napi::Env, const core::Any &)>;
+        std::unordered_map<std::type_index, ConverterFunc> converters_;
+
+        VectorConverterRegistry() = default;
+
+    public:
+        static VectorConverterRegistry &instance() {
+            static VectorConverterRegistry registry;
+            return registry;
+        }
+
+        void register_converter(std::type_index type, ConverterFunc func) {
+            converters_[type] = std::move(func);
+        }
+
+        bool has_converter(std::type_index type) const {
+            return converters_.find(type) != converters_.end();
+        }
+
+        Napi::Value convert(Napi::Env env, const core::Any &value) const {
+            auto it = converters_.find(value.get_type_index());
+            if (it != converters_.end()) {
+                return it->second(env, value);
+            }
+            return env.Undefined();
+        }
+    };
+
+    /**
+     * @brief Register converter for std::vector<T>
+     */
+    template <typename T> inline void bind_vector_type() {
+        VectorConverterRegistry::instance().register_converter(
+            std::type_index(typeid(std::vector<T>)),
+            [](Napi::Env env, const core::Any &value) -> Napi::Value {
+                const auto &vec = value.as<std::vector<T>>();
+                auto        arr = Napi::Array::New(env, vec.size());
+                for (size_t i = 0; i < vec.size(); ++i) {
+                    // Wrap each element in an Any and convert
+                    core::Any elem_any(vec[i]);
+                    arr.Set(i, any_to_js(env, elem_any));
+                }
+                return arr;
+            });
+    }
+
     // ============================================================================
     // Type Converters - Convert between C++ Any and Napi::Value
     // ============================================================================
@@ -36,6 +161,12 @@ namespace rosetta::js {
             return env.Undefined();
         }
 
+        // Check custom vector registry BEFORE returning Undefined
+        auto &registry = VectorConverterRegistry::instance();
+        if (registry.has_converter(type)) {
+            return registry.convert(env, value);
+        }
+
         // For complex types, return a generic object or handle specially
         return env.Undefined();
     }
@@ -44,6 +175,14 @@ namespace rosetta::js {
      * @brief Convert JavaScript value to C++ Any
      */
     inline core::Any js_to_any(const Napi::Value &js_val, std::type_index expected_type) {
+        // Check for functions FIRST
+        if (js_val.IsFunction()) {
+            auto &registry = FunctionConverterRegistry::instance();
+            if (registry.has_converter(expected_type)) {
+                return registry.convert(js_val, expected_type);
+            }
+        }
+
         // Handle primitives
         if (expected_type == std::type_index(typeid(int))) {
             if (js_val.IsNumber()) {
@@ -98,8 +237,6 @@ namespace rosetta::js {
             // Get metadata from registry
             const auto &meta = core::Registry::instance().get<T>();
 
-            // std::cerr << "doing class " << meta.name() << std::endl;
-
             // Store field and method names in static storage
             field_names_  = meta.fields();
             method_names_ = meta.methods();
@@ -122,7 +259,6 @@ namespace rosetta::js {
             // Add field accessors using napi_define_properties directly
             for (size_t i = 0; i < field_names_.size(); ++i) {
                 const std::string &field_name = field_names_[i];
-                std::cerr << "  add field " << field_name << std::endl;
 
                 // Create a property descriptor for this field
                 napi_property_descriptor desc = {
@@ -138,7 +274,6 @@ namespace rosetta::js {
             // Add methods
             for (size_t i = 0; i < method_names_.size(); ++i) {
                 const std::string &method_name = method_names_[i];
-                std::cerr << "  add method " << method_name << std::endl;
 
                 napi_property_descriptor desc = {method_name.c_str(),
                                                  nullptr,
@@ -376,8 +511,7 @@ namespace rosetta::js {
         : env_(env), exports_(exports) {
     }
 
-    template <typename T>
-    inline JsGenerator &JsGenerator::bind_class(const std::string &js_name) {
+    template <typename T> inline JsGenerator &JsGenerator::bind_class(const std::string &js_name) {
         // Get metadata from registry
         const auto &meta       = core::Registry::instance().get<T>();
         std::string final_name = js_name.empty() ? meta.name() : js_name;

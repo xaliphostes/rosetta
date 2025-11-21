@@ -3,10 +3,15 @@
 
 BEGIN_JS_MODULE(alljs) {
     register_rosetta_classes();
-    generator.bind_class<Point>()
-        .bind_class<Triangle>()
-        .bind_class<Surface>()
-        .bind_class<Model>()
-        .add_utilities();
+
+    BIND_JS_VECTOR(Point);
+    BIND_JS_VECTOR(Triangle);
+
+    // Register function types needed by Surface::transform
+    BIND_JS_FUNCTION_TYPE(Point, const Point&);
+
+    BIND_JS_CLASS(Triangle);
+    BIND_JS_CLASS(Surface);
+    BIND_JS_CLASS(Model);
 }
 END_JS_MODULE()

@@ -20,10 +20,10 @@ set_target_properties(inheritancejs PROPERTIES
     LINK_FLAGS "--bind -s MODULARIZE=1 -s EXPORT_NAME='InheritanceModule' -s SINGLE_FILE=1 -s NO_DISABLE_EXCEPTION_CATCHING"
 )
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_module.mjs)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test.mjs)
     configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_module.mjs
-        ${CMAKE_CURRENT_SOURCE_DIR}/build/test_module.mjs
+        ${CMAKE_CURRENT_SOURCE_DIR}/test.mjs
+        ${CMAKE_CURRENT_SOURCE_DIR}/build/test.mjs
         COPYONLY
     )
 endif()

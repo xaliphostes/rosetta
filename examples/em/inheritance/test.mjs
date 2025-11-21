@@ -61,6 +61,9 @@ async function runTests() {
 
     // Get metadata with inheritance
     const dogMeta = Module.Dog.$meta();
+    console.log("dumping meta info")
+    console.log(dogMeta)
+    console.log("")
     console.log(dogMeta.bases);    // ["Animal"]
     console.log(dogMeta.isPolymorphic); // true
 }

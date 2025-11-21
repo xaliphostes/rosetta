@@ -42,16 +42,14 @@ namespace rosetta::js {
      */
     template <typename... Classes> void bind_classes(JsGenerator &gen);
 
+    template <typename T> void                     bind_vector_type();
+    template <typename Ret, typename... Args> void register_function_converter();
+
 } // namespace rosetta::js
 
-// #define BEGIN_JS_MODULE(module_name)                               \
-//     Napi::Object InitModule(Napi::Env env, Napi::Object exports) { \
-//         rosetta::js::JsGenerator generator(env, exports);
-
-// #define END_JS_MODULE(module_name) \
-//     return exports;                \
-//     }                              \
-//     NODE_API_MODULE(module_name, InitModule)
+// ============================================================================
+// Helper Macros
+// ============================================================================
 
 #define BEGIN_JS_MODULE(module_name)                                               \
     static constexpr const char *_rosetta_module_name = #module_name;              \
@@ -63,19 +61,18 @@ namespace rosetta::js {
     }                   \
     NODE_API_MODULE(_rosetta_module_name, InitModule)
 
-
-// ============================================================================
-// Helper Macros
-// ============================================================================
-
 /**
  * @brief Bind a class to JavaScript (simplified macro)
  */
-#define BIND_JS_CLASS(Generator, ClassName) Generator.bind_class<ClassName>(#ClassName)
+#define BIND_JS_CLASS(ClassName) generator.bind_class<ClassName>(#ClassName)
+
+#define BIND_JS_VECTOR(T) rosetta::js::bind_vector_type<T>();
 
 /**
- * @brief Bind multiple classes to Pyhton
+ * @brief Register function type converter for std::function
+ * Usage: BIND_JS_FUNCTION_TYPE(Point, const Point&)
+ *        for std::function<Point(const Point&)>
  */
-#define BIND_JS_CLASSES(...) ([&]() { (Generator.bind_class<__VA_ARGS__>(#__VA_ARGS__), ...); })();
+#define BIND_JS_FUNCTION_TYPE(Ret, ...) rosetta::js::register_function_converter<Ret, __VA_ARGS__>();
 
 #include "inline/js_generator.hxx"
