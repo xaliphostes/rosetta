@@ -53,7 +53,8 @@ Rosetta supports two complementary workflows:
    - **Const correctness** — Differentiates const/non-const methods
    - **Method Complete Overload Access**
    - **Functors**
-   - **Virtual fields** - From `setDummy`/`getDummy` methods, create the virtual field `Dummy`
+   - **Fields** - Member variables
+   - **Virtual fields (`property`)** - From `setDummy`/`getDummy` methods, create the virtual field `dummy`
    - **Static methods**
    - **Free functions**
    - **STL Containers** — `vector`, `map`, `set`, `array`, etc... of any type
