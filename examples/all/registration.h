@@ -29,7 +29,7 @@ void register_rosetta_classes() {
         .method("transform", &Surface::transform);
 
     ROSETTA_REGISTER_CLASS(Model)
+        .constructor<>()
         .property("surfaces", &Model::getSurfaces, &Model::setSurfaces)
         .method("addSurface", &Model::addSurface);
 }
-
