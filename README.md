@@ -169,7 +169,8 @@ bridge.invokeMethod("reset", [])
 ### Automatic Property Editor
 
 <p align="center">
-  <img src="media/editor.png" alt="Logo rosetta" width="300">
+  <img src="media/editor_properties.png" alt="Properties" width="300">
+  <img src="media/editor_methods.png" alt="Methods" width="300">
 </p>
 
 Generate Qt widgets automatically from your Rosetta-registered classes:
