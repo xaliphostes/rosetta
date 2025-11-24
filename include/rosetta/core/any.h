@@ -8,6 +8,7 @@
 #include <typeindex>
 #include <typeinfo>
 #include <utility>
+#include <functional>
 
 namespace rosetta::core {
 
