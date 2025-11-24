@@ -19,7 +19,8 @@ With support to:
 <div style="padding-left: 50px;">
   <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=support&color=success" alt="Python support"><br>
   <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support"><br>
-  <img src="https://img.shields.io/static/v1?label=Emscripten&logo=emscripten&logoColor=white&message=support&color=sucess" alt="Emscripten support"><br>
+  <img src="https://img.shields.io/static/v1?label=WebAssembly&logo=webassembly&logoColor=white&message=support&color=sucess" alt="Emscripten support"><br>
+  <img src="https://img.shields.io/static/v1?label=Qt&logo=qt&logoColor=white&message=support&color=sucess" alt="Qt support"><br>
   <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support"><br>
   <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support"><br>
   <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support"><br>
