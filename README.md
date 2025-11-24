@@ -3,14 +3,9 @@
 
 # **One registration, infinite possibilities** 🚀
 
-<!-- <p align="center">
+<p align="center">
   <img src="media/logo.png" alt="Logo rosetta" width="300">
-</p> -->
-
-<div style="background-color: white !important; color: black !important;">
-    <img style="background-color: white !important; color: black !important;" src="media/logo.png" alt="Rosetta logo" />
-</div>
-
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/static/v1?label=Linux&logo=linux&logoColor=white&message=support&color=success" alt="Linux support">
