@@ -1,4 +1,26 @@
+#include <rosetta/core/demangler.h>
+
 namespace rosetta::core {
+
+    inline void AnyStringRegistry::register_defaults() {
+        register_type<int>([](const int &v) { return std::to_string(v); });
+        register_type<float>([](const float &v) { return std::to_string(v); });
+        register_type<double>([](const double &v) { return std::to_string(v); });
+        register_type<bool>([](const bool &v) { return v ? "true" : "false"; });
+        register_type<std::string>([](const std::string &v) { return v; });
+    }
+
+    inline std::string Any::toString() const {
+        if (!holder_)
+            return "<empty>";
+        auto &reg  = AnyStringRegistry::instance();
+        auto  type = get_type_index();
+        if (reg.has(type))
+            return reg.convert(type, get_void_ptr());
+        return "<" + get_readable_type_name(type) + ">";
+    }
+
+    // -----------------------------
 
     template <typename T> inline T &Any::as() {
         // Strip cv-qualifiers and references to get the base type

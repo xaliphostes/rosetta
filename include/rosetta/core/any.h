@@ -11,6 +11,37 @@
 
 namespace rosetta::core {
 
+    // For the Any::toString() method
+    class AnyStringRegistry {
+    public:
+        using Converter = std::function<std::string(const void *)>;
+
+        static AnyStringRegistry &instance() {
+            static AnyStringRegistry reg;
+            return reg;
+        }
+
+        template <typename T> void register_type(std::function<std::string(const T &)> fn) {
+            converters_[std::type_index(typeid(T))] = [fn](const void *ptr) {
+                return fn(*static_cast<const T *>(ptr));
+            };
+        }
+
+        std::string convert(std::type_index type, const void *ptr) const {
+            auto it = converters_.find(type);
+            if (it != converters_.end())
+                return it->second(ptr);
+            return {};
+        }
+
+        bool has(std::type_index type) const { return converters_.count(type) > 0; }
+
+    private:
+        AnyStringRegistry() { register_defaults(); }
+        void                                           register_defaults();
+        std::unordered_map<std::type_index, Converter> converters_;
+    };
+
     /**
      * @brief Conteneur type-erased that can store any type.
      * Similar to std::any but with a simplified interface for Rosetta
@@ -81,6 +112,11 @@ namespace rosetta::core {
          * @brief Move assignment operator
          */
         Any &operator=(Any &&) = default;
+
+        /**
+         * @brief Give a string representation to this Any
+         */
+        std::string toString() const ;
 
         /**
          * @brief Get the stored value

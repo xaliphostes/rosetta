@@ -9,6 +9,13 @@ struct Person {
     double      height = 1.75;
 
     void birthday() { age++; }
+
+    void setName(const std::string &n) { name = n; }
+    void setAge(int a) { age = a; }
+    void setAgeAndHeight(int a, double h) {
+        age    = a;
+        height = h;
+    }
     void reset() {
         name   = "Unknown";
         age    = 0;
@@ -18,12 +25,15 @@ struct Person {
 
 // Register with Rosetta
 static auto reg = []() {
-    rosetta::core::Registry::instance()
+    rosetta_registry()
         .register_class<Person>("Person")
         .field("name", &Person::name)
         .field("age", &Person::age)
         .field("height", &Person::height)
         .method("birthday", &Person::birthday)
+        .method("setAge", &Person::setAge)
+        .method("setName", &Person::setName)
+        .method("setAgeAndHeight", &Person::setAgeAndHeight)
         .method("reset", &Person::reset);
     return 0;
 }();

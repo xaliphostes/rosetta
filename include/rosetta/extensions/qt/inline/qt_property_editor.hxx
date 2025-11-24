@@ -828,7 +828,7 @@ namespace rosetta::qt {
     // ============================================================================
 
     template <typename T>
-    MethodInvoker<T>::MethodInvoker(T *object, QWidget *parent) : QWidget(parent), object_(object) {
+    MethodInvoker<T>::MethodInvoker(T *object, QWidget *parent) : MethodInvokerBase(parent), object_(object) {
         metadata_ = &core::Registry::instance().get<T>();
         setupUi();
     }
@@ -899,9 +899,11 @@ namespace rosetta::qt {
                     return;
                 try {
                     metadata_->invoke_method(*object_, method_name, {});
-                    QMessageBox::information(
-                        nullptr, "Method Invoked",
-                        QString::fromStdString(method_name + " executed successfully"));
+                    // QMessageBox::information(
+                    //     nullptr, "Method Invoked",
+                    //     QString::fromStdString(method_name + " executed successfully"));
+
+                    emit methodInvoked(QString::fromStdString(method_name));
                 } catch (const std::exception &e) {
                     QMessageBox::warning(
                         nullptr, "Error",
@@ -963,9 +965,20 @@ namespace rosetta::qt {
 
                 try {
                     metadata_->invoke_method(*object_, method_name, args);
-                    QMessageBox::information(
-                        nullptr, "Method Invoked",
-                        QString::fromStdString(method_name + " executed successfully"));
+
+                    // DEBUG -------------------------------
+                    // std::cerr << method_name << "(";
+                    // for (size_t i = 0; i < args.size() - 1; ++i) {
+                    //     std::cerr << args[i].toString() << ", ";
+                    // }
+                    // std::cerr << args[args.size() - 1].toString() << ")\n";
+                    // -------------------------------------
+
+                    // QMessageBox::information(
+                    //     nullptr, "Method Invoked",
+                    //     QString::fromStdString(method_name + " executed successfully with args"));
+                    
+                    emit methodInvoked(QString::fromStdString(method_name));
                 } catch (const std::exception &e) {
                     QMessageBox::warning(
                         nullptr, "Error",
@@ -1036,6 +1049,10 @@ namespace rosetta::qt {
         // Methods tab
         method_invoker_ = new MethodInvoker<T>(object_);
         tab_widget_->addTab(method_invoker_, "Methods");
+
+        // Add this connection:
+        connect(method_invoker_, &MethodInvoker<T>::methodInvoked, this,
+                [this]() { property_editor_->refresh(); });
 
         layout->addWidget(tab_widget_);
     }

@@ -191,4 +191,8 @@ namespace rosetta::core {
 
 } // namespace rosetta::core
 
+inline rosetta::core::Registry& rosetta_registry() {
+    return rosetta::core::Registry::instance();
+} 
+
 #include "inline/registry.hxx"

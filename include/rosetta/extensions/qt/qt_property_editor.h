@@ -90,7 +90,7 @@ namespace rosetta::qt {
      *     .field("name", &Person::name)
      *     .field("age", &Person::age)
      *     .method("birthday", &Person::birthday);
-     * 
+     *
      * // Create the property editor
      * Person person{"Alice", 30};
      * auto *editor = new rosetta::qt::PropertyEditor<Person>(&person);
@@ -207,7 +207,16 @@ namespace rosetta::qt {
     // Method Invoker Widget - Button panel for invoking methods
     // ============================================================================
 
-    template <typename T> class MethodInvoker : public QWidget {
+    class MethodInvokerBase : public QWidget {
+        Q_OBJECT
+    public:
+        explicit MethodInvokerBase(QWidget *parent = nullptr) : QWidget(parent) {}
+
+    signals:
+        void methodInvoked(const QString &methodName);
+    };
+
+    template <typename T> class MethodInvoker : public MethodInvokerBase {
     public:
         explicit MethodInvoker(T *object, QWidget *parent = nullptr);
 

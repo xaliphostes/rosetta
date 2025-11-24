@@ -16,7 +16,10 @@ elseif()
     message(STATUS "Found Rosetta headers ${ROSETTA_INCLUDE_DIR}")
 endif()
 
-add_executable(${PROJECT_NAME} main.cxx)
+add_executable(${PROJECT_NAME}
+    main.cxx
+    ${ROSETTA_INCLUDE_DIR}/rosetta/extensions/qt/qt_property_editor.h
+)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
