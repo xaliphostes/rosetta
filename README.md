@@ -1,5 +1,5 @@
 
-# Rosetta — A C++ Automatic Language Binding
+# Rosetta — A C++ Introspection & Automatic Language Binding
 
 # **One registration, infinite possibilities** 🚀
 
@@ -167,16 +167,34 @@ bridge.invokeMethod("reset", [])
 ```
 
 ### Automatic Property Editor
+
+<p align="center">
+  <img src="media/editor.png" alt="Logo rosetta" width="300">
+</p>
+
 Generate Qt widgets automatically from your Rosetta-registered classes:
 ```cpp
 #include <rosetta/extensions/qt/qt_property_editor.h>
+#include <rosetta/rosetta.h>
 
-Person person{"Alice", 30};
-auto *editor = new rosetta::qt::PropertyEditor<Person>(&person);
+class Person {...};
 
-editor->setPropertyChangedCallback([](const std::string& field) {
-    qDebug() << "Changed:" << field.c_str();
-});
+static auto reg = []() {
+    rosetta::core::Registry::instance()...
+}();
+
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+
+    Person person;
+
+    auto *inspector = new rosetta::qt::ObjectInspector<Person>(&person);
+    inspector->setWindowTitle("Person Inspector");
+    inspector->resize(300, 400);
+    inspector->show();
+
+    return app.exec();
+}
 ```
 
 The property editor supports:
