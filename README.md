@@ -65,6 +65,7 @@ Rosetta supports two complementary workflows:
 7.  **Documentation generation** — Markdown / HTML export
 8.  **IDL language** - See [this example](./idl/example/geometry.yaml) 
 9.  **Qt Integration** — QML bridge for dynamic property editing, automatic property editor widgets
+10. **Undo/Redo extension** - Generic undo/redo manager for tracking and reverting property/field changes
   
 ## 📊 Comparison with Other Systems
 
