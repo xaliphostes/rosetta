@@ -14,7 +14,7 @@
 #include <rosetta/rosetta.h>
 
 // Include the Qt property editor
-#include <rosetta/extensions/qt/qt_property_editor.h>
+#include <rosetta/extensions/gui/qt/qt_property_editor.h>
 
 // ============================================================================
 // Example Classes to demonstrate the property editor

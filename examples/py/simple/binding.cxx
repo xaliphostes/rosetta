@@ -6,6 +6,7 @@
 #include <rosetta/extensions/generators/py_generator.h>
 // #include <rosetta/extensions/generators/py_binder.h>
 #include <rosetta/rosetta.h>
+#include <pybind11/embed.h>
 
 #ifndef M_PI
 #define M_PI 3.1415926
@@ -179,9 +180,16 @@ void register_rosetta_classes() {
 // Python Module Definition
 // ============================================================================
 
-BEGIN_PY_MODULE(simple, "Python bindings for C++ classes using Rosetta introspection") {
+// BEGIN_PY_MODULE(simple, "Python bindings for C++ classes using Rosetta introspection") {
+// PYBIND11_EMBEDDED_MODULE(simple, m) {
+PYBIND11_MODULE(simple, m) {
+    m.doc()        = "Python bindings for C++ classes using Rosetta introspection";
+    auto generator = rosetta::py::create_bindings(m);
     register_rosetta_classes();
-    
+
+
+
+
     BIND_PY_UTILITIES();
 
     BIND_PY_CLASS(Vector3D);
@@ -194,9 +202,4 @@ BEGIN_PY_MODULE(simple, "Python bindings for C++ classes using Rosetta introspec
 
     BIND_CONSTANT("PI", M_PI);
 }
-END_PY_MODULE()
-
-// ROSETTA_PY_MODULE(rosetta_example, "Python bindings for C++ classes using Rosetta introspection") {
-//     BIND_ALL_CLASSES();
-// }
-// ROSETTA_PY_MODULE_END();
+// END_PY_MODULE()
