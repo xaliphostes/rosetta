@@ -1,7 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <rosetta/extensions/qt/qml_bridge.h>
+#include <rosetta/extensions/gui/qt/qml_bridge.h>
 #include <rosetta/rosetta.h>
 
 // Simple class to demonstrate

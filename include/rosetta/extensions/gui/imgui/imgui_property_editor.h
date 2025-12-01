@@ -29,7 +29,7 @@ namespace rosetta::imgui {
 
     /**
      * @brief Factory class for creating ImGui widgets based on type
-     * 
+     *
      * Provides automatic widget selection for common types and allows
      * registration of custom widget drawers for user-defined types.
      */
@@ -44,10 +44,8 @@ namespace rosetta::imgui {
          * @return true if value was modified
          */
         using DrawerFunc = std::function<bool(
-            const std::string &label,
-            std::function<core::Any()> getter,
-            std::function<void(const core::Any &)> setter,
-            PropertyChangedCallback on_change)>;
+            const std::string &label, std::function<core::Any()> getter,
+            std::function<void(const core::Any &)> setter, PropertyChangedCallback on_change)>;
 
         static WidgetDrawer &instance();
 
@@ -60,11 +58,10 @@ namespace rosetta::imgui {
          * @brief Draw a widget for a given type
          * @return true if value was modified
          */
-        bool draw_widget(std::type_index type,
-                        const std::string &label,
-                        std::function<core::Any()> getter,
-                        std::function<void(const core::Any &)> setter,
-                        PropertyChangedCallback on_change);
+        bool draw_widget(std::type_index type, const std::string &label,
+                         std::function<core::Any()>             getter,
+                         std::function<void(const core::Any &)> setter,
+                         PropertyChangedCallback                on_change);
 
         /**
          * @brief Check if a drawer exists for a type
@@ -84,27 +81,27 @@ namespace rosetta::imgui {
 
     struct PropertyEditorConfig {
         // Layout settings
-        float label_width           = 120.0f;    // Width for field labels
-        float indent_width          = 15.0f;     // Indentation for nested objects
-        bool  show_type_hints       = false;     // Show type in tooltip
-        bool  collapsible_groups    = true;      // Allow collapsing groups
-        bool  default_groups_open   = true;      // Groups open by default
-        
+        float label_width         = 120.0f; // Width for field labels
+        float indent_width        = 15.0f;  // Indentation for nested objects
+        bool  show_type_hints     = false;  // Show type in tooltip
+        bool  collapsible_groups  = true;   // Allow collapsing groups
+        bool  default_groups_open = true;   // Groups open by default
+
         // Widget settings
-        float drag_speed            = 0.1f;      // Speed for drag widgets
-        int   decimal_precision     = 3;         // Decimal places for floats
-        bool  use_sliders_for_ints  = false;     // Use sliders instead of drag
-        int   slider_min            = 0;         // Default slider min
-        int   slider_max            = 100;       // Default slider max
-        
-        // Color settings  
-        ImVec4 modified_color       = ImVec4(1.0f, 0.8f, 0.0f, 1.0f);  // Changed value
-        ImVec4 readonly_color       = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);  // Read-only field
-        ImVec4 group_header_color   = ImVec4(0.3f, 0.5f, 0.7f, 1.0f);  // Group headers
-        
+        float drag_speed           = 0.1f;  // Speed for drag widgets
+        int   decimal_precision    = 3;     // Decimal places for floats
+        bool  use_sliders_for_ints = false; // Use sliders instead of drag
+        int   slider_min           = 0;     // Default slider min
+        int   slider_max           = 100;   // Default slider max
+
+        // Color settings
+        ImVec4 modified_color     = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); // Changed value
+        ImVec4 readonly_color     = ImVec4(0.5f, 0.5f, 0.5f, 1.0f); // Read-only field
+        ImVec4 group_header_color = ImVec4(0.3f, 0.5f, 0.7f, 1.0f); // Group headers
+
         // Behavior
-        bool  confirm_method_calls  = false;     // Confirm before calling methods
-        bool  show_method_signatures = true;     // Show method signatures
+        bool confirm_method_calls   = false; // Confirm before calling methods
+        bool show_method_signatures = true;  // Show method signatures
     };
 
     // ============================================================================
@@ -113,7 +110,7 @@ namespace rosetta::imgui {
 
     /**
      * @brief ImGui property editor that automatically generates UI from Rosetta metadata
-     * 
+     *
      * @example
      * ```cpp
      * // Register your class with Rosetta
@@ -130,13 +127,12 @@ namespace rosetta::imgui {
      * editor.set_on_change([](const std::string& field) {
      *     std::cout << "Changed: " << field << std::endl;
      * });
-     * 
+     *
      * // In your ImGui render loop:
      * editor.draw();
      * ```
      */
-    template <typename T>
-    class PropertyEditor {
+    template <typename T> class PropertyEditor {
     public:
         explicit PropertyEditor(T *object = nullptr);
         explicit PropertyEditor(T &object);
@@ -150,7 +146,7 @@ namespace rosetta::imgui {
         /**
          * @brief Get the current object
          */
-        T *get_object() { return object_; }
+        T       *get_object() { return object_; }
         const T *get_object() const { return object_; }
 
         /**
@@ -195,30 +191,30 @@ namespace rosetta::imgui {
         /**
          * @brief Access configuration
          */
-        PropertyEditorConfig &config() { return config_; }
+        PropertyEditorConfig       &config() { return config_; }
         const PropertyEditorConfig &config() const { return config_; }
 
     private:
         void draw_field(const std::string &field_name);
         void draw_group(const std::string &group_name, const std::vector<std::string> &fields);
         std::string get_display_name(const std::string &field_name) const;
-        void organize_fields_into_groups();
+        void        organize_fields_into_groups();
 
-        T *object_ = nullptr;
+        T                            *object_   = nullptr;
         const core::ClassMetadata<T> *metadata_ = nullptr;
-        PropertyChangedCallback on_change_callback_;
-        PropertyEditorConfig config_;
-        bool read_only_ = false;
+        PropertyChangedCallback       on_change_callback_;
+        PropertyEditorConfig          config_;
+        bool                          read_only_ = false;
 
-        std::unordered_map<std::string, bool> field_visibility_;
+        std::unordered_map<std::string, bool>        field_visibility_;
         std::unordered_map<std::string, std::string> field_groups_;
         std::unordered_map<std::string, std::string> field_display_names_;
-        std::unordered_map<std::string, bool> group_open_state_;
-        
+        std::unordered_map<std::string, bool>        group_open_state_;
+
         // Organized field lists
-        std::vector<std::string> ungrouped_fields_;
+        std::vector<std::string>                                  ungrouped_fields_;
         std::unordered_map<std::string, std::vector<std::string>> grouped_fields_;
-        bool fields_organized_ = false;
+        bool                                                      fields_organized_ = false;
     };
 
     // ============================================================================
@@ -227,17 +223,16 @@ namespace rosetta::imgui {
 
     /**
      * @brief ImGui panel for invoking methods on an object
-     * 
+     *
      * Automatically generates buttons for registered methods and handles
      * argument input dialogs for methods with parameters.
      */
-    template <typename T>
-    class MethodInvoker {
+    template <typename T> class MethodInvoker {
     public:
         explicit MethodInvoker(T *object = nullptr);
 
         void set_object(T *object);
-        T *get_object() { return object_; }
+        T   *get_object() { return object_; }
 
         /**
          * @brief Draw the method invoker UI
@@ -269,16 +264,16 @@ namespace rosetta::imgui {
         bool draw_method_button(const std::string &method_name);
         bool show_argument_popup(const std::string &method_name);
 
-        T *object_ = nullptr;
-        const core::ClassMetadata<T> *metadata_ = nullptr;
+        T                                       *object_   = nullptr;
+        const core::ClassMetadata<T>            *metadata_ = nullptr;
         std::function<void(const std::string &)> on_invoke_callback_;
         std::function<bool(const std::string &)> method_filter_;
-        PropertyEditorConfig config_;
+        PropertyEditorConfig                     config_;
 
         // State for argument input popup
-        std::string current_method_;
+        std::string            current_method_;
         std::vector<core::Any> pending_args_;
-        bool show_args_popup_ = false;
+        bool                   show_args_popup_ = false;
     };
 
     // ============================================================================
@@ -288,13 +283,12 @@ namespace rosetta::imgui {
     /**
      * @brief Complete object inspector with tabbed property editor and method invoker
      */
-    template <typename T>
-    class ObjectInspector {
+    template <typename T> class ObjectInspector {
     public:
         explicit ObjectInspector(T *object = nullptr);
 
         void set_object(T *object);
-        T *get_object() { return object_; }
+        T   *get_object() { return object_; }
 
         /**
          * @brief Draw the inspector UI
@@ -306,12 +300,12 @@ namespace rosetta::imgui {
          * @brief Access sub-components
          */
         PropertyEditor<T> &property_editor() { return property_editor_; }
-        MethodInvoker<T> &method_invoker() { return method_invoker_; }
+        MethodInvoker<T>  &method_invoker() { return method_invoker_; }
 
     private:
-        T *object_ = nullptr;
+        T                *object_ = nullptr;
         PropertyEditor<T> property_editor_;
-        MethodInvoker<T> method_invoker_;
+        MethodInvoker<T>  method_invoker_;
     };
 
     // ============================================================================
@@ -320,12 +314,11 @@ namespace rosetta::imgui {
 
     /**
      * @brief Property editor for editing multiple objects at once
-     * 
+     *
      * Shows fields that have the same value across all objects,
      * and indicates mixed values for fields that differ.
      */
-    template <typename T>
-    class MultiObjectPropertyEditor {
+    template <typename T> class MultiObjectPropertyEditor {
     public:
         MultiObjectPropertyEditor() = default;
 
@@ -350,10 +343,10 @@ namespace rosetta::imgui {
         bool all_objects_have_same_value(const std::string &field_name) const;
         void draw_field(const std::string &field_name);
 
-        std::vector<T *> objects_;
+        std::vector<T *>              objects_;
         const core::ClassMetadata<T> *metadata_ = nullptr;
-        PropertyChangedCallback on_change_callback_;
-        PropertyEditorConfig config_;
+        PropertyChangedCallback       on_change_callback_;
+        PropertyEditorConfig          config_;
     };
 
     // ============================================================================
@@ -363,41 +356,43 @@ namespace rosetta::imgui {
     /**
      * @brief Quick function to draw property editor for any registered object
      */
-    template <typename T>
-    bool quick_edit(const char *label, T &object);
+    template <typename T> bool quick_edit(const char *label, T &object);
 
     /**
      * @brief Draw a single field widget (standalone)
+     * @todo Ben TODO !
      */
-    template <typename T>
-    bool draw_field_widget(const char *label, T &value);
+    template <typename T> bool draw_field_widget(const char *label, T &value);
 
     // ============================================================================
     // Type-Specific Widget Helpers (for custom extensions)
     // ============================================================================
 
     namespace widgets {
-        
+
         // Standard widgets
         bool draw_bool(const char *label, bool *value);
         bool draw_int(const char *label, int *value, int min = 0, int max = 0, float speed = 1.0f);
-        bool draw_float(const char *label, float *value, float min = 0, float max = 0, float speed = 0.1f);
-        bool draw_double(const char *label, double *value, double min = 0, double max = 0, float speed = 0.1f);
+        bool draw_float(const char *label, float *value, float min = 0, float max = 0,
+                        float speed = 0.1f);
+        bool draw_double(const char *label, double *value, double min = 0, double max = 0,
+                         float speed = 0.1f);
         bool draw_string(const char *label, std::string *value, size_t max_length = 256);
-        
+
         // Vector widgets
         bool draw_vec2(const char *label, float *v, float speed = 0.1f);
         bool draw_vec3(const char *label, float *v, float speed = 0.1f);
         bool draw_vec4(const char *label, float *v, float speed = 0.1f);
-        
+
         // Color widgets
         bool draw_color3(const char *label, float *col);
         bool draw_color4(const char *label, float *col);
-        
+
         // Special widgets
-        bool draw_angle(const char *label, float *rad);  // Angle in radians, shown in degrees
-        bool draw_enum_combo(const char *label, int *value, const char *const *items, int item_count);
-        
+        bool draw_angle(const char *label, float *rad); // Angle in radians, shown in degrees
+        bool draw_enum_combo(const char *label, int *value, const char *const *items,
+                             int item_count);
+
     } // namespace widgets
 
 } // namespace rosetta::imgui

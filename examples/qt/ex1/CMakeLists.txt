@@ -36,6 +36,7 @@ target_link_libraries(rosetta_qt_property_editor INTERFACE
 # Example Application
 add_executable(property_editor_demo
     main.cxx
+    ${ROSETTA_INCLUDE_DIR}/rosetta/extensions/gui/qt/qt_property_editor.h
 )
 
 target_link_libraries(property_editor_demo PRIVATE
@@ -44,9 +45,9 @@ target_link_libraries(property_editor_demo PRIVATE
     Qt6::Widgets
 )
 
-# Install targets
-install(FILES
-    qt_property_editor.h
-    qt_property_editor.hxx
-    DESTINATION include/rosetta/qt
-)
+# # Install targets
+# install(FILES
+#     qt_property_editor.h
+#     qt_property_editor.hxx
+#     DESTINATION include/rosetta/qt
+# )

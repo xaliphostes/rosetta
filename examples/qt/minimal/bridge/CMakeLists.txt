@@ -19,7 +19,7 @@ endif()
 
 qt_add_executable(${PROJECT_NAME}
     main.cxx
-    ${ROSETTA_INCLUDE_DIR}/rosetta/extensions/qt/qml_bridge.h
+    ${ROSETTA_INCLUDE_DIR}/rosetta/extensions/gui/qt/qml_bridge.h
     qml.qrc
 )
 

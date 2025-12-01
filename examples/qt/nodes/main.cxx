@@ -1,4 +1,4 @@
-#include <rosetta/extensions/qt/qt_property_editor.h>
+#include <rosetta/extensions/gui/qt/qt_property_editor.h>
 #include <rosetta/rosetta.h>
 
 // Modern nodeeditor 3.x API

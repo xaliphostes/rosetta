@@ -44,7 +44,7 @@ endif()
 
 qt_add_executable(rosetta_qml_demo
     main.cxx
-    ${ROSETTA_INCLUDE_DIR}/rosetta/extensions/qt/qml_bridge.h
+    ${ROSETTA_INCLUDE_DIR}/rosetta/extensions/gui/qt/qml_bridge.h
 )
 
 target_include_directories(rosetta_qml_demo PRIVATE
