@@ -21,6 +21,7 @@ With support to:
   <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support"><br>
   <img src="https://img.shields.io/static/v1?label=WebAssembly&logo=webassembly&logoColor=white&message=support&color=sucess" alt="Emscripten support"><br>
   <img src="https://img.shields.io/static/v1?label=Qt&logo=qt&logoColor=white&message=support&color=sucess" alt="Qt support"><br>
+  <img src="https://img.shields.io/static/v1?label=ImGui&logo=imgui&logoColor=white&message=support&color=sucess" alt="ImGui support"><br>
   <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support"><br>
   <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support"><br>
   <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support"><br>
@@ -40,6 +41,24 @@ Rosetta supports two complementary workflows:
 
 1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
 2. **Interface Description Language (IDL)** via YAML files (***STILL IN DEV MODE!***)
+
+## 🧩 Usages
+
+1. **C++ Introspection**
+2. **Generator** for `scripting languages`
+   - Python
+   - JavScript
+   - WebAssembly
+   - Lua
+   - ...
+3. **Property editor (GUI)**
+   - Qt
+   - ImGui
+4. **Serialization**
+5. **Undo/redo** framework
+6. **Documentation** generation in `Markdown`
+7. **Validation** on `field` or `property` (range...)
+
 
 ---
 
@@ -144,7 +163,18 @@ straightforward as long as the generator for a given language is available:
     END_JS_MODULE()
     ```
 
-3. For...??
+3. For WebAssembly (Emscripten)
+   ```cpp
+    #include <rosetta/extensions/generatorsv/em_generator.h>
+
+    BEGIN_EM_MODULE(rosetta_example) {
+        rosetta_registration();
+        BIND_EM_CLASSES(Vector3D, SceneManager);
+    }
+    END_EM_MODULE()
+    ```
+
+4. For...??
    Just ask.
 
 ## 🖼️ Qt Integration
@@ -207,13 +237,23 @@ The property editor supports:
 - **Method invocation** — Button panels for calling registered methods
 - **Undo/redo support** — Track property changes for reversible editing
 
-## 💡 Contribute Your Own Generator
+## 🖼️ ImGui Integration
+
+Rosetta provides seamless **ImGui** integration with its `PropertyEditor` for fields and methods
+
+<p align="center">
+  <img src="media/imgui.png" alt="Properties" width="500">
+</p>
+
+## 💡 Contribute Your Own Generator or Extension
 
 You’re very welcome to create a generator based on **Rosetta introspection** for other scripting languages — such as **Lua**, **Julia**, or **Ruby**!
 
+Also, any extension is welcome ;-)
+
 👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python**, **JavaScript** and **emscripten** generators for inspiration.
 
-Every new generator helps expand the ecosystem — contributions are always appreciated ❤️
+Every new generator or extension helps expand the ecosystem — contributions are always greatly appreciated ❤️
 
 ## 📜 License
 
