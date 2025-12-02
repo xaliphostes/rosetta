@@ -18,7 +18,7 @@ void register_rosetta_classes() {
 // Python Module Definition
 // ============================================================================
 
-BEGIN_PY_MODULE(pyflower, "Python bindings for C++ classes using Rosetta introspection (dynamic lib)") {
+BEGIN_PY_MODULE(pydynflower, "Python bindings for C++ classes using Rosetta introspection (dynamic lib)") {
     register_rosetta_classes();
     BIND_PY_CLASS(Flower);
 }

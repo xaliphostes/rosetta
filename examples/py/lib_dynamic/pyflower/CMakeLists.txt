@@ -1,26 +1,18 @@
 cmake_minimum_required(VERSION 3.15)
-project(rosetta_python_bindings)
+project(python_dynamic)
 
-set(MODULE_NAME "dynamic")
+set(MODULE_NAME "pydynflower")
 
 # C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
+
 if(WIN32)
-    # Option 1: Set Python path explicitly
     set(Python_EXECUTABLE "C:/Python313/")
-    
-    # # Option 2: Use py launcher to find Python
-    # execute_process(
-    #     COMMAND py -3 -c "import sys; print(sys.executable)"
-    #     OUTPUT_VARIABLE PYTHON_FROM_PY
-    #     #message("Detected Python executable: ${PYTHON_FROM_PY}" )
-    #     OUTPUT_STRIP_TRAILING_WHITESPACE
-    #     ERROR_QUIET
-    # )
 endif()
+
 FetchContent_Declare(
     pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11.git
@@ -37,6 +29,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${Python_INCLUDE_DIRS}
     ../../../include
+    ../../../../include
 )
 
 # =============================================================================

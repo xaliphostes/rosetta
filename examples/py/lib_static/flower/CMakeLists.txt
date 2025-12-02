@@ -5,9 +5,10 @@ project(FlowerLib VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(flower
-    src/flower.cxx
-)
+# =============================================================================
+# Create STATIC library
+# =============================================================================
+add_library(flower src/flower.cxx)
 
 target_include_directories(flower
     PUBLIC
@@ -17,8 +18,9 @@ target_include_directories(flower
 
 # Set output directory to ../lib
 set_target_properties(flower PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib"  # .lib on Windows
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib"  # .so/.dylib
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../lib"  # .dll on Windows
 )
 
 # Create the lib directory if it doesn't exist

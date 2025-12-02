@@ -3,7 +3,7 @@
 Test script for pyflower module (dynamic library version)
 """
 
-import pyflower as pyf
+import pydynflower as pyf
 
 print("Testing pyflower with dynamic library linkage")
 print("=" * 50)

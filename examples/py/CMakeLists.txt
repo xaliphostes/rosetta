@@ -9,13 +9,22 @@ file(GLOB SUBDIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DI
 
 set(ALL_TARGETS "")
 
-foreach(SUBDIR ${SUBDIRS})
-    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${SUBDIR} AND 
-       EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${SUBDIR}/CMakeLists.txt)
-        add_subdirectory(${SUBDIR})
-        message("-- Detected sub dir **${SUBDIR}**")
-    endif()
-endforeach()
+# foreach(SUBDIR ${SUBDIRS})
+#     if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${SUBDIR} AND 
+#        EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${SUBDIR}/CMakeLists.txt)
+#         add_subdirectory(${SUBDIR})
+#         message("-- Detected sub dir **${SUBDIR}**")
+#     endif()
+# endforeach()
+
+add_subdirectory(abstract)
+add_subdirectory(complex)
+add_subdirectory(containers)
+add_subdirectory(containers2)
+add_subdirectory(lib_static)
+add_subdirectory(lib_dynamic)
+add_subdirectory(from_idl)
+add_subdirectory(simple)
 
 # =============================================================================
 # Custom target to run all Python tests
