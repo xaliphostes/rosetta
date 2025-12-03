@@ -222,10 +222,60 @@ namespace rosetta::core {
          */
         template <typename... Args> ClassMetadata &constructor();
 
+        // ========================================================================
+        // Register lambda/callable as methods (synthetic methods)
+        // ========================================================================
+
+        /**
+         * @brief Register a lambda or callable as a non-const method.
+         *
+         * The lambda's first parameter should be Class& (the "self" parameter).
+         * This allows adding methods that don't exist in the original class.
+         *
+         * Usage:
+         *   .lambda_method<void, double, int>("runCustom",
+         *       [](Seidel& self, double tol, int maxiter) {
+         *           self.setTolerance(tol);
+         *           self.run();
+         *       });
+         *
+         * @tparam Ret      Return type of the method
+         * @tparam Args     Parameter types (excluding the self parameter)
+         * @tparam Callable Type of the callable (auto-deduced)
+         * @param name      Name of the method
+         * @param callable  The lambda or callable object
+         */
+        template <typename Ret, typename... Args, typename Callable>
+        ClassMetadata &lambda_method(const std::string &name, Callable &&callable);
+
+        /**
+         * @brief Register a lambda or callable as a const method.
+         *
+         * The lambda's first parameter should be const Class& (the "self" parameter).
+         *
+         * @tparam Ret      Return type of the method
+         * @tparam Args     Parameter types (excluding the self parameter)
+         * @tparam Callable Type of the callable (auto-deduced)
+         * @param name      Name of the method
+         * @param callable  The lambda or callable object
+         */
+        template <typename Ret, typename... Args, typename Callable>
+        ClassMetadata &lambda_method_const(const std::string &name, Callable &&callable);
+
     private:
         // Helper to construct with proper indexing
         template <typename... Args, std::size_t... Is>
         static Any construct_with_indices(const std::vector<Any> &args, std::index_sequence<Is...>);
+
+        // Helper to invoke lambda with Class& as first argument
+        template <typename Ret, typename... Args, typename Callable, size_t... Is>
+        static Any invoke_lambda(Callable &callable, Class &obj, std::vector<Any> &args,
+                                 std::index_sequence<Is...>);
+
+        // Helper to invoke lambda with const Class& as first argument
+        template <typename Ret, typename... Args, typename Callable, size_t... Is>
+        static Any invoke_lambda_const(Callable &callable, const Class &obj, std::vector<Any> &args,
+                                       std::index_sequence<Is...>);
 
     public:
         // ========================================================================

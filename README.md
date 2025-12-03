@@ -72,6 +72,7 @@ Rosetta supports two complementary workflows:
    - **Inheritance & polymorphism** — Virtual methods, multiple inheritance
    - **Const correctness** — Differentiates const/non-const methods
    - **Method Complete Overload Access**
+   - **Synthetic Methods** - methods to classes that don't exist in the original C++ class definition.
    - **Functors**
    - **Fields** - Member variables
    - **Virtual fields (`property`)** - From `setDummy`/`getDummy` methods, create the virtual field `dummy`
@@ -79,12 +80,12 @@ Rosetta supports two complementary workflows:
    - **Free functions**
    - **STL Containers** — `vector`, `map`, `set`, `array`, etc... of any type
    - **Smart pointers** — `shared_ptr`, `unique_ptr`, raw pointers
-5.  **Validation system** — Runtime constraints and checks
-6.  **Serialization**
-7.  **Documentation generation** — Markdown / HTML export
-8.  **IDL language** - See [this example](./idl/example/geometry.yaml) 
-9.  **Qt Integration** — QML bridge for dynamic property editing, automatic property editor widgets
-10. **Undo/Redo extension** - Generic undo/redo manager for tracking and reverting property/field changes
+1.  **Validation system** — Runtime constraints and checks
+2.  **Serialization**
+3.  **Documentation generation** — Markdown / HTML export
+4.  **IDL language** - See [this example](./idl/example/geometry.yaml) 
+5.  **Qt Integration** — QML bridge for dynamic property editing, automatic property editor widgets
+6.  **Undo/Redo extension** - Generic undo/redo manager for tracking and reverting property/field changes
   
 ## 📊 Comparison with Other Systems
 

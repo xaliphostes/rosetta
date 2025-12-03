@@ -11,6 +11,7 @@
 // Core
 #include "core/version.h"
 #include "core/any.h"
+#include "core/overload.h"
 #include "core/class_metadata.h"
 #include "core/demangler.h"
 #include "core/function_metadata.h"
@@ -53,6 +54,11 @@ namespace rosetta {
     using core::VirtualTableInfo;
     using core::print_info;
     using core::version;
+    using core::overload;
+    using core::overload_const;
+    using core::overload_static;
+    using core::sel;
+    using core::sel_const;
 
     // ============================================================================
     // Exports of extensions namespace

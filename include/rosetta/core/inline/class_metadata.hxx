@@ -1719,4 +1719,119 @@ namespace rosetta::core {
         }
     }
 
+    // ========================================================================
+    // Register lambda/callable as methods (synthetic methods)
+    // ========================================================================
+
+    template <typename Class>
+    template <typename Ret, typename... Args, typename Callable>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::lambda_method(const std::string &name,
+                                                                     Callable         &&callable) {
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
+
+        // Create and store method info
+        MethodInfo info;
+        info.arity       = sizeof...(Args);
+        info.return_type = std::type_index(typeid(Ret));
+        info.arg_types   = {std::type_index(typeid(Args))...};
+        info.is_static   = false;
+
+        // Store the callable in a shared_ptr so it survives
+        auto stored_callable =
+            std::make_shared<std::decay_t<Callable>>(std::forward<Callable>(callable));
+
+        info.invoker = [stored_callable](Class &obj, std::vector<Any> args) -> Any {
+            return invoke_lambda<Ret, Args...>(*stored_callable, obj, args,
+                                               std::index_sequence_for<Args...>{});
+        };
+
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
+
+        return *this;
+    }
+
+    template <typename Class>
+    template <typename Ret, typename... Args, typename Callable>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::lambda_method_const(const std::string &name,
+                                                                           Callable &&callable) {
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
+
+        // Create and store method info
+        MethodInfo info;
+        info.arity       = sizeof...(Args);
+        info.return_type = std::type_index(typeid(Ret));
+        info.arg_types   = {std::type_index(typeid(Args))...};
+        info.is_static   = false;
+
+        // Store the callable in a shared_ptr so it survives
+        auto stored_callable =
+            std::make_shared<std::decay_t<Callable>>(std::forward<Callable>(callable));
+
+        // Non-const invoker (wraps to const)
+        info.invoker = [stored_callable](Class &obj, std::vector<Any> args) -> Any {
+            const Class &const_obj = obj;
+            return invoke_lambda_const<Ret, Args...>(*stored_callable, const_obj, args,
+                                                     std::index_sequence_for<Args...>{});
+        };
+
+        // Const invoker
+        auto const_invoker = [stored_callable](const Class &obj, std::vector<Any> args) -> Any {
+            return invoke_lambda_const<Ret, Args...>(*stored_callable, obj, args,
+                                                     std::index_sequence_for<Args...>{});
+        };
+
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
+        const_methods_[name].push_back(const_invoker);
+
+        return *this;
+    }
+
+    // Helper to invoke lambda with Class& as first argument
+    template <typename Class>
+    template <typename Ret, typename... Args, typename Callable, size_t... Is>
+    inline Any ClassMetadata<Class>::invoke_lambda(Callable &callable, Class &obj,
+                                                   std::vector<Any> &args,
+                                                   std::index_sequence<Is...>) {
+        try {
+            if constexpr (std::is_void_v<Ret>) {
+                callable(obj, extract_arg<Args>(args[Is])...);
+                return Any(0);
+            } else {
+                return Any(callable(obj, extract_arg<Args>(args[Is])...));
+            }
+        } catch (const std::bad_cast &e) {
+            std::string error = "Type mismatch in lambda method arguments. Expected types: ";
+            ((error += typeid(Args).name(), error += " "), ...);
+            throw std::runtime_error(error);
+        }
+    }
+
+    // Helper to invoke lambda with const Class& as first argument
+    template <typename Class>
+    template <typename Ret, typename... Args, typename Callable, size_t... Is>
+    inline Any ClassMetadata<Class>::invoke_lambda_const(Callable &callable, const Class &obj,
+                                                         std::vector<Any> &args,
+                                                         std::index_sequence<Is...>) {
+        try {
+            if constexpr (std::is_void_v<Ret>) {
+                callable(obj, extract_arg<Args>(args[Is])...);
+                return Any(0);
+            } else {
+                return Any(callable(obj, extract_arg<Args>(args[Is])...));
+            }
+        } catch (const std::bad_cast &e) {
+            std::string error = "Type mismatch in lambda method arguments. Expected types: ";
+            ((error += typeid(Args).name(), error += " "), ...);
+            throw std::runtime_error(error);
+        }
+    }
+
 } // namespace rosetta::core
