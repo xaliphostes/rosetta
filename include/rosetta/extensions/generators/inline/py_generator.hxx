@@ -107,6 +107,15 @@ namespace rosetta::py {
             };
         }
 
+        /**
+         * @brief Register a custom cast function for a specific type
+         * @param type_index Type to register cast for
+         * @param cast_func Cast function
+         */
+        void register_custom_cast(std::type_index type_index, CastFunc cast_func) {
+            cast_funcs_[type_index] = std::move(cast_func);
+        }
+
         bool has_cast(std::type_index type) const {
             return cast_funcs_.find(type) != cast_funcs_.end();
         }
@@ -675,6 +684,164 @@ namespace rosetta::py {
         TypeCastRegistry::instance().register_cast<std::shared_ptr<T>>();
     }
 
+    /**
+     * @brief Register converters for raw pointer argument types T*
+     * This allows passing Python objects where C++ expects T*
+     *
+     * Example usage:
+     * ```cpp
+     * bind_ptr_arg_type<Model>();  // Allows Model* in constructors/methods
+     * ```
+     */
+    template <typename T> inline void bind_ptr_arg_type() {
+        // Register converter: Python object -> T*
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(T *)), [](const pyb11::object &obj) -> core::Any {
+                try {
+                    T *raw_ptr = obj.cast<T *>();
+                    return core::Any(raw_ptr);
+                } catch (const pyb11::cast_error &e) {
+                    throw std::runtime_error(
+                        std::string("Failed to convert Python object to pointer: ") + e.what());
+                }
+            });
+
+        // Also register the cast back (C++ T* -> Python)
+        TypeCastRegistry::instance().register_custom_cast(
+            std::type_index(typeid(T *)), [](const core::Any &value) -> pyb11::object {
+                try {
+                    T *ptr = value.as<T *>();
+                    return pyb11::cast(ptr);
+                } catch (const std::exception &e) {
+                    throw std::runtime_error(std::string("Failed to cast pointer to Python: ") +
+                                             e.what());
+                }
+            });
+    }
+
+    /**
+     * @brief Register converters for reference argument types T&
+     * This allows passing Python objects where C++ expects T&
+     * by extracting a pointer and dereferencing
+     *
+     * Note: References are stored as pointers in Any and dereferenced during invocation
+     *
+     * Example usage:
+     * ```cpp
+     * bind_ref_arg_type<Model>();  // Allows Model& in constructors/methods
+     * ```
+     */
+    template <typename T> inline void bind_ref_arg_type() {
+        // For references, we store as pointer in Any
+        // The invoker will need to handle dereferencing
+        TypeConverterRegistry::instance().register_custom_converter(
+            std::type_index(typeid(T &)), [](const pyb11::object &obj) -> core::Any {
+                try {
+                    T *raw_ptr = obj.cast<T *>();
+                    return core::Any(raw_ptr); // Store as pointer
+                } catch (const pyb11::cast_error &e) {
+                    throw std::runtime_error(
+                        std::string("Failed to convert Python object to reference: ") + e.what());
+                }
+            });
+    }
+
+    // =========================================================================
+    // Direct Constructor Binding Helpers (bypass Rosetta's type-erased invoker)
+    // Use these for constructors with reference parameters
+    // =========================================================================
+
+    /**
+     * @brief Directly bind a constructor taking a single reference parameter
+     * This bypasses Rosetta's type-erased invoker to properly handle references
+     */
+    template <typename T, typename Arg1>
+    void bind_constructor_1ref(pyb11::class_<T, std::shared_ptr<T>> &py_class) {
+        py_class.def(pyb11::init([](Arg1 &arg1) { return T(arg1); }));
+    }
+
+    /**
+     * @brief Directly bind a constructor taking two parameters (first is reference)
+     */
+    template <typename T, typename Arg1, typename Arg2>
+    void bind_constructor_2args_ref1(pyb11::class_<T, std::shared_ptr<T>> &py_class) {
+        py_class.def(pyb11::init([](Arg1 &arg1, Arg2 arg2) { return T(arg1, arg2); }));
+    }
+
+    // =========================================================================
+    // Helper to get pybind11 class from module (for manual constructor binding)
+    // =========================================================================
+
+    template <typename T>
+    pyb11::class_<T, std::shared_ptr<T>> &get_py_class(pyb11::module_ &m, const std::string &name) {
+        // This is a workaround - in practice, store the class during bind_class
+        static std::unordered_map<std::string,
+                                  std::unique_ptr<pyb11::class_<T, std::shared_ptr<T>>>>
+            classes;
+        // Note: This approach has limitations; see BIND_CLASS_WITH_REF_CTOR below
+        return *classes[name];
+    }
+
+    // =========================================================================
+    // Helper to bind base class methods to a derived class
+    // =========================================================================
+
+    /**
+     * @brief Bind methods from a base class to a derived class pybind11 binding
+     * This is needed when using BIND_DERIVED_CLASS_WITH_REF_CTOR macros
+     * because they bypass the normal Rosetta binding which handles inheritance
+     */
+    template <typename Derived, typename Base, typename PyClass>
+    void bind_base_methods(PyClass &py_class) {
+        try {
+            const auto &base_meta = core::Registry::instance().get<Base>();
+            const auto &methods   = base_meta.methods();
+
+            for (const auto &method_name : methods) {
+                try {
+                    size_t          arity       = base_meta.get_method_arity(method_name);
+                    const auto     &arg_types   = base_meta.get_method_arg_types(method_name);
+                    std::type_index return_type = base_meta.get_method_return_type(method_name);
+
+                    // Create method wrapper
+                    auto method_wrapper = [method_name, arity, arg_types, &base_meta](
+                                              Derived &obj, pyb11::args args) -> pyb11::object {
+                        if (args.size() != arity) {
+                            throw std::runtime_error("Method '" + method_name + "' expects " +
+                                                     std::to_string(arity) + " arguments, got " +
+                                                     std::to_string(args.size()));
+                        }
+
+                        // Convert Python arguments to C++ Any
+                        std::vector<core::Any> cpp_args;
+                        for (size_t i = 0; i < args.size(); ++i) {
+                            cpp_args.push_back(python_to_any(args[i], arg_types[i]));
+                        }
+
+                        // Invoke the method on the base class reference
+                        try {
+                            Base     &base_ref = static_cast<Base &>(obj);
+                            core::Any result =
+                                base_meta.invoke_method(base_ref, method_name, cpp_args);
+                            return any_to_python(result);
+                        } catch (const std::exception &e) {
+                            throw std::runtime_error(std::string("Method '") + method_name +
+                                                     "' failed: " + e.what());
+                        }
+                    };
+
+                    // Register the method
+                    py_class.def(method_name.c_str(), method_wrapper);
+                } catch (const std::out_of_range &) {
+                    // Skip methods without implementation info
+                    continue;
+                }
+            }
+        } catch (const std::exception &e) {
+            // Base class not registered, skip
+        }
+    }
+
     // ========================================================================
 
     /**
@@ -763,7 +930,7 @@ namespace rosetta::py {
             }
 
             // Get inheritance information
-            const auto &inh = meta.inheritance();
+            // const auto &inh = meta.inheritance();
 
             // Create the pybind11 class with appropriate holder type and base class if needed
             // For abstract or polymorphic classes, use std::shared_ptr as holder
@@ -789,6 +956,35 @@ namespace rosetta::py {
             // Add __repr__ for better debugging
             py_class.def("__repr__",
                          [final_name](const T &obj) { return "<" + final_name + " object>"; });
+        }
+
+        /**
+         * @brief Bind only fields and methods (no constructors)
+         * Used by BIND_CLASS_WITH_REF_CTOR macros
+         */
+        static void bind_methods_only(pyb11::class_<T, std::shared_ptr<T>> &py_class,
+                                      const core::ClassMetadata<T>         &meta) {
+            // Register type converter for this class (Python -> C++)
+            TypeConverterRegistry::instance().register_converter<T>();
+
+            // Register type cast function for this class (C++ -> Python)
+            TypeCastRegistry::instance().register_cast<T>();
+
+            // Automatically register vector converters
+            if constexpr (std::is_abstract_v<T> || std::is_polymorphic_v<T>) {
+                TypeConverterRegistry::instance()
+                    .register_converter<std::vector<std::shared_ptr<T>>>();
+                TypeCastRegistry::instance().register_cast<std::vector<std::shared_ptr<T>>>();
+            } else {
+                TypeConverterRegistry::instance().register_converter<std::vector<T>>();
+                TypeCastRegistry::instance().register_cast<std::vector<T>>();
+            }
+
+            // Bind fields
+            bind_fields(py_class, meta);
+
+            // Bind methods
+            bind_methods(py_class, meta);
         }
 
         /**
@@ -1029,7 +1225,7 @@ namespace rosetta::py {
                     std::type_index return_type = meta.get_method_return_type(method_name);
 
                     // Create method wrapper that accepts py::args
-                    auto method_wrapper = [method_name, arity, arg_types, return_type,
+                    auto method_wrapper = [method_name, arity, arg_types,
                                            &meta](T &obj, pyb11::args args) -> pyb11::object {
                         if (args.size() != arity) {
                             throw std::runtime_error("Method '" + method_name + "' expects " +

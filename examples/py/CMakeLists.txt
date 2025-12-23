@@ -19,6 +19,7 @@ set(ALL_TARGETS "")
 
 add_subdirectory(abstract)
 add_subdirectory(complex)
+add_subdirectory(complex_ptr)
 add_subdirectory(containers)
 add_subdirectory(containers2)
 add_subdirectory(lib_static)

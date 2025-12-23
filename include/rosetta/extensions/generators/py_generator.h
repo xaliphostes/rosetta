@@ -120,11 +120,40 @@ namespace rosetta::py {
  * @brief Bind a class to Python (simplified macro)
  */
 #define BIND_PY_CLASS(Class) generator.bind_class<Class>(#Class);
+#define BIND_PY_CLASS_AS(Class, Name) generator.bind_class<Class>(Name);
+
+/**
+ * @brief Bind a class with pybind11's native default constructor
+ * Use this for classes where Rosetta's type-erased constructor causes memory issues
+ */
+#define BIND_CLASS_NATIVE_DEFAULT_CTOR(Class) \
+    { \
+        const auto &meta = rosetta::core::Registry::instance().get<Class>(); \
+        pyb11::class_<Class, std::shared_ptr<Class>> py_class(m, #Class); \
+        py_class.def(pyb11::init<>()); \
+        rosetta::py::PyClassBinder<Class>::bind_methods_only(py_class, meta); \
+        py_class.def("__repr__", [](const Class &) { return "<" #Class " object>"; }); \
+    }
+
+/**
+ * @brief Bind a class with pybind11's native constructor (custom args)
+ * Use this for classes where Rosetta's type-erased constructor causes memory issues
+ */
+#define BIND_CLASS_NATIVE_CTOR(Class, ...) \
+    { \
+        const auto &meta = rosetta::core::Registry::instance().get<Class>(); \
+        pyb11::class_<Class, std::shared_ptr<Class>> py_class(m, #Class); \
+        py_class.def(pyb11::init<__VA_ARGS__>()); \
+        rosetta::py::PyClassBinder<Class>::bind_methods_only(py_class, meta); \
+        py_class.def("__repr__", [](const Class &) { return "<" #Class " object>"; }); \
+    }
+
 
 /**
  * @brief Bind a derived class with its base class
  */
 #define BIND_PY_DERIVED_CLASS(Derived, Base) generator.bind_derived_class<Derived, Base>(#Derived);
+#define BIND_PY_DERIVED_CLASS_AS(Derived, Name, Base) generator.bind_derived_class<Derived, Base>(Name);
 
 /**
  * @brief Bind multiple classes to Pyhton
@@ -139,6 +168,63 @@ namespace rosetta::py {
 #define BIND_CONSTANT(name, value) m.attr(name) = value;
 
 #define BIND_SHARED_PTR(T) rosetta::py::bind_shared_ptr_arg_type<T>()
+
+#define BIND_PTR(T) rosetta::py::bind_ptr_arg_type<T>()
+#define BIND_REF(T) rosetta::py::bind_ref_arg_type<T>()
+
+/**
+ * @brief Bind a class with a constructor taking a single reference parameter
+ * Use this instead of BIND_PY_CLASS when the constructor takes T&
+ * Example: BIND_CLASS_WITH_REF_CTOR(SeidelSolver, Model)
+ */
+#define BIND_CLASS_WITH_REF_CTOR(Class, RefArg) \
+    { \
+        const auto &meta = rosetta::core::Registry::instance().get<Class>(); \
+        pyb11::class_<Class, std::shared_ptr<Class>> py_class(m, #Class); \
+        py_class.def(pyb11::init<RefArg&>()); \
+        rosetta::py::PyClassBinder<Class>::bind_methods_only(py_class, meta); \
+        py_class.def("__repr__", [](const Class &) { return "<" #Class " object>"; }); \
+    }
+
+/**
+ * @brief Bind a class with a constructor taking a single reference parameter (with custom name)
+ */
+#define BIND_CLASS_WITH_REF_CTOR_AS(Class, Name, RefArg) \
+    { \
+        const auto &meta = rosetta::core::Registry::instance().get<Class>(); \
+        pyb11::class_<Class, std::shared_ptr<Class>> py_class(m, Name); \
+        py_class.def(pyb11::init<RefArg&>()); \
+        rosetta::py::PyClassBinder<Class>::bind_methods_only(py_class, meta); \
+        py_class.def("__repr__", [](const Class &) { return "<" Name " object>"; }); \
+    }
+
+/**
+ * @brief Bind a derived class with a constructor taking a single reference parameter
+ */
+#define BIND_DERIVED_CLASS_WITH_REF_CTOR(Derived, Base, RefArg) \
+    { \
+        const auto &meta = rosetta::core::Registry::instance().get<Derived>(); \
+        pyb11::class_<Derived, Base, std::shared_ptr<Derived>> py_class(m, #Derived); \
+        py_class.def(pyb11::init<RefArg&>()); \
+        rosetta::py::PyClassBinder<Derived>::bind_methods_only( \
+            reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>>&>(py_class), meta); \
+        rosetta::py::bind_base_methods<Derived, Base>(py_class); \
+        py_class.def("__repr__", [](const Derived &) { return "<" #Derived " object>"; }); \
+    }
+
+/**
+ * @brief Bind a derived class with custom name and constructor taking a reference
+ */
+#define BIND_DERIVED_CLASS_WITH_REF_CTOR_AS(Derived, Name, Base, RefArg) \
+    { \
+        const auto &meta = rosetta::core::Registry::instance().get<Derived>(); \
+        pyb11::class_<Derived, Base, std::shared_ptr<Derived>> py_class(m, Name); \
+        py_class.def(pyb11::init<RefArg&>()); \
+        rosetta::py::PyClassBinder<Derived>::bind_methods_only( \
+            reinterpret_cast<pyb11::class_<Derived, std::shared_ptr<Derived>>&>(py_class), meta); \
+        rosetta::py::bind_base_methods<Derived, Base>(py_class); \
+        py_class.def("__repr__", [](const Derived &) { return "<" Name " object>"; }); \
+    }
 
 #define BIND_STD_VECTOR(T) rosetta::py::bind_vector_type<T>();
 #define BIND_STD_MAP(K, T) rosetta::py::bind_map_type<K, T>();

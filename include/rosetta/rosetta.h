@@ -109,8 +109,6 @@ namespace rosetta {
         return extensions::make_custom<T>(std::move(validator), std::move(error_message));
     }
 
-    
-
 } // namespace rosetta
 
 // ===============================================================

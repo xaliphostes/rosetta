@@ -9,10 +9,10 @@ int main() {
     register_rosetta_classes();
 
     // Get metadata
-    auto &surface_meta  = rosetta::Registry::instance().get<Surface>();
-    auto &point_meta    = rosetta::Registry::instance().get<Point>();
-    auto &triangle_meta = rosetta::Registry::instance().get<Triangle>();
-    auto &model_meta    = rosetta::Registry::instance().get<Model>();
+    auto &surface_meta  = ROSETTA_GET_META(Surface);
+    auto &point_meta    = ROSETTA_GET_META(Point);
+    auto &triangle_meta = ROSETTA_GET_META(Triangle);
+    auto &model_meta    = ROSETTA_GET_META(Model);
 
     auto surface_any = surface_meta.constructors()[1]({
         std::vector<double>{0.1, 0.1, 0.1, 1.1, 0.1, 0.1, 0.1, 1.1, 0.1},

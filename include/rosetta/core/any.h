@@ -2,13 +2,14 @@
 // Type erasure to safely store any type in Rosetta
 // ============================================================================
 #pragma once
+#include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 #include <utility>
-#include <functional>
 
 namespace rosetta::core {
 
@@ -22,20 +23,9 @@ namespace rosetta::core {
             return reg;
         }
 
-        template <typename T> void register_type(std::function<std::string(const T &)> fn) {
-            converters_[std::type_index(typeid(T))] = [fn](const void *ptr) {
-                return fn(*static_cast<const T *>(ptr));
-            };
-        }
-
-        std::string convert(std::type_index type, const void *ptr) const {
-            auto it = converters_.find(type);
-            if (it != converters_.end())
-                return it->second(ptr);
-            return {};
-        }
-
-        bool has(std::type_index type) const { return converters_.count(type) > 0; }
+        template <typename T> void register_type(std::function<std::string(const T &)> fn);
+        std::string                convert(std::type_index type, const void *ptr) const;
+        bool                       has(std::type_index type) const;
 
     private:
         AnyStringRegistry() { register_defaults(); }
@@ -45,12 +35,17 @@ namespace rosetta::core {
 
     /**
      * @brief Conteneur type-erased that can store any type.
-     * Similar to std::any but with a simplified interface for Rosetta
+     * Similar to std::any but with a simplified interface for Rosetta.
+     *
+     * Supports both copyable and move-only types (e.g., std::unique_ptr).
+     * Attempting to copy an Any containing a non-copyable type will throw
+     * std::logic_error at runtime.
      */
     class Any {
         struct Holder {
             virtual ~Holder()                              = default;
             virtual Holder         *clone() const          = 0;
+            virtual bool            is_copyable() const    = 0;
             virtual std::string     type_name() const      = 0;
             virtual const void     *get_void_ptr() const   = 0;
             virtual std::type_index get_type_index() const = 0;
@@ -59,10 +54,11 @@ namespace rosetta::core {
         template <typename T> struct HolderImpl : Holder {
             T value;
             HolderImpl(T v) : value(std::move(v)) {}
-            Holder         *clone() const override { return new HolderImpl(value); }
-            std::string     type_name() const override { return typeid(T).name(); }
-            const void     *get_void_ptr() const override { return &value; }
-            std::type_index get_type_index() const override { return std::type_index(typeid(T)); }
+            Holder         *clone() const override;
+            bool            is_copyable() const override;
+            std::string     type_name() const override;
+            const void     *get_void_ptr() const override;
+            std::type_index get_type_index() const override;
         };
 
         std::unique_ptr<Holder> holder_;
@@ -77,37 +73,31 @@ namespace rosetta::core {
          * @brief Constructor for C-style strings (converts to std::string)
          * This allows {5.0, "hello"} syntax without explicit Any() wrapping
          */
-        Any(const char *str) : holder_(new HolderImpl<std::string>(std::string(str))) {}
+        Any(const char *str);
 
         /**
          * @brief Constructor with value
          * @tparam T Type of the value
          * @param value Value to store
          */
-        template <typename T>
-        Any(T value)
-            : holder_(
-                  new HolderImpl<std::remove_cv_t<std::remove_reference_t<T>>>(std::move(value))) {}
+        template <typename T> Any(T value);
 
         /**
-         * @brief Copy constructeur
+         * @brief Copy constructor
+         * @throws std::logic_error if the stored type is not copyable
          */
-        Any(const Any &other) : holder_(other.holder_ ? other.holder_->clone() : nullptr) {}
+        Any(const Any &other);
 
         /**
-         * @brief Move constructeur.
+         * @brief Move constructor
          */
         Any(Any &&) = default;
 
         /**
          * @brief Copy assignment operator
+         * @throws std::logic_error if the stored type is not copyable
          */
-        Any &operator=(const Any &other) {
-            if (this != &other) {
-                holder_ = other.holder_ ? std::unique_ptr<Holder>(other.holder_->clone()) : nullptr;
-            }
-            return *this;
-        }
+        Any &operator=(const Any &other);
 
         /**
          * @brief Move assignment operator
@@ -117,7 +107,7 @@ namespace rosetta::core {
         /**
          * @brief Give a string representation to this Any
          */
-        std::string toString() const ;
+        std::string toString() const;
 
         /**
          * @brief Get the stored value
@@ -136,20 +126,31 @@ namespace rosetta::core {
          * @brief Get the type name of the stored value
          * @return Name of teh type (mangled)
          */
-        std::string type_name() const { return holder_ ? holder_->type_name() : "empty"; }
+        std::string type_name() const;
 
         /**
          * @brief Check if the Any contains a value
          * @return true if a value is stored, false otherwise
          */
-        bool has_value() const { return holder_ != nullptr; }
+        bool has_value() const;
+
+        /**
+         * @brief Check if the stored type is copyable
+         * @return true if the type is copyable or Any is empty
+         */
+        bool is_copyable() const;
 
         /**
          * @brief Re-initialize the Any to empty state
          */
-        void reset() { holder_.reset(); }
+        void reset();
 
         std::type_index get_type_index() const;
+
+        /**
+         * @brief Synonymous of get_type_index()
+         */
+        std::type_index type() const;
 
         const void *get_void_ptr() const;
     };

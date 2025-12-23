@@ -524,12 +524,27 @@ namespace rosetta::core {
         return *this;
     }
 
+    // Helper to extract constructor arguments, handling non-const references
+    template <typename Arg> static decltype(auto) extract_ctor_arg(const Any &arg) {
+        using RawType = std::remove_cv_t<std::remove_reference_t<Arg>>;
+
+        if constexpr (std::is_lvalue_reference_v<Arg> &&
+                      !std::is_const_v<std::remove_reference_t<Arg>>) {
+            // Non-const lvalue reference (e.g., Model&): need mutable access
+            return const_cast<Any &>(arg).as<RawType>();
+        } else {
+            // Value, const ref, or rvalue: const access is fine
+            return arg.as<RawType>();
+        }
+    }
+
     // Helper to construct with proper indexing
     template <typename Class>
     template <typename... Args, std::size_t... Is>
     inline Any ClassMetadata<Class>::construct_with_indices(const std::vector<Any> &args,
                                                             std::index_sequence<Is...>) {
-        return Any(Class(args[Is].as<std::remove_cv_t<std::remove_reference_t<Args>>>()...));
+        // return Any(Class(args[Is].as<std::remove_cv_t<std::remove_reference_t<Args>>>()...));
+        return Any(Class(extract_ctor_arg<Args>(args[Is])...));
     }
 
     // ========================================================================
@@ -1589,6 +1604,7 @@ namespace rosetta::core {
     template <typename T> inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
 
     // Helper to extract argument with numeric conversion support
+    // UPDATED: Added pointer-to-reference conversion for Python bindings
     template <typename Class>
     template <typename T>
     inline auto ClassMetadata<Class>::extract_arg(Any &any_val)
@@ -1616,8 +1632,7 @@ namespace rosetta::core {
                 std::type_index ptr_type = std::type_index(typeid(ElementType *));
                 if (actual_type == ptr_type) {
                     ElementType *raw_ptr = any_val.as<ElementType *>();
-                    // Wrap in shared_ptr without taking ownership (dangerous!)
-                    // Better: create a copy if ElementType is copyable
+                    // Wrap in shared_ptr without taking ownership
                     if (raw_ptr) {
                         if constexpr (std::is_copy_constructible_v<ElementType>) {
                             return std::make_shared<ElementType>(*raw_ptr);
@@ -1661,6 +1676,22 @@ namespace rosetta::core {
             }
         }
 
+        // =====================================================================
+        // NEW: Handle pointer to value conversion (for reference parameters)
+        // When a reference parameter (T&) is expected, the Python binding stores
+        // a pointer (T*) in the Any. We need to dereference it here.
+        // =====================================================================
+        if constexpr (!std::is_pointer_v<RawType> && !std::is_arithmetic_v<RawType>) {
+            std::type_index ptr_type = std::type_index(typeid(RawType *));
+            if (actual_type == ptr_type) {
+                RawType *ptr = any_val.as<RawType *>();
+                if (ptr) {
+                    return *ptr; // Dereference - caller binds result to reference
+                }
+                throw std::runtime_error("Null pointer when reference expected");
+            }
+        }
+
         // Numeric conversions
         if constexpr (std::is_arithmetic_v<RawType>) {
             if (actual_type == std::type_index(typeid(double))) {
@@ -1670,7 +1701,7 @@ namespace rosetta::core {
                 return static_cast<RawType>(any_val.as<int>());
             }
             if (actual_type == std::type_index(typeid(float))) {
-                return static_cast<RawType>(any_val.as<float>());
+                return static_cast<RawType>(any_val.as<float>()); 
             }
         }
 
