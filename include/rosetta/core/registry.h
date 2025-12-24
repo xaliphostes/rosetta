@@ -28,7 +28,46 @@ namespace rosetta::core {
             virtual const InheritanceInfo &get_inheritance() const = 0;
 
             // ================================================================
-            // Type-erased field access (NEW)
+            // Type-erased constructor access
+            // ================================================================
+
+            /// Constructor metadata for type-erased access
+            struct ConstructorMeta {
+                std::vector<std::type_index> param_types;
+                size_t                       arity = 0;
+
+                /// Get parameter types as demangled strings
+                std::vector<std::string> get_param_types() const;
+            };
+
+            /// Get list of all constructors with their parameter types
+            virtual std::vector<ConstructorMeta> get_constructors() const = 0;
+
+            /// Get the C++ type name (demangled)
+            virtual std::string get_cpp_type_name() const = 0;
+
+            /// Get base class name (empty if no base class)
+            virtual std::string get_base_class() const = 0;
+
+            /// Method metadata for type-erased access
+            struct MethodMeta {
+                std::vector<std::type_index> param_types;
+                std::type_index              return_type = std::type_index(typeid(void));
+                size_t                       arity       = 0;
+                bool                         is_const    = false;
+
+                /// Get parameter types as demangled strings
+                std::vector<std::string> get_param_types_str() const;
+
+                /// Get return type as demangled string
+                std::string get_return_type_str() const { return demangle(return_type.name()); }
+            };
+
+            /// Get detailed method info by name
+            virtual MethodMeta get_method_info(const std::string &name) const = 0;
+
+            // ================================================================
+            // Type-erased field access
             // ================================================================
 
             /// Check if a field exists
@@ -76,7 +115,7 @@ namespace rosetta::core {
             virtual std::vector<std::type_index>
             get_method_arg_types(const std::string &name) const = 0;
 
-            /// Get method return type (NEW)
+            /// Get method return type
             virtual std::type_index get_method_return_type(const std::string &name) const = 0;
         };
 
@@ -95,7 +134,46 @@ namespace rosetta::core {
             }
 
             // ================================================================
-            // Field access implementation (NEW)
+            // Constructor access implementation
+            // ================================================================
+
+            std::vector<ConstructorMeta> get_constructors() const override {
+                std::vector<ConstructorMeta> result;
+                const auto                  &infos = metadata.constructor_infos();
+                result.reserve(infos.size());
+                for (const auto &info : infos) {
+                    ConstructorMeta meta;
+                    meta.param_types = info.param_types;
+                    meta.arity       = info.arity;
+                    result.push_back(meta);
+                }
+                return result;
+            }
+
+            std::string get_cpp_type_name() const override {
+                return demangle(typeid(Class).name());
+            }
+
+            std::string get_base_class() const override {
+                const auto &inheritance = metadata.inheritance();
+                if (!inheritance.base_classes.empty()) {
+                    return inheritance.base_classes[0].name;
+                }
+                return "";
+            }
+
+            MethodMeta get_method_info(const std::string &name) const override {
+                MethodMeta meta;
+                meta.param_types = metadata.get_method_arg_types(name);
+                meta.return_type = metadata.get_method_return_type(name);
+                meta.arity       = metadata.get_method_arity(name);
+                // Note: is_const would require tracking in ClassMetadata::MethodInfo
+                meta.is_const = false;
+                return meta;
+            }
+
+            // ================================================================
+            // Field access implementation
             // ================================================================
 
             bool has_field(const std::string &name) const override {
@@ -163,6 +241,7 @@ namespace rosetta::core {
             }
         };
 
+    private:
         std::unordered_map<std::string, std::unique_ptr<MetadataHolder>> classes_;
         std::unordered_map<const std::type_info *, std::string>          type_to_name_;
 
@@ -191,8 +270,8 @@ namespace rosetta::core {
 
 } // namespace rosetta::core
 
-inline rosetta::core::Registry& rosetta_registry() {
+inline rosetta::core::Registry &rosetta_registry() {
     return rosetta::core::Registry::instance();
-} 
+}
 
 #include "inline/registry.hxx"

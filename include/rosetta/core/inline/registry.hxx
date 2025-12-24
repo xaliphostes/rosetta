@@ -1,5 +1,25 @@
 namespace rosetta::core {
 
+    inline std::vector<std::string>
+    Registry::MetadataHolder::ConstructorMeta::get_param_types() const {
+        std::vector<std::string> result;
+        result.reserve(param_types.size());
+        for (const auto &ti : param_types) {
+            result.push_back(demangle(ti.name()));
+        }
+        return result;
+    }
+
+    inline std::vector<std::string>
+    Registry::MetadataHolder::MethodMeta::get_param_types_str() const {
+        std::vector<std::string> result;
+        result.reserve(param_types.size());
+        for (const auto &ti : param_types) {
+            result.push_back(demangle(ti.name()));
+        }
+        return result;
+    }
+
     inline Registry &Registry::instance() {
         static Registry reg;
         return reg;
