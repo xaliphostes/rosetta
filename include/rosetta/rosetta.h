@@ -60,6 +60,10 @@ namespace rosetta {
     using core::sel;
     using core::sel_const;
 
+    using ConstructorMeta = core::Registry::MetadataHolder::ConstructorMeta;
+    using MethodMeta = core::Registry::MetadataHolder::MethodMeta;
+    using MethodInfo = core::Registry::MetadataHolder::MethodMeta; // synomimous
+
     // ============================================================================
     // Exports of extensions namespace
     // ============================================================================

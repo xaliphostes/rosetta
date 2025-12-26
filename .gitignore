@@ -11,3 +11,5 @@ idl/example/output
 .venv
 *.a
 idl/example/binding
+.vscode
+.vs
