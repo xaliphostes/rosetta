@@ -16,6 +16,9 @@
 #include "JsBindingGypGenerator.h"
 #include "JsIndexGenerator.h"
 #include "JsReadmeGenerator.h"
+#include "RestApiGenerator.h"
+#include "RestApiCMakeGenerator.h"
+#include "RestApiReadmeGenerator.h"
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -49,6 +52,9 @@ public:
         }
         if (project_.javascript.enabled) {
             generate_javascript();
+        }
+        if (project_.rest.enabled) {
+            generate_rest();
         }
 
         std::cout << "\nâœ“ All bindings generated successfully!\n";
@@ -192,6 +198,38 @@ public:
         std::cout << "âœ“ JavaScript bindings: " << dir << "\n";
     }
 
+    void generate_rest() {
+        std::string dir = get_target_dir("rest", project_.rest);
+        fs::create_directories(dir);
+
+        // Copy registration header to output
+        copy_registration_header(dir);
+
+        // Generate REST API server
+        write_file(dir + "/generated_rest_api.cxx", [this](std::ostream& out) {
+            RestApiGenerator gen(out, config_);
+            gen.generate();
+        });
+
+        // Generate CMakeLists.txt
+        if (config_.generate_cmake) {
+            write_file(dir + "/CMakeLists.txt", [this](std::ostream& out) {
+                RestApiCMakeGenerator gen(out, config_);
+                gen.generate();
+            });
+        }
+
+        // Generate README
+        if (config_.generate_readme) {
+            write_file(dir + "/README.md", [this](std::ostream& out) {
+                RestApiReadmeGenerator gen(out, config_);
+                gen.generate();
+            });
+        }
+
+        std::cout << "[OK] REST API server: " << dir << "\n";
+    }
+
 private:
     ProjectConfig project_;
     GeneratorConfig config_;
@@ -251,6 +289,13 @@ private:
             std::cout << "  JavaScript:\n";
             std::cout << "    cd " << get_target_dir("javascript", project_.javascript) << "\n";
             std::cout << "    npm install && npm run build\n";
+        }
+        
+        if (project_.rest.enabled) {
+            std::cout << "  REST API:\n";
+            std::cout << "    cd " << get_target_dir("rest", project_.rest) << "\n";
+            std::cout << "    mkdir build && cd build && cmake .. && make\n";
+            std::cout << "    ./" << config_.module_name << "_server --port 8080\n";
         }
     }
 };

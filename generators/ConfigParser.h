@@ -127,6 +127,9 @@ private:
             if (targets.contains("javascript")) {
                 parse_target_config(targets["javascript"], config.javascript);
             }
+            if (targets.contains("rest")) {
+                parse_target_config(targets["rest"], config.rest);
+            }
         }
         
         // Generator options
@@ -229,6 +232,12 @@ public:
                 {"extra_libs", nlohmann::json::array()}
             }},
             {"javascript", {
+                {"enabled", false},
+                {"output_dir", ""},
+                {"extra_sources", nlohmann::json::array()},
+                {"extra_libs", nlohmann::json::array()}
+            }},
+            {"rest", {
                 {"enabled", false},
                 {"output_dir", ""},
                 {"extra_sources", nlohmann::json::array()},

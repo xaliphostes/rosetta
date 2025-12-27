@@ -51,6 +51,12 @@
             "output_dir": "",
             "extra_sources": [],
             "extra_libs": []
+        },
+        "rest": {
+            "enabled": false,
+            "output_dir": "",
+            "extra_sources": [],
+            "extra_libs": []
         }
     },
     "options": {

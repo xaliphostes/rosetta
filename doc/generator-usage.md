@@ -137,12 +137,16 @@ generated/
 │   ├── CMakeLists.txt
 │   ├── mylib.d.ts
 │   └── README.md
-└── javascript/
-    ├── generated_napi.cxx
-    ├── package.json
-    ├── binding.gyp
-    ├── index.js
-    ├── mylib.d.ts
+├── javascript/
+│   ├── generated_napi.cxx
+│   ├── package.json
+│   ├── binding.gyp
+│   ├── index.js
+│   ├── mylib.d.ts
+│   └── README.md
+└── rest/
+    ├── generated_rest_api.cxx
+    ├── CMakeLists.txt
     └── README.md
 ```
 
@@ -198,6 +202,12 @@ generated/
         "javascript": {
             "enabled": false,
             "output_dir": "./custom_js_output",
+            "extra_sources": [],
+            "extra_libs": []
+        },
+        "rest": {
+            "enabled": true,
+            "output_dir": "",
             "extra_sources": [],
             "extra_libs": []
         }
@@ -340,6 +350,19 @@ npm install
 npm run build
 ```
 
+### REST API Server
+
+```bash
+cd generated/rest
+
+mkdir build && cd build
+cmake ..
+make
+
+# Run the server
+./mylib_server --port 8080
+```
+
 ---
 
 ## Using the Bindings
@@ -416,6 +439,82 @@ async function main(): Promise<void> {
     model.compute();
     model.delete();
 }
+```
+
+### REST API Example (curl)
+
+```bash
+# List available classes
+curl http://localhost:8080/api/classes
+
+# Get class information
+curl http://localhost:8080/api/classes/Model
+
+# Create an object
+curl -X POST http://localhost:8080/api/objects/Model \
+  -H "Content-Type: application/json" \
+  -d '["config.json"]'
+# Response: {"error":false,"data":{"id":"Model_1","class":"Model"}}
+
+# Call a method
+curl -X POST http://localhost:8080/api/objects/Model_1/compute
+
+# Call a method with arguments
+curl -X POST http://localhost:8080/api/objects/Model_1/set_value \
+  -H "Content-Type: application/json" \
+  -d '[42.5]'
+
+# List all objects
+curl http://localhost:8080/api/objects
+
+# Delete an object
+curl -X DELETE http://localhost:8080/api/objects/Model_1
+```
+
+### REST API Example (JavaScript)
+
+```javascript
+const API = 'http://localhost:8080/api';
+
+// Create object
+const res = await fetch(`${API}/objects/Model`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(['config.json'])
+});
+const { data: { id } } = await res.json();
+
+// Call method
+await fetch(`${API}/objects/${id}/compute`, { method: 'POST' });
+
+// Get result
+const result = await fetch(`${API}/objects/${id}/get_result`, { method: 'POST' });
+console.log(await result.json());
+
+// Clean up
+await fetch(`${API}/objects/${id}`, { method: 'DELETE' });
+```
+
+### REST API Example (Python)
+
+```python
+import requests
+
+API = 'http://localhost:8080/api'
+
+# Create object
+res = requests.post(f'{API}/objects/Model', json=['config.json'])
+obj_id = res.json()['data']['id']
+
+# Call method
+requests.post(f'{API}/objects/{obj_id}/compute')
+
+# Get result  
+result = requests.post(f'{API}/objects/{obj_id}/get_result')
+print(result.json()['data'])
+
+# Clean up
+requests.delete(f'{API}/objects/{obj_id}')
 ```
 
 ---

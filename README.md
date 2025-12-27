@@ -19,9 +19,10 @@ With support to:
 <div style="padding-left: 50px;">
   <img src="https://img.shields.io/static/v1?label=Python&logo=python&logoColor=white&message=support&color=success" alt="Python support"><br>
   <img src="https://img.shields.io/static/v1?label=Javascript&logo=javascript&logoColor=white&message=support&color=success" alt="JavaScript support"><br>
-  <img src="https://img.shields.io/static/v1?label=WebAssembly&logo=webassembly&logoColor=white&message=support&color=sucess" alt="Emscripten support"><br>
-  <img src="https://img.shields.io/static/v1?label=Qt&logo=qt&logoColor=white&message=support&color=sucess" alt="Qt support"><br>
-  <img src="https://img.shields.io/static/v1?label=ImGui&logo=imgui&logoColor=white&message=support&color=sucess" alt="ImGui support"><br>
+  <img src="https://img.shields.io/static/v1?label=WebAssembly&logo=webassembly&logoColor=white&message=support&color=success" alt="Emscripten support"><br>
+  <img src="https://img.shields.io/static/v1?label=REST%20API&logo=swagger&logoColor=white&message=support&color=success" alt="REST API support"><br>
+  <img src="https://img.shields.io/static/v1?label=Qt&logo=qt&logoColor=white&message=support&color=success" alt="Qt support"><br>
+  <img src="https://img.shields.io/static/v1?label=ImGui&logo=imgui&logoColor=white&message=support&color=success" alt="ImGui support"><br>
   <img src="https://img.shields.io/static/v1?label=Lua&logo=lua&logoColor=white&message=soon&color=informational" alt="Lua support"><br>
   <img src="https://img.shields.io/static/v1?label=Java&logo=java&logoColor=white&message=soon&color=informational" alt="Java support"><br>
   <img src="https://img.shields.io/static/v1?label=Ruby&logo=ruby&logoColor=white&message=soon&color=informational" alt="Ruby support"><br>
@@ -49,7 +50,8 @@ Rosetta supports two complementary workflows:
    - Python
    - JavScript
    - WebAssembly
-   - Lua
+   - TypeScript
+   - Rest API
    - ...
 3. **Property editor (GUI)**
    - Qt
@@ -98,6 +100,9 @@ Rosetta supports two complementary workflows:
 | Virtual methods | ✅ | ✅ | ✅ | ❌ |
 | Free functions | ✅ | ❌ | ✅ | ❌ |
 | Python bindings | ✅ | ✅ | ⚠️ | ❌ |
+| JavaScript bindings | ✅ | ❌ | ❌ | ❌ |
+| WebAssembly bindings | ✅ | ❌ | ❌ | ❌ |
+| REST API generation | ✅ | ❌ | ❌ | ❌ |
 | Serialization | ✅ | ✅ | ✅ | ⚠️ |
 | Qt integration | ✅ | ✅ | ⚠️ | ❌ |
 | IDL support | 🚧 | ✅ | ❌ | ❌ |
@@ -153,9 +158,9 @@ straightforward as long as the generator for a given language is available:
     }
     END_PY_MODULE()
     ```
-2. For JavaScript
+2. For JavaScript (node.js)
     ```cpp
-    #include <rosetta/extensions/generatorsv/js_generator.h>
+    #include <rosetta/extensions/generators/js_generator.h>
 
     BEGIN_JS_MODULE(rosetta_example) {
         rosetta_registration();
@@ -166,7 +171,7 @@ straightforward as long as the generator for a given language is available:
 
 3. For WebAssembly (Emscripten)
    ```cpp
-    #include <rosetta/extensions/generatorsv/em_generator.h>
+    #include <rosetta/extensions/generators/em_generator.h>
 
     BEGIN_EM_MODULE(rosetta_example) {
         rosetta_registration();
@@ -175,7 +180,37 @@ straightforward as long as the generator for a given language is available:
     END_EM_MODULE()
     ```
 
-4. For...??
+4. For REST API
+   ```cpp
+    #include <rosetta/extensions/generators/rest_generator.h>
+
+    BEGIN_REST_SERVER(rosetta_example, 8080) {
+        rosetta_registration();
+        BIND_REST_CLASSES(Vector3D, SceneManager);
+    }
+    END_REST_SERVER()
+    ```
+    
+    Then interact via HTTP:
+    ```bash
+    # List available classes
+    curl http://localhost:8080/api/classes
+    
+    # Create an object
+    curl -X POST http://localhost:8080/api/objects/Vector3D \
+      -H "Content-Type: application/json" \
+      -d '[1.0, 2.0, 3.0]'
+    # Response: {"error":false,"data":{"id":"Vector3D_1","class":"Vector3D"}}
+    
+    # Call a method
+    curl -X POST http://localhost:8080/api/objects/Vector3D_1/normalize
+    
+    # Get the length
+    curl -X POST http://localhost:8080/api/objects/Vector3D_1/length
+    # Response: {"error":false,"data":3.7416573867739413}
+    ```
+
+5. For...??
    Just ask.
 
 ## 🖼️ Qt Integration
@@ -248,11 +283,11 @@ Rosetta provides seamless **ImGui** integration with its `PropertyEditor` for fi
 
 ## 💡 Contribute Your Own Generator or Extension
 
-You’re very welcome to create a generator based on **Rosetta introspection** for other scripting languages — such as **Lua**, **Julia**, or **Ruby**!
+You're very welcome to create a generator based on **Rosetta introspection** for other scripting languages — such as **Lua**, **Julia**, or **Ruby**!
 
 Also, any extension is welcome ;-)
 
-👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python**, **JavaScript** and **emscripten** generators for inspiration.
+👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python**, **JavaScript**, **Emscripten** and **REST API** generators for inspiration.
 
 Every new generator or extension helps expand the ecosystem — contributions are always greatly appreciated ❤️
 

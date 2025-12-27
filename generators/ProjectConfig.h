@@ -42,6 +42,7 @@ struct ProjectConfig {
     TargetConfig python;
     TargetConfig wasm;
     TargetConfig javascript;
+    TargetConfig rest;  // REST API server
     
     // Generator options
     bool generate_stubs = true;      // Generate .pyi for Python
@@ -59,7 +60,7 @@ struct ProjectConfig {
         return !name.empty() && 
                !registration_header.empty() &&
                !registration_function.empty() &&
-               (python.enabled || wasm.enabled || javascript.enabled);
+               (python.enabled || wasm.enabled || javascript.enabled || rest.enabled);
     }
     
     std::vector<std::string> get_enabled_targets() const {
@@ -67,6 +68,7 @@ struct ProjectConfig {
         if (python.enabled) targets.push_back("python");
         if (wasm.enabled) targets.push_back("wasm");
         if (javascript.enabled) targets.push_back("javascript");
+        if (rest.enabled) targets.push_back("rest");
         return targets;
     }
 };

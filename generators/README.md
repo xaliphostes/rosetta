@@ -46,25 +46,23 @@ ROSETTA_REGISTER_CLASS(Surface)
 +------------------------------------------------------------------+
 |                    MultiTargetGenerator                          |
 |                                                                  |
-|   +--------------+  +--------------+  +--------------+           |
-|   |    Python    |  |     WASM     |  |  JavaScript  |           |
-|   |  Generators  |  |  Generators  |  |  Generators  |           |
-|   +--------------+  +--------------+  +--------------+           |
+|  +----------+ +----------+ +----------+ +----------+             |
+|  |  Python  | |   WASM   | |JavaScript| | REST API |             |
+|  +----------+ +----------+ +----------+ +----------+             |
 +------------------------------------------------------------------+
                               |
                               v
 +------------------------------------------------------------------+
 |                        Output Files                              |
 |                                                                  |
-|  python/               wasm/                javascript/          |
-|  |                     |                    |                    |
-|  +- generated_         +- generated_        +- generated_        |
-|  |  pybind11.cxx       |  embind.cxx        |  napi.cxx          |
-|  +- CMakeLists.txt     +- CMakeLists.txt    +- package.json      |
-|  +- setup.py           +- <module>.d.ts     +- binding.gyp       |
-|  +- pyproject.toml     +- README.md         +- index.js          |
-|  +- <module>.pyi                            +- <module>.d.ts     |
-|  +- README.md                               +- README.md         |
+|  python/           wasm/           javascript/      rest/        |
+|  |                 |               |                |            |
+|  +- generated_     +- generated_   +- generated_    +- generated_|
+|  |  pybind11.cxx   |  embind.cxx   |  napi.cxx      |  rest_api. |
+|  +- CMakeLists     +- CMakeLists   +- package.json  +- CMakeLists|
+|  +- setup.py       +- module.d.ts  +- binding.gyp   +- README.md |
+|  +- module.pyi     +- README.md    +- index.js      |            |
+|  +- README.md                      +- module.d.ts   |            |
 +------------------------------------------------------------------+
 ```
 
@@ -110,6 +108,14 @@ ROSETTA_REGISTER_CLASS(Surface)
 | `JsIndexGenerator.h` | `index.js` | Entry point that loads the native addon |
 | `TypeScriptGenerator.h` | `<module>.d.ts` | TypeScript declarations (shared with WASM) |
 | `JsReadmeGenerator.h` | `README.md` | Documentation for the npm package |
+
+### REST API Generators
+
+| File | Output | Description |
+|------|--------|-------------|
+| `RestApiGenerator.h` | `generated_rest_api.cxx` | Generates a complete REST API server using cpp-httplib. Exposes classes as HTTP endpoints with JSON request/response. Includes object lifecycle management, method invocation, and CORS support. |
+| `RestApiCMakeGenerator.h` | `CMakeLists.txt` | CMake configuration with automatic dependency fetching (cpp-httplib, nlohmann_json) |
+| `RestApiReadmeGenerator.h` | `README.md` | API documentation with endpoint descriptions and usage examples |
 
 ## How Rosetta Integration Works
 
@@ -260,24 +266,24 @@ This generates the complete binding structure:
 
 ```
 output_dir/
-    python/
-        generated_pybind11.cxx
-        CMakeLists.txt
-        setup.py
-        pyproject.toml
-        arch3.pyi
-        README.md
-    wasm/
-        generated_embind.cxx
-        CMakeLists.txt
-        arch3.d.ts
-        README.md
-    javascript/
-        package.json
-        binding.gyp
-        index.js
-        arch3.d.ts
-        README.md
+â”œâ”€â”€ python/
+â”‚   â”œâ”€â”€ generated_pybind11.cxx
+â”‚   â”œâ”€â”€ CMakeLists.txt
+â”‚   â”œâ”€â”€ setup.py
+â”‚   â”œâ”€â”€ pyproject.toml
+â”‚   â”œâ”€â”€ arch3.pyi
+â”‚   â””â”€â”€ README.md
+â”œâ”€â”€ wasm/
+â”‚   â”œâ”€â”€ generated_embind.cxx
+â”‚   â”œâ”€â”€ CMakeLists.txt
+â”‚   â”œâ”€â”€ arch3.d.ts
+â”‚   â””â”€â”€ README.md
+â””â”€â”€ javascript/
+    â”œâ”€â”€ package.json
+    â”œâ”€â”€ binding.gyp
+    â”œâ”€â”€ index.js
+    â”œâ”€â”€ arch3.d.ts
+    â””â”€â”€ README.md
 ```
 
 ## Building the Generated Bindings
@@ -348,6 +354,6 @@ public:
 
 MIT
 
-## Credits
+## ðŸ’¡ Credits
 
 [Xaliphostes](https://github.com/xaliphostes) (fmaerten@gmail.com)
