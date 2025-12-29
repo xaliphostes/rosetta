@@ -37,17 +37,17 @@ endif()
 # Generator executable
 # ============================================================================
 
-add_executable(my_binding_generator
-    geometry_generator.cxx
+add_executable(geometry_generator
+    main.cxx
 )
 
-target_include_directories(my_binding_generator PRIVATE
+target_include_directories(geometry_generator PRIVATE
     ${BINDING_GENERATOR_DIR}
     ${ROSETTA_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}  # For third/ and bindings/
 )
 
-target_link_libraries(my_binding_generator PRIVATE
+target_link_libraries(geometry_generator PRIVATE
     nlohmann_json::nlohmann_json
 )
 
@@ -56,5 +56,5 @@ target_link_libraries(my_binding_generator PRIVATE
 #   mkdir build_generator && cd build_generator
 #   cmake .. -f ../CMakeLists_generator.txt
 #   make
-#   ./my_binding_generator ../project.json
+#   ./geometry_generator ../project.json
 # ============================================================================

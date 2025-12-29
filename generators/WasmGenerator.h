@@ -9,7 +9,7 @@
 // Embind C++ Code Generator - Uses Rosetta's native field/property separation
 // ============================================================================
 
-class EmbindGenerator : public CodeWriter {
+class WasmGenerator : public CodeWriter {
 public:
     using CodeWriter::CodeWriter;
 

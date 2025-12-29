@@ -10,7 +10,7 @@
         "directories": [
             "../..",
             "../../..",
-            "../../../../../include"
+            "../../../../../../include"
         ],
         "headers": [
             "third/common.h",
@@ -25,11 +25,12 @@
     "options": {
         "generate_cmake": true,
         "generate_readme": true,
+        "generate_example": true,
         "generate_stubs": true,
         "generate_typescript": true
     },
     "output": {
-        "base_dir": "./generated"
+        "base_dir": "./build/generated"
     },
     "project": {
         "author": "xaliphostes",
@@ -40,7 +41,7 @@
     },
     "rosetta": {
         "registration_function": "register_rosetta_classes",
-        "registration_header": "bindings/registration.h",
+        "registration_header": "registration.h",
         "registration_namespace": "",
         "types_namespace": "myproject"
     },

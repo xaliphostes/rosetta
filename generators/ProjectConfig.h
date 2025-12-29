@@ -53,6 +53,7 @@ struct ProjectConfig {
     bool generate_stubs = true;      // Generate .pyi for Python
     bool generate_typescript = true; // Generate .d.ts for JS/WASM
     bool generate_readme = true;     // Generate README.md for each target
+    bool generate_example = true;     // Generate an example for each target
     bool generate_cmake = true;      // Generate CMakeLists.txt
     
     // Advanced options

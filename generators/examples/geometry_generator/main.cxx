@@ -10,7 +10,7 @@
 
 // Include your project's registration header
 // This brings in register_rosetta_classes() and all the geometry types
-#include "bindings/registration.h"
+#include "registration.h"
 
 int main(int argc, char* argv[]) {
     // IMPORTANT: Call registration BEFORE running the generator

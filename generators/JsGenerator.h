@@ -8,7 +8,7 @@
 // N-API C++ Code Generator - Uses Rosetta's native field/property separation
 // ============================================================================
 
-class NapiGenerator : public CodeWriter {
+class JsGenerator : public CodeWriter {
 public:
     using CodeWriter::CodeWriter;
 

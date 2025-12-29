@@ -47,6 +47,7 @@ struct GeneratorConfig {
     bool generate_stubs = true;
     bool generate_typescript = true;
     bool generate_readme = true;
+    bool generate_example = true;
     bool generate_cmake = true;
 
     // WASM-specific options
@@ -88,6 +89,7 @@ struct GeneratorConfig {
         config.generate_stubs = proj.generate_stubs;
         config.generate_typescript = proj.generate_typescript;
         config.generate_readme = proj.generate_readme;
+        config.generate_example = proj.generate_example;
         config.generate_cmake = proj.generate_cmake;
 
         // WASM-specific options
