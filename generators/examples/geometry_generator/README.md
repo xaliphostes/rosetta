@@ -14,7 +14,16 @@ This custom generator solves the problem by:
 
 ## Build Instructions
 
-### Option 1: Build from geometry_generator directory
+### Option 1: Build from geometry_generator (no specif)
+
+```bash
+cd geometry_generator
+mkdir build && cd build
+cmake ..
+make
+```
+
+### Option 2: Build from geometry_generator directory
 
 ```bash
 cd geometry_generator
@@ -28,7 +37,7 @@ cmake .. \
 make
 ```
 
-### Option 2: Specify absolute paths
+### Option 3: Specify absolute paths
 
 ```bash
 cmake .. \
@@ -73,7 +82,7 @@ Configuration loaded:
 ✓ JavaScript bindings: ./generated/javascript
 ✓ REST API server: ./generated/rest
 
-✓ All bindings generated successfully!
+✅ All bindings generated successfully!
 ```
 
 ## Troubleshooting

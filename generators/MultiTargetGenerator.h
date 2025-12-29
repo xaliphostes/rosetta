@@ -121,7 +121,7 @@ public:
             });
         }
 
-        std::cout << "✅ Python bindings: " << dir << "\n";
+        std::cout << "✓ Python bindings: " << dir << "\n";
     }
 
     void generate_wasm() {
@@ -169,7 +169,7 @@ public:
             });
         }
 
-        std::cout << "✅ WASM bindings: " << dir << "\n";
+        std::cout << "✓ WASM bindings: " << dir << "\n";
     }
 
     void generate_javascript() {
@@ -224,7 +224,7 @@ public:
             });
         }
 
-        std::cout << "✅ JavaScript bindings: " << dir << "\n";
+        std::cout << "✓ JavaScript bindings: " << dir << "\n";
     }
 
     void generate_rest() {
@@ -264,7 +264,7 @@ public:
             });
         }
 
-        std::cout << "✅ REST API server: " << dir << "\n";
+        std::cout << "✓ REST API server: " << dir << "\n";
     }
 
 private:

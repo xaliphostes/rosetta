@@ -224,7 +224,7 @@ You're very welcome to create a generator based on **Rosetta introspection** for
 
 Also, any extension is welcome ;-)
 
-👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python**, **JavaScript**, **Emscripten** and **REST API** generators for inspiration.
+👉 Check out [this folder](generators/) to see the existing **Python**, **JavaScript**, **Wasm** and **REST API** generators for inspiration.
 
 Every new generator or extension helps expand the ecosystem — contributions are always greatly appreciated ❤️
 

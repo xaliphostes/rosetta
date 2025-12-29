@@ -9,7 +9,10 @@ unittest
 idl/example/bindings
 idl/example/output
 .venv
+venv
 *.a
 idl/example/binding
 .vscode
 .vs
+
+generated
