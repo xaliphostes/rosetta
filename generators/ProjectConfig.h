@@ -12,6 +12,11 @@ struct TargetConfig {
     std::string output_dir;  // Override default output directory
     std::vector<std::string> extra_sources;  // Additional source files
     std::vector<std::string> extra_libs;     // Additional libraries to link
+    
+    // WASM-specific options
+    bool single_file = false;        // Embed WASM binary in JS file
+    bool export_es6 = false;         // Generate ES6 module
+    std::string environment = "";    // Target environment: "web", "node", "web,node"
 };
 
 struct ProjectConfig {

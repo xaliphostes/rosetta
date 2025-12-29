@@ -157,6 +157,11 @@ private:
         get_if_exists(j, "output_dir", target.output_dir);
         get_array_if_exists(j, "extra_sources", target.extra_sources);
         get_array_if_exists(j, "extra_libs", target.extra_libs);
+        
+        // WASM-specific options
+        get_if_exists(j, "single_file", target.single_file);
+        get_if_exists(j, "export_es6", target.export_es6);
+        get_if_exists(j, "environment", target.environment);
     }
     
     template<typename T>
@@ -229,7 +234,10 @@ public:
                 {"enabled", true},
                 {"output_dir", ""},
                 {"extra_sources", nlohmann::json::array()},
-                {"extra_libs", nlohmann::json::array()}
+                {"extra_libs", nlohmann::json::array()},
+                {"single_file", true},
+                {"export_es6", false},
+                {"environment", "web,node"}
             }},
             {"javascript", {
                 {"enabled", false},

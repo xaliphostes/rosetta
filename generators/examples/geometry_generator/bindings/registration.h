@@ -1,5 +1,5 @@
 #include <rosetta/rosetta.h>
-#include "../third/common.h"
+#include <third/common.h>
 
 // Setting up the Rosetta introspection for all bindings (Python, JavaScript, Emscripten, ...)
 

@@ -17,6 +17,21 @@
 namespace rosetta::core {
 
     // ============================================================================
+    // PropertyInfo - Information about a registered property (virtual field)
+    // ============================================================================
+    struct PropertyInfo {
+        std::string     name;        // Property name (e.g., "points")
+        std::string     getter_name; // Original getter method name (may be empty)
+        std::string     setter_name; // Original setter method name (may be empty)
+        std::type_index value_type;  // Type of the property value
+        bool            is_readonly  = false;
+        bool            is_writeonly = false;
+
+        PropertyInfo() : value_type(typeid(void)) {}
+        PropertyInfo(const std::string &n, std::type_index t) : name(n), value_type(t) {}
+    };
+
+    // ============================================================================
     // ClassMetadata
     // ============================================================================
 
@@ -36,6 +51,14 @@ namespace rosetta::core {
     private:
         umap<std::function<Any(Class &)>>       field_getters_;
         umap<std::function<void(Class &, Any)>> field_setters_;
+
+        // ========================================================================
+        // Property storage (virtual fields registered via .property())
+        // ========================================================================
+        umap<std::function<Any(Class &)>>       property_getters_;
+        umap<std::function<void(Class &, Any)>> property_setters_;
+        std::vector<std::string>                property_names_;
+        umap<PropertyInfo>                      property_info_;
 
         // Store multiple invokers per method name to support overloads
         umapv<std::function<Any(Class &, std::vector<Any>)>>       methods_;
@@ -536,6 +559,24 @@ namespace rosetta::core {
          * @brief Get the type of a field
          */
         std::type_index get_field_type(const std::string &name) const;
+
+        /// List of property names (virtual fields via getter/setter)
+        const std::vector<std::string> &properties() const;
+
+        /// Get property info by name
+        const PropertyInfo &get_property_info(const std::string &name) const;
+
+        /// Check if a name is a property
+        bool is_property(const std::string &name) const;
+
+        /// Get property value (virtual field via getter)
+        Any get_property(Class &obj, const std::string &name) const;
+
+        /// Set property value (virtual field via setter)
+        void set_property(Class &obj, const std::string &name, Any value) const;
+
+        /// Get property type (virtual field)
+        std::type_index get_property_type(const std::string &name) const;
 
     private:
         // Calcule l'offset d'une classe de base

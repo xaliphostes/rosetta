@@ -239,19 +239,21 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
                                                                 const T &(Class::*getter)() const,
                                                                 void (Class::*setter)(const T &)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any {
+        property_getters_[name] = [getter](Class &obj) -> Any {
             const Class &const_obj = obj;
             return Any((const_obj.*getter)());
         };
 
         // Setter: extract value from Any and invoke the setter method
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
     }
@@ -261,19 +263,21 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
                                                                 T (Class::*getter)() const,
                                                                 void (Class::*setter)(const T &)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any {
+        property_getters_[name] = [getter](Class &obj) -> Any {
             const Class &const_obj = obj;
             return Any((const_obj.*getter)());
         };
 
         // Setter: extract value from Any and invoke the setter method
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
     }
@@ -283,16 +287,18 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
                                                                 T &(Class::*getter)(),
                                                                 void (Class::*setter)(const T &)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any { return Any((obj.*getter)()); };
+        property_getters_[name] = [getter](Class &obj) -> Any { return Any((obj.*getter)()); };
 
         // Setter: extract value from Any and invoke the setter method
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
     }
@@ -306,20 +312,22 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
                                                                 const T &(Class::*getter)() const,
                                                                 void (Class::*setter)(T)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any {
+        property_getters_[name] = [getter](Class &obj) -> Any {
             const Class &const_obj = obj;
             return Any((const_obj.*getter)());
         };
 
         // Setter: extract value from Any and invoke the setter method
         // Note: setter takes T by value, not const T&
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
     }
@@ -329,20 +337,22 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
                                                                 T (Class::*getter)() const,
                                                                 void (Class::*setter)(T)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any {
+        property_getters_[name] = [getter](Class &obj) -> Any {
             const Class &const_obj = obj;
             return Any((const_obj.*getter)());
         };
 
         // Setter: extract value from Any and invoke the setter method
         // Note: setter takes T by value, not const T&
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
     }
@@ -352,17 +362,19 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
                                                                 T &(Class::*getter)(),
                                                                 void (Class::*setter)(T)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any { return Any((obj.*getter)()); };
+        property_getters_[name] = [getter](Class &obj) -> Any { return Any((obj.*getter)()); };
 
         // Setter: extract value from Any and invoke the setter method
         // Note: setter takes T by value, not const T&
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
     }
@@ -376,19 +388,21 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &ClassMetadata<Class>::readonly_property(const std::string &name,
                                                                          const T &(Class::*getter)()
                                                                              const) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any {
+        property_getters_[name] = [getter](Class &obj) -> Any {
             const Class &const_obj = obj;
             return Any((const_obj.*getter)());
         };
 
         // No setter - will throw if someone tries to set this field
-        field_setters_[name] = [name](Class &, Any) {
+        property_setters_[name] = [name](Class &, Any) {
             throw std::runtime_error("Cannot set read-only property: " + name);
         };
 
@@ -399,19 +413,21 @@ namespace rosetta::core {
     template <typename T>
     inline ClassMetadata<Class> &
     ClassMetadata<Class>::readonly_property(const std::string &name, T (Class::*getter)() const) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
-        field_getters_[name] = [getter](Class &obj) -> Any {
+        property_getters_[name] = [getter](Class &obj) -> Any {
             const Class &const_obj = obj;
             return Any((const_obj.*getter)());
         };
 
         // No setter - will throw if someone tries to set this field
-        field_setters_[name] = [name](Class &, Any) {
+        property_setters_[name] = [name](Class &, Any) {
             throw std::runtime_error("Cannot set read-only property: " + name);
         };
 
@@ -423,20 +439,74 @@ namespace rosetta::core {
     inline ClassMetadata<Class> &
     ClassMetadata<Class>::writeonly_property(const std::string &name,
                                              void (Class::*setter)(const T &)) {
-        field_names_.push_back(name);
+        property_names_.push_back(name);
 
-        // Store type information
-        field_types_.emplace(name, std::type_index(typeid(T)));
+        PropertyInfo info;
+        info.name       = name;
+        info.value_type = std::type_index(typeid(T));
+        property_info_.emplace(name, info);
 
         // No getter - will throw if someone tries to get this field
-        field_getters_[name] = [name](Class &) -> Any {
+        property_getters_[name] = [name](Class &) -> Any {
             throw std::runtime_error("Cannot get write-only property: " + name);
         };
 
         // Setter: extract value from Any and invoke the setter method
-        field_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
+        property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
         return *this;
+    }
+
+    // ============================================================================
+    // Property accessors
+    // ============================================================================
+
+    template <typename Class>
+    inline const std::vector<std::string> &ClassMetadata<Class>::properties() const {
+        return property_names_;
+    }
+
+    template <typename Class>
+    inline const PropertyInfo &
+    ClassMetadata<Class>::get_property_info(const std::string &name) const {
+        auto it = property_info_.find(name);
+        if (it == property_info_.end()) {
+            throw std::runtime_error("Property not found: " + name);
+        }
+        return it->second;
+    }
+
+    template <typename Class>
+    inline bool ClassMetadata<Class>::is_property(const std::string &name) const {
+        return property_info_.find(name) != property_info_.end();
+    }
+
+    template <typename Class>
+    inline Any ClassMetadata<Class>::get_property(Class &obj, const std::string &name) const {
+        auto it = property_getters_.find(name);
+        if (it == property_getters_.end()) {
+            throw std::runtime_error("Property not found: " + name);
+        }
+        return it->second(obj);
+    }
+
+    template <typename Class>
+    inline void ClassMetadata<Class>::set_property(Class &obj, const std::string &name,
+                                                   Any value) const {
+        auto it = property_setters_.find(name);
+        if (it == property_setters_.end()) {
+            throw std::runtime_error("Property not found: " + name);
+        }
+        it->second(obj, std::move(value));
+    }
+
+    template <typename Class>
+    inline std::type_index ClassMetadata<Class>::get_property_type(const std::string &name) const {
+        auto it = property_info_.find(name);
+        if (it != property_info_.end()) {
+            return it->second.value_type;
+        }
+        return std::type_index(typeid(void));
     }
 
     // ========================================================================
@@ -1701,7 +1771,7 @@ namespace rosetta::core {
                 return static_cast<RawType>(any_val.as<int>());
             }
             if (actual_type == std::type_index(typeid(float))) {
-                return static_cast<RawType>(any_val.as<float>()); 
+                return static_cast<RawType>(any_val.as<float>());
             }
         }
 

@@ -31,7 +31,7 @@ private:
         line("cmake_minimum_required(VERSION 3.16)");
         line("project(" + config_.module_name + "_python VERSION " + config_.version + " LANGUAGES CXX)");
         line();
-        line("set(CMAKE_CXX_STANDARD 17)");
+        line("set(CMAKE_CXX_STANDARD 20)");
         line("set(CMAKE_CXX_STANDARD_REQUIRED ON)");
         line("set(CMAKE_POSITION_INDEPENDENT_CODE ON)");
         line();

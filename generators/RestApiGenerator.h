@@ -78,47 +78,6 @@ private:
         line();
         indent();
 
-        // Vector3 to JSON
-        line("json vector3_to_json(const " + ns + "Vector3& v) {");
-        indent();
-        line("return json::array({v[0], v[1], v[2]});");
-        dedent();
-        line("}");
-        line();
-
-        // JSON to Vector3
-        line(ns + "Vector3 json_to_vector3(const json& j) {");
-        indent();
-        line("if (!j.is_array() || j.size() != 3) {");
-        indent();
-        line("throw std::runtime_error(\"Expected array of 3 elements for Vector3\");");
-        dedent();
-        line("}");
-        line("return " + ns + "Vector3(j[0].get<double>(), j[1].get<double>(), j[2].get<double>());");
-        dedent();
-        line("}");
-        line();
-
-        // Matrix33 to JSON
-        line("json matrix33_to_json(const " + ns + "Matrix33& m) {");
-        indent();
-        line("json arr = json::array();");
-        line("for (int i = 0; i < 3; ++i) {");
-        indent();
-        line("json row = json::array();");
-        line("for (int j = 0; j < 3; ++j) {");
-        indent();
-        line("row.push_back(m.get(i, j));");
-        dedent();
-        line("}");
-        line("arr.push_back(row);");
-        dedent();
-        line("}");
-        line("return arr;");
-        dedent();
-        line("}");
-        line();
-
         // Vector<double> to JSON
         line("json vector_double_to_json(const std::vector<double>& vec) {");
         indent();
@@ -131,6 +90,22 @@ private:
         line("std::vector<double> json_to_vector_double(const json& j) {");
         indent();
         line("return j.get<std::vector<double>>();");
+        dedent();
+        line("}");
+        line();
+
+        // Vector<int> to JSON
+        line("json vector_int_to_json(const std::vector<int>& vec) {");
+        indent();
+        line("return json(vec);");
+        dedent();
+        line("}");
+        line();
+
+        // JSON to vector<int>
+        line("std::vector<int> json_to_vector_int(const json& j) {");
+        indent();
+        line("return j.get<std::vector<int>>();");
         dedent();
         line("}");
         line();
@@ -302,6 +277,13 @@ private:
         line("info[\"constructors\"] = json::array();");
         for (const auto& ctor : holder->get_constructors()) {
             auto params = ctor.get_param_types();
+            bool has_func = false;
+            for (const auto& p : params) {
+                if (is_function_type(p)) {
+                    has_func = true;
+                    break;
+                }
+            }
             line("{");
             indent();
             line("json ctor_info;");
@@ -309,6 +291,7 @@ private:
             for (const auto& p : params) {
                 line("ctor_info[\"params\"].push_back(\"" + p + "\");");
             }
+            line("ctor_info[\"rest_callable\"] = " + std::string(has_func ? "false" : "true") + ";");
             line("info[\"constructors\"].push_back(ctor_info);");
             dedent();
             line("}");
@@ -319,6 +302,7 @@ private:
         for (const auto& m : holder->get_methods()) {
             if (!config_.should_skip_method(name, m)) {
                 auto method_info = holder->get_method_info(m);
+                bool has_func_param = has_function_parameter(holder, m);
                 line("{");
                 indent();
                 line("json method_info;");
@@ -329,6 +313,8 @@ private:
                     line("method_info[\"params\"].push_back(\"" + p + "\");");
                 }
                 line("method_info[\"is_const\"] = " + std::string(method_info.is_const ? "true" : "false") + ";");
+                // Mark methods with std::function params as not callable via REST
+                line("method_info[\"rest_callable\"] = " + std::string(has_func_param ? "false" : "true") + ";");
                 line("info[\"methods\"].push_back(method_info);");
                 dedent();
                 line("}");
@@ -361,14 +347,35 @@ private:
         line("std::shared_ptr<" + cpp_type + "> obj;");
         
         auto ctors = holder->get_constructors();
-        if (ctors.empty()) {
-            line("obj = std::make_shared<" + cpp_type + ">();");
+        
+        // Filter constructors - skip those with std::function parameters
+        std::vector<rosetta::core::Registry::MetadataHolder::ConstructorMeta> valid_ctors;
+        for (const auto& ctor : ctors) {
+            bool has_func = false;
+            for (const auto& pt : ctor.get_param_types()) {
+                if (is_function_type(pt)) {
+                    has_func = true;
+                    break;
+                }
+            }
+            if (!has_func) {
+                valid_ctors.push_back(ctor);
+            }
+        }
+        
+        if (valid_ctors.empty()) {
+            if (ctors.empty()) {
+                line("obj = std::make_shared<" + cpp_type + ">();");
+            } else {
+                // All constructors have function params
+                line("return error_response(\"No REST-callable constructors available (all require callback functions)\");");
+            }
         } else {
             line("size_t argc = params.is_array() ? params.size() : 0;");
             line();
             
             bool first = true;
-            for (const auto& ctor : ctors) {
+            for (const auto& ctor : valid_ctors) {
                 auto params_types = ctor.get_param_types();
                 std::string cond = first ? "if" : "} else if";
                 first = false;
@@ -427,6 +434,11 @@ private:
         bool first = true;
         for (const auto& m : holder->get_methods()) {
             if (config_.should_skip_method(name, m)) continue;
+            
+            // Skip methods with std::function parameters - not supported via REST
+            if (has_function_parameter(holder, m)) {
+                continue;
+            }
             
             auto info = holder->get_method_info(m);
             auto param_types = info.get_param_types_str();
@@ -741,27 +753,137 @@ private:
         line("}");
     }
 
+    // Normalize type string - remove std::__1::, allocators, const, &, etc.
+    std::string normalize_type(const std::string& t) {
+        std::string r = t;
+        size_t pos;
+        
+        // Remove std::__1:: (libc++ internal namespace)
+        while ((pos = r.find("std::__1::")) != std::string::npos) {
+            r.replace(pos, 10, "std::");
+        }
+        
+        // Remove allocator template arguments
+        size_t alloc_start;
+        while ((alloc_start = r.find(", std::allocator<")) != std::string::npos) {
+            size_t depth = 1;
+            size_t alloc_end = alloc_start + 17;
+            while (alloc_end < r.size() && depth > 0) {
+                if (r[alloc_end] == '<') depth++;
+                else if (r[alloc_end] == '>') depth--;
+                alloc_end++;
+            }
+            r.erase(alloc_start, alloc_end - alloc_start);
+        }
+        
+        // Remove const (prefix and postfix forms)
+        while ((pos = r.find("const ")) != std::string::npos) r.erase(pos, 6);
+        while ((pos = r.find(" const")) != std::string::npos) r.erase(pos, 6);
+        // Remove & and *
+        while ((pos = r.find("&")) != std::string::npos) r.erase(pos, 1);
+        while ((pos = r.find("*")) != std::string::npos) r.erase(pos, 1);
+        
+        // Trim whitespace
+        while (!r.empty() && r[0] == ' ') r.erase(0, 1);
+        while (!r.empty() && r.back() == ' ') r.pop_back();
+        
+        return r;
+    }
+
+    // Check if type is a std::function
+    bool is_function_type(const std::string& type) {
+        std::string norm = normalize_type(type);
+        return norm.find("function<") != std::string::npos ||
+               norm.find("std::function<") != std::string::npos;
+    }
+
+    // Check if type is a registered class
+    bool is_registered_class(const std::string& type) {
+        std::string norm = normalize_type(type);
+        auto& registry = rosetta::Registry::instance();
+        
+        // Check if the normalized type matches any registered class
+        for (const auto& name : registry.list_classes()) {
+            auto* holder = registry.get_by_name(name);
+            if (holder) {
+                std::string cpp_type = normalize_type(holder->get_cpp_type_name());
+                if (norm == cpp_type || norm == name) {
+                    return true;
+                }
+                // Also check without namespace
+                size_t pos = cpp_type.rfind("::");
+                if (pos != std::string::npos) {
+                    std::string short_name = cpp_type.substr(pos + 2);
+                    if (norm == short_name) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // Get simple type name (strip namespace)
+    std::string get_simple_type_name(const std::string& type) {
+        std::string norm = normalize_type(type);
+        size_t pos = norm.rfind("::");
+        if (pos != std::string::npos) {
+            return norm.substr(pos + 2);
+        }
+        return norm;
+    }
+
+    // Check if a method has any std::function parameters (not supported via REST)
+    bool has_function_parameter(const rosetta::core::Registry::MetadataHolder* holder, 
+                                const std::string& method_name) {
+        auto info = holder->get_method_info(method_name);
+        auto param_types = info.get_param_types_str();
+        for (const auto& pt : param_types) {
+            if (is_function_type(pt)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Helper: Generate JSON extraction code
     std::string generate_json_extraction(const std::string& type, const std::string& json_expr) {
+        std::string norm = normalize_type(type);
+        
         if (type.find("Vector3") != std::string::npos) {
             return "json_to_vector3(" + json_expr + ")";
         }
         if (type.find("vector<double>") != std::string::npos) {
             return "json_to_vector_double(" + json_expr + ")";
         }
+        if (type.find("vector<int>") != std::string::npos) {
+            return "json_to_vector_int(" + json_expr + ")";
+        }
         if (type.find("string") != std::string::npos) {
             return json_expr + ".get<std::string>()";
         }
-        if (type == "bool") {
+        if (norm == "bool") {
             return json_expr + ".get<bool>()";
         }
-        if (type == "int" || type == "long" || type == "size_t") {
+        if (norm == "int" || norm == "long" || norm == "size_t") {
             return json_expr + ".get<int>()";
         }
-        if (type == "float" || type == "double") {
+        if (norm == "float" || norm == "double") {
             return json_expr + ".get<double>()";
         }
-        return json_expr + ".get<" + type + ">()";
+        
+        // For registered class types, expect an object ID string and retrieve from ObjectStore
+        if (is_registered_class(norm)) {
+            // Return code that retrieves the object from the store by ID
+            return "*ObjectStore::instance().get<" + norm + ">(" + json_expr + ".get<std::string>())";
+        }
+        
+        // For std::function types - these should be skipped at method level
+        if (is_function_type(norm)) {
+            return "/* ERROR: std::function not supported via REST */";
+        }
+        
+        return json_expr + ".get<" + norm + ">()";
     }
 
     // Helper: Generate JSON conversion code
@@ -774,6 +896,9 @@ private:
         }
         if (type.find("vector<double>") != std::string::npos) {
             return "vector_double_to_json(" + var + ")";
+        }
+        if (type.find("vector<int>") != std::string::npos) {
+            return "vector_int_to_json(" + var + ")";
         }
         if (type.find("vector<") != std::string::npos) {
             return "json(" + var + ")";

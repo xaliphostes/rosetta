@@ -20,6 +20,11 @@ namespace rosetta::core {
         return result;
     }
 
+    inline std::string
+    Registry::MetadataHolder::PropertyMeta::get_value_type_str() const {
+        return demangle(value_type.name());
+    }
+
     inline Registry &Registry::instance() {
         static Registry reg;
         return reg;
@@ -50,6 +55,11 @@ namespace rosetta::core {
             }
         }
         throw std::runtime_error("Class not registered: " + std::string(typeid(Class).name()));
+    }
+
+    inline Registry::MetadataHolder *Registry::get_by_name(const std::string &name) {
+        auto it = classes_.find(name);
+        return it != classes_.end() ? it->second.get() : nullptr;
     }
 
     inline const Registry::MetadataHolder *Registry::get_by_name(const std::string &name) const {

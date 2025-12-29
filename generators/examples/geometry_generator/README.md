@@ -4,41 +4,13 @@ Custom binding generator for the geometry project that properly populates the Ro
 
 ## Why This Is Needed
 
-The standard `binding_generator` executable doesn't know about your project's classes. It queries `rosetta::Registry::instance()` at generation time, but the registry is empty because your `register_rosetta_classes()` function was never called.
+The standard `binding_generator` executable doesn't know about the project's classes. It queries `rosetta::Registry::instance()` at generation time, but the registry is empty because the `register_rosetta_classes()` function is never called.
 
 This custom generator solves the problem by:
-1. Including your `registration.h`
+1. Including the `registration.h`
 2. Calling `register_rosetta_classes()` **before** generating
-3. Now the generator finds all your classes (Point, Triangle, Surface, Model)
+3. Now the generator finds all the classes (Point, Triangle, Surface, Model)
 
-## Project Structure
-
-Assuming your project looks like this:
-
-```
-your_project/
-├── binding_generator/          # The binding generator source
-│   ├── BindingGeneratorLib.h
-│   ├── Pybind11Generator.h
-│   ├── ... (other generator files)
-│   └── CMakeLists.txt
-├── include/
-│   └── rosetta/
-│       └── rosetta.h
-├── third/                      # Your geometry headers
-│   ├── common.h
-│   ├── Model.h
-│   ├── Point.h
-│   ├── Surface.h
-│   └── Triangle.h
-├── bindings/
-│   └── registration.h          # Your Rosetta registration
-├── geometry_generator/         # THIS DIRECTORY
-│   ├── my_generator.cxx
-│   ├── CMakeLists.txt
-│   └── README.md
-└── project.json                # Your binding config
-```
 
 ## Build Instructions
 
@@ -104,31 +76,6 @@ Configuration loaded:
 ✓ All bindings generated successfully!
 ```
 
-And the generated `generated_pybind11.cxx` will now contain:
-
-```cpp
-// --- Point ---
-py::class_<Point, std::shared_ptr<Point>>(m, "Point")
-    .def(py::init<>())
-    .def(py::init<double, double, double>())
-    .def_readwrite("x", &Point::x)
-    .def_readwrite("y", &Point::y)
-    .def_readwrite("z", &Point::z)
-    ...
-
-// --- Triangle ---
-py::class_<Triangle, std::shared_ptr<Triangle>>(m, "Triangle")
-    ...
-
-// --- Surface ---
-py::class_<Surface, std::shared_ptr<Surface>>(m, "Surface")
-    ...
-
-// --- Model ---
-py::class_<Model, std::shared_ptr<Model>>(m, "Model")
-    ...
-```
-
 ## Troubleshooting
 
 ### "rosetta/rosetta.h not found"
@@ -148,3 +95,6 @@ void register_rosetta_classes() {
     // ... rest of registration
 }
 ```
+
+## Compiling and testing
+For each binding, go to the respective folder

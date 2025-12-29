@@ -98,14 +98,14 @@ TEST(virtual_field, basic) {
     auto     &meta = ROSETTA_GET_META(Rectangle);
 
     // Get width (virtual field)
-    auto width = meta.get_field(rect, "width").as<double>();
+    auto width = meta.get_property(rect, "width").as<double>();
     std::cout << "Width: " << width << "\n"; // Outputs: 5.0
 
     // Set height (virtual field)
-    meta.set_field(rect, "height", Any(4.0));
+    meta.set_property(rect, "height", Any(4.0));
 
     // Get computed area (read-only virtual field)
-    auto area = meta.get_field(rect, "area").as<double>();
+    auto area = meta.get_property(rect, "area").as<double>();
     std::cout << "Area: " << area << "\n"; // Outputs: 20.0 (5.0 * 4.0)
 
     // This would throw an exception:

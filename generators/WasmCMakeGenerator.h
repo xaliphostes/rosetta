@@ -33,7 +33,7 @@ private:
         line("cmake_minimum_required(VERSION 3.16)");
         line("project(" + config_.module_name + "_wasm VERSION " + config_.version + " LANGUAGES CXX)");
         line();
-        line("set(CMAKE_CXX_STANDARD 17)");
+        line("set(CMAKE_CXX_STANDARD 20)");
         line("set(CMAKE_CXX_STANDARD_REQUIRED ON)");
         line();
         line("set(MODULE_NAME \"" + config_.module_name + "\")");
@@ -100,10 +100,28 @@ private:
         indent();
         line("--bind");
         line("-sWASM=1");
+        
+        // Single file option - embeds WASM as base64 in JS
+        if (config_.wasm_single_file) {
+            line("-sSINGLE_FILE=1");
+        }
+        
         line("-sMODULARIZE=1");
+        
+        // ES6 module export
+        if (config_.wasm_export_es6) {
+            line("-sEXPORT_ES6=1");
+        }
+        
         line("-sEXPORT_NAME='create${MODULE_NAME}'");
         line("-sALLOW_MEMORY_GROWTH=1");
         line("-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']");
+        
+        // Target environment
+        if (!config_.wasm_environment.empty()) {
+            line("-sENVIRONMENT='" + config_.wasm_environment + "'");
+        }
+        
         line("-fexceptions");
         line("-sNO_DISABLE_EXCEPTION_CATCHING");
         dedent();
@@ -125,7 +143,12 @@ private:
         line("install(FILES");
         indent();
         line("${CMAKE_BINARY_DIR}/${MODULE_NAME}.js");
-        line("${CMAKE_BINARY_DIR}/${MODULE_NAME}.wasm");
+        
+        // Only install separate .wasm file if not using single file mode
+        if (!config_.wasm_single_file) {
+            line("${CMAKE_BINARY_DIR}/${MODULE_NAME}.wasm");
+        }
+        
         if (config_.generate_typescript) {
             line("${CMAKE_CURRENT_SOURCE_DIR}/${MODULE_NAME}.d.ts");
         }

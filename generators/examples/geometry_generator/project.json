@@ -10,8 +10,7 @@
         "directories": [
             "../..",
             "../../..",
-            "../../../../../include",
-            "third"
+            "../../../../../include"
         ],
         "headers": [
             "third/common.h",
@@ -21,7 +20,6 @@
             "third/Triangle.h"
         ],
         "libraries": [
-            "geometry"
         ]
     },
     "options": {

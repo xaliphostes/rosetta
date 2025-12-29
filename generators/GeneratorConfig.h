@@ -49,6 +49,11 @@ struct GeneratorConfig {
     bool generate_readme = true;
     bool generate_cmake = true;
 
+    // WASM-specific options
+    bool wasm_single_file = false;
+    bool wasm_export_es6 = false;
+    std::string wasm_environment = "";
+
     // Create from ProjectConfig
     static GeneratorConfig from_project(const ProjectConfig& proj) {
         GeneratorConfig config;
@@ -84,6 +89,11 @@ struct GeneratorConfig {
         config.generate_typescript = proj.generate_typescript;
         config.generate_readme = proj.generate_readme;
         config.generate_cmake = proj.generate_cmake;
+
+        // WASM-specific options
+        config.wasm_single_file = proj.wasm.single_file;
+        config.wasm_export_es6 = proj.wasm.export_es6;
+        config.wasm_environment = proj.wasm.environment;
 
         return config;
     }

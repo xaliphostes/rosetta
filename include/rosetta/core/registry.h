@@ -1,5 +1,6 @@
 // ============================================================================
 // Registry central pour toutes les classes enregistrées
+// EXTENDED WITH PROPERTY SUPPORT - Differentiates fields from properties
 // ============================================================================
 #pragma once
 #include "class_metadata.h"
@@ -67,13 +68,30 @@ namespace rosetta::core {
             virtual MethodMeta get_method_info(const std::string &name) const = 0;
 
             // ================================================================
-            // Type-erased field access
+            // Property metadata (virtual fields via getter/setter)
+            // ================================================================
+
+            /// Property metadata for type-erased access
+            struct PropertyMeta {
+                std::string     name;           // Property name (e.g., "points")
+                std::string     getter_name;    // Getter method name (e.g., "getPoints") - may be empty
+                std::string     setter_name;    // Setter method name (e.g., "setPoints") - may be empty
+                std::type_index value_type = std::type_index(typeid(void));
+                bool            is_readonly  = false;
+                bool            is_writeonly = false;
+
+                /// Get value type as demangled string
+                std::string get_value_type_str() const;
+            };
+
+            // ================================================================
+            // Type-erased field access (actual C++ member fields)
             // ================================================================
 
             /// Check if a field exists
             virtual bool has_field(const std::string &name) const = 0;
 
-            /// Get list of all field names
+            /// Get list of all field names (actual C++ member fields only)
             virtual std::vector<std::string> get_fields() const = 0;
 
             /// Get field type
@@ -89,6 +107,33 @@ namespace rosetta::core {
             /// Set field value (type-erased via void*)
             virtual void set_field_void_ptr(void *obj, const std::string &name,
                                             Any value) const = 0;
+
+            // ================================================================
+            // Type-erased property access (virtual fields via getter/setter)
+            // ================================================================
+
+            /// Check if a property exists
+            virtual bool has_property(const std::string &name) const = 0;
+
+            /// Get list of all property names
+            virtual std::vector<std::string> get_properties() const = 0;
+
+            /// Get property metadata by name
+            virtual PropertyMeta get_property_info(const std::string &name) const = 0;
+
+            /// Get property type
+            virtual std::type_index get_property_type(const std::string &name) const = 0;
+
+            /// Get property value (type-erased via void*)
+            virtual Any get_property_void_ptr(void *obj, const std::string &name) const = 0;
+
+            /// Get property value from const object
+            virtual Any get_property_const_void_ptr(const void        *obj,
+                                                    const std::string &name) const = 0;
+
+            /// Set property value (type-erased via void*)
+            virtual void set_property_void_ptr(void *obj, const std::string &name,
+                                               Any value) const = 0;
 
             // ================================================================
             // Type-erased method access
@@ -167,13 +212,12 @@ namespace rosetta::core {
                 meta.param_types = metadata.get_method_arg_types(name);
                 meta.return_type = metadata.get_method_return_type(name);
                 meta.arity       = metadata.get_method_arity(name);
-                // Note: is_const would require tracking in ClassMetadata::MethodInfo
-                meta.is_const = false;
+                meta.is_const    = false;
                 return meta;
             }
 
             // ================================================================
-            // Field access implementation
+            // Field access implementation (actual C++ member fields)
             // ================================================================
 
             bool has_field(const std::string &name) const override {
@@ -193,8 +237,6 @@ namespace rosetta::core {
             }
 
             Any get_field_const_void_ptr(const void *obj, const std::string &name) const override {
-                // get_field requires non-const ref, so we cast away const
-                // This is safe because we're only reading the field
                 Class *typed_obj = const_cast<Class *>(static_cast<const Class *>(obj));
                 return metadata.get_field(*typed_obj, name);
             }
@@ -202,6 +244,49 @@ namespace rosetta::core {
             void set_field_void_ptr(void *obj, const std::string &name, Any value) const override {
                 Class *typed_obj = static_cast<Class *>(obj);
                 metadata.set_field(*typed_obj, name, std::move(value));
+            }
+
+            // ================================================================
+            // Property access implementation (virtual fields via getter/setter)
+            // ================================================================
+
+            bool has_property(const std::string &name) const override {
+                return metadata.is_property(name);
+            }
+
+            std::vector<std::string> get_properties() const override {
+                return metadata.properties();
+            }
+
+            PropertyMeta get_property_info(const std::string &name) const override {
+                const auto &info = metadata.get_property_info(name);
+                PropertyMeta meta;
+                meta.name        = info.name;
+                meta.getter_name = info.getter_name;
+                meta.setter_name = info.setter_name;
+                meta.value_type  = info.value_type;
+                meta.is_readonly = info.is_readonly;
+                meta.is_writeonly = info.is_writeonly;
+                return meta;
+            }
+
+            std::type_index get_property_type(const std::string &name) const override {
+                return metadata.get_property_type(name);
+            }
+
+            Any get_property_void_ptr(void *obj, const std::string &name) const override {
+                Class *typed_obj = static_cast<Class *>(obj);
+                return metadata.get_property(*typed_obj, name);
+            }
+
+            Any get_property_const_void_ptr(const void *obj, const std::string &name) const override {
+                Class *typed_obj = const_cast<Class *>(static_cast<const Class *>(obj));
+                return metadata.get_property(*typed_obj, name);
+            }
+
+            void set_property_void_ptr(void *obj, const std::string &name, Any value) const override {
+                Class *typed_obj = static_cast<Class *>(obj);
+                metadata.set_property(*typed_obj, name, std::move(value));
             }
 
             // ================================================================
@@ -247,7 +332,6 @@ namespace rosetta::core {
 
         Registry() = default;
 
-        // Non-copiable, non-movable
         Registry(const Registry &)            = delete;
         Registry &operator=(const Registry &) = delete;
 
@@ -256,6 +340,9 @@ namespace rosetta::core {
         template <typename Class> ClassMetadata<Class> &register_class(const std::string &name);
         template <typename Class> ClassMetadata<Class> &get();
         template <typename Class> const ClassMetadata<Class> &get() const;
+
+        /// Get metadata holder by class name (non-const version for binding generators)
+        MetadataHolder *get_by_name(const std::string &name);
 
         /// Get metadata holder by class name (const version)
         const MetadataHolder *get_by_name(const std::string &name) const;
