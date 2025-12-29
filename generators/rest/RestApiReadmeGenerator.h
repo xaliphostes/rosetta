@@ -1,5 +1,5 @@
 #pragma once
-#include "CodeWriter.h"
+#include "../CodeWriter.h"
 
 // ============================================================================
 // REST API README Generator
