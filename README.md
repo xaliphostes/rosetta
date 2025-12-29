@@ -124,7 +124,7 @@ class Vector3D {...};
 class SceneManager {...};
 ...
 ```
-along with a static or dynamic library (if any).
+along with a static or dynamic library or nothing (if headers only).
 
 ### 2. Describe your API with Rosetta and generate the binding for any language 
 This description provide the introspection of your classes that will be used by the generators (see below).
@@ -144,74 +144,11 @@ void rosetta_registration() {
 }
 ```
 
-### 3. Finally, generate the binding for any language
+### 3. Generate the binding for any language (Python, JavaScript, TypeScript, Wasm, REST-API...)
 Since the introspection of your C++ classes (and free functions) is now created by Rosetta, binding is
-straightforward as long as the generator for a given language is available:
+straightforward as long as the generator for a given language is available.
 
-1. For Python
-    ```cpp
-    #include <rosetta/extensions/generators/py_generator.h>
-
-    BEGIN_PY_MODULE(rosetta_example) {
-        rosetta_registration();
-        BIND_PY_CLASSES(Vector3D, SceneManager);
-    }
-    END_PY_MODULE()
-    ```
-2. For JavaScript (node.js)
-    ```cpp
-    #include <rosetta/extensions/generators/js_generator.h>
-
-    BEGIN_JS_MODULE(rosetta_example) {
-        rosetta_registration();
-        BIND_JS_CLASSES(Vector3D, SceneManager);
-    }
-    END_JS_MODULE()
-    ```
-
-3. For WebAssembly (Emscripten)
-   ```cpp
-    #include <rosetta/extensions/generators/em_generator.h>
-
-    BEGIN_EM_MODULE(rosetta_example) {
-        rosetta_registration();
-        BIND_EM_CLASSES(Vector3D, SceneManager);
-    }
-    END_EM_MODULE()
-    ```
-
-4. For REST API
-   ```cpp
-    #include <rosetta/extensions/generators/rest_generator.h>
-
-    BEGIN_REST_SERVER(rosetta_example, 8080) {
-        rosetta_registration();
-        BIND_REST_CLASSES(Vector3D, SceneManager);
-    }
-    END_REST_SERVER()
-    ```
-    
-    Then interact via HTTP:
-    ```bash
-    # List available classes
-    curl http://localhost:8080/api/classes
-    
-    # Create an object
-    curl -X POST http://localhost:8080/api/objects/Vector3D \
-      -H "Content-Type: application/json" \
-      -d '[1.0, 2.0, 3.0]'
-    # Response: {"error":false,"data":{"id":"Vector3D_1","class":"Vector3D"}}
-    
-    # Call a method
-    curl -X POST http://localhost:8080/api/objects/Vector3D_1/normalize
-    
-    # Get the length
-    curl -X POST http://localhost:8080/api/objects/Vector3D_1/length
-    # Response: {"error":false,"data":3.7416573867739413}
-    ```
-
-5. For...??
-   Just ask.
+Read [this tuto](./generators/USAGE.md) for how to use the generators in combination with Rosetta.
 
 ## 🖼️ Qt Integration
 
