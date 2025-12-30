@@ -582,9 +582,11 @@ namespace rosetta::core {
 
         // Store in new ConstructorInfo with type information
         ConstructorInfo info;
-        info.arity       = sizeof...(Args);
-        info.param_types = {std::type_index(typeid(Args))...};
-        info.invoker     = [](const std::vector<Any> &args) -> Any {
+        info.arity               = sizeof...(Args);
+        info.param_types         = {std::type_index(typeid(Args))...};
+        info.param_is_lvalue_ref = {(std::is_lvalue_reference_v<Args> &&
+                                     !std::is_const_v<std::remove_reference_t<Args>>)...};
+        info.invoker             = [](const std::vector<Any> &args) -> Any {
             if (args.size() != sizeof...(Args))
                 throw std::runtime_error("Constructor argument count mismatch");
             return construct_with_indices<Args...>(args, std::index_sequence_for<Args...>{});
@@ -678,9 +680,11 @@ namespace rosetta::core {
 
         // Create and store method info
         MethodInfo info;
-        info.arity       = sizeof...(Args);
-        info.return_type = std::type_index(typeid(Ret));
-        info.arg_types   = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.arity         = sizeof...(Args);
+        info.return_type   = std::type_index(typeid(Ret));
+        info.arg_types     = {std::type_index(typeid(Args))...}; // Pack expansion
+        info.is_const      = false;
+        info.is_overloaded = false;
 
         info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
             if constexpr (sizeof...(Args) == 0) {
@@ -718,9 +722,11 @@ namespace rosetta::core {
 
         // Create and store method info
         MethodInfo info;
-        info.arity       = sizeof...(Args);
-        info.return_type = std::type_index(typeid(Ret));
-        info.arg_types   = {std::type_index(typeid(Args))...};
+        info.arity         = sizeof...(Args);
+        info.return_type   = std::type_index(typeid(Ret));
+        info.arg_types     = {std::type_index(typeid(Args))...};
+        info.is_const      = true;
+        info.is_overloaded = false;
 
         auto const_invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
             if constexpr (sizeof...(Args) == 0) {
@@ -752,6 +758,102 @@ namespace rosetta::core {
         };
 
         // CHANGED: Append to vectors instead of replacing
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
+        const_methods_[name].push_back(const_invoker);
+
+        return *this;
+    }
+
+    // ========================================================================
+    // Register overloaded methods (with is_overloaded = true)
+    // ========================================================================
+
+    // Non const version
+    template <typename Class>
+    template <typename Ret, typename... Args>
+    inline ClassMetadata<Class> &
+    ClassMetadata<Class>::overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
+
+        // Create and store method info
+        MethodInfo info;
+        info.arity         = sizeof...(Args);
+        info.return_type   = std::type_index(typeid(Ret));
+        info.arg_types     = {std::type_index(typeid(Args))...};
+        info.is_const      = false;
+        info.is_overloaded = true; // THIS IS THE KEY DIFFERENCE
+
+        info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (obj.*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((obj.*ptr)());
+                }
+            } else {
+                return invoke_with_args(obj, ptr, args, std::index_sequence_for<Args...>{});
+            }
+        };
+
+        method_info_[name].push_back(info);
+        methods_[name].push_back(info.invoker);
+
+        return *this;
+    }
+
+    // Const version
+    template <typename Class>
+    template <typename Ret, typename... Args>
+    inline ClassMetadata<Class> &ClassMetadata<Class>::overloaded_method(const std::string &name,
+                                                                         Ret (Class::*ptr)(Args...)
+                                                                             const) {
+        // Only add name once to method_names_
+        if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
+            method_names_.push_back(name);
+        }
+
+        // Create and store method info
+        MethodInfo info;
+        info.arity         = sizeof...(Args);
+        info.return_type   = std::type_index(typeid(Ret));
+        info.arg_types     = {std::type_index(typeid(Args))...};
+        info.is_const      = true;
+        info.is_overloaded = true; // THIS IS THE KEY DIFFERENCE
+
+        auto const_invoker = [ptr](const Class &obj, std::vector<Any> args) -> Any {
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (obj.*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((obj.*ptr)());
+                }
+            } else {
+                return invoke_const_with_args(obj, ptr, args, std::index_sequence_for<Args...>{});
+            }
+        };
+
+        // Wrapper for non-const objects
+        info.invoker = [ptr](Class &obj, std::vector<Any> args) -> Any {
+            const Class &const_obj = obj;
+            if constexpr (sizeof...(Args) == 0) {
+                if constexpr (std::is_void_v<Ret>) {
+                    (const_obj.*ptr)();
+                    return Any(0);
+                } else {
+                    return Any((const_obj.*ptr)());
+                }
+            } else {
+                return invoke_const_with_args(const_obj, ptr, args,
+                                              std::index_sequence_for<Args...>{});
+            }
+        };
+
         method_info_[name].push_back(info);
         methods_[name].push_back(info.invoker);
         const_methods_[name].push_back(const_invoker);
@@ -1270,6 +1372,24 @@ namespace rosetta::core {
     // ========================================================================
     // ACCESSEURS
     // ========================================================================
+
+    template <typename Class>
+    inline bool ClassMetadata<Class>::is_method_overloaded(const std::string &name) const {
+        auto it = method_info_.find(name);
+        if (it != method_info_.end() && !it->second.empty()) {
+            return it->second[0].is_overloaded;
+        }
+        return false;
+    }
+
+    template <typename Class>
+    inline bool ClassMetadata<Class>::is_method_const(const std::string &name) const {
+        auto it = method_info_.find(name);
+        if (it != method_info_.end() && !it->second.empty()) {
+            return it->second[0].is_const;
+        }
+        return false;
+    }
 
     template <typename Class>
     inline const std::vector<typename ClassMetadata<Class>::Constructor> &
@@ -1839,6 +1959,7 @@ namespace rosetta::core {
         info.return_type = std::type_index(typeid(Ret));
         info.arg_types   = {std::type_index(typeid(Args))...};
         info.is_static   = false;
+        info.is_lambda   = true;
 
         // Store the callable in a shared_ptr so it survives
         auto stored_callable =
@@ -1870,6 +1991,7 @@ namespace rosetta::core {
         info.return_type = std::type_index(typeid(Ret));
         info.arg_types   = {std::type_index(typeid(Args))...};
         info.is_static   = false;
+        info.is_lambda   = true;
 
         // Store the callable in a shared_ptr so it survives
         auto stored_callable =

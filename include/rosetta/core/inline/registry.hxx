@@ -4,8 +4,13 @@ namespace rosetta::core {
     Registry::MetadataHolder::ConstructorMeta::get_param_types() const {
         std::vector<std::string> result;
         result.reserve(param_types.size());
-        for (const auto &ti : param_types) {
-            result.push_back(demangle(ti.name()));
+        for (size_t i = 0; i < param_types.size(); ++i) {
+            std::string type_str = demangle(param_types[i].name());
+            // Append & if this parameter is a non-const lvalue reference
+            if (i < param_is_lvalue_ref.size() && param_is_lvalue_ref[i]) {
+                type_str += "&";
+            }
+            result.push_back(type_str);
         }
         return result;
     }

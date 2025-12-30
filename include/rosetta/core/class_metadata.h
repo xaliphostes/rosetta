@@ -72,6 +72,7 @@ namespace rosetta::core {
         struct ConstructorInfo {
             std::function<Any(std::vector<Any>)> invoker;
             std::vector<std::type_index>         param_types;
+            std::vector<bool>                    param_is_lvalue_ref; // true if param is T&
             size_t                               arity = 0;
         };
         std::vector<ConstructorInfo> constructor_infos_;
@@ -94,6 +95,10 @@ namespace rosetta::core {
             size_t          arity       = 0;
             bool            is_static   = false; // Flag to identify static methods
             std::string     inherited_from; // Empty if not inherited, base class name otherwise
+
+            bool is_const      = false;
+            bool is_overloaded = false;
+            bool is_lambda     = false;
         };
 
     private:
@@ -337,6 +342,13 @@ namespace rosetta::core {
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...));
 
+        /**
+         * @brief Register an overloaded non-const method (disambiguated with explicit signature)
+         * Use this with ROSETTA_OVERLOAD macro for methods that have multiple overloads
+         */
+        template <typename Ret, typename... Args>
+        ClassMetadata &overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...));
+
         // ========================================================================
         // Register const methods
         // ========================================================================
@@ -346,6 +358,13 @@ namespace rosetta::core {
          */
         template <typename Ret, typename... Args>
         ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const);
+
+        /**
+         * @brief Register an overloaded const method (disambiguated with explicit signature)
+         * Use this with ROSETTA_OVERLOAD_CONST macro
+         */
+        template <typename Ret, typename... Args>
+        ClassMetadata &overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         // ========================================================================
         // Register static methods
@@ -481,6 +500,16 @@ namespace rosetta::core {
          * @brief Liste des noms de methodes
          */
         const std::vector<std::string> &methods() const;
+
+        /**
+         * @brief Check if a method is marked as overloaded
+         */
+        bool is_method_overloaded(const std::string &name) const;
+
+        /**
+         * @brief Check if a method is const
+         */
+        bool is_method_const(const std::string &name) const;
 
         /**
          * @brief Get all overloads information for a specific method

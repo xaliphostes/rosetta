@@ -35,9 +35,10 @@ namespace rosetta::core {
             /// Constructor metadata for type-erased access
             struct ConstructorMeta {
                 std::vector<std::type_index> param_types;
+                std::vector<bool>            param_is_lvalue_ref; // true if param is T&
                 size_t                       arity = 0;
 
-                /// Get parameter types as demangled strings
+                /// Get parameter types as demangled strings (with & for references)
                 std::vector<std::string> get_param_types() const;
             };
 
@@ -53,9 +54,11 @@ namespace rosetta::core {
             /// Method metadata for type-erased access
             struct MethodMeta {
                 std::vector<std::type_index> param_types;
-                std::type_index              return_type = std::type_index(typeid(void));
-                size_t                       arity       = 0;
-                bool                         is_const    = false;
+                std::type_index              return_type   = std::type_index(typeid(void));
+                size_t                       arity         = 0;
+                bool                         is_const      = false;
+                bool                         is_overloaded = false;
+                bool                         is_lambda     = false;
 
                 /// Get parameter types as demangled strings
                 std::vector<std::string> get_param_types_str() const;
@@ -73,10 +76,10 @@ namespace rosetta::core {
 
             /// Property metadata for type-erased access
             struct PropertyMeta {
-                std::string     name;           // Property name (e.g., "points")
-                std::string     getter_name;    // Getter method name (e.g., "getPoints") - may be empty
-                std::string     setter_name;    // Setter method name (e.g., "setPoints") - may be empty
-                std::type_index value_type = std::type_index(typeid(void));
+                std::string name;        // Property name (e.g., "points")
+                std::string getter_name; // Getter method name (e.g., "getPoints") - may be empty
+                std::string setter_name; // Setter method name (e.g., "setPoints") - may be empty
+                std::type_index value_type   = std::type_index(typeid(void));
                 bool            is_readonly  = false;
                 bool            is_writeonly = false;
 
@@ -188,8 +191,9 @@ namespace rosetta::core {
                 result.reserve(infos.size());
                 for (const auto &info : infos) {
                     ConstructorMeta meta;
-                    meta.param_types = info.param_types;
-                    meta.arity       = info.arity;
+                    meta.param_types         = info.param_types;
+                    meta.param_is_lvalue_ref = info.param_is_lvalue_ref;
+                    meta.arity               = info.arity;
                     result.push_back(meta);
                 }
                 return result;
@@ -199,20 +203,32 @@ namespace rosetta::core {
                 return demangle(typeid(Class).name());
             }
 
+            // missing namespace
             std::string get_base_class() const override {
                 const auto &inheritance = metadata.inheritance();
                 if (!inheritance.base_classes.empty()) {
+                    // Use the type_info to get the full C++ type name with namespace
+                    if (inheritance.base_classes[0].type) {
+                        return demangle(inheritance.base_classes[0].type->name());
+                    }
+                    // Fallback to the user-provided name
                     return inheritance.base_classes[0].name;
                 }
                 return "";
             }
 
             MethodMeta get_method_info(const std::string &name) const override {
-                MethodMeta meta;
-                meta.param_types = metadata.get_method_arg_types(name);
-                meta.return_type = metadata.get_method_return_type(name);
-                meta.arity       = metadata.get_method_arity(name);
-                meta.is_const    = false;
+                MethodMeta  meta;
+                const auto &infos = metadata.method_info(name);
+                if (!infos.empty()) {
+                    const auto &info   = infos[0]; // First overload
+                    meta.param_types   = info.arg_types;
+                    meta.return_type   = info.return_type;
+                    meta.arity         = info.arity;
+                    meta.is_const      = info.is_const;
+                    meta.is_overloaded = info.is_overloaded;
+                    meta.is_lambda     = info.is_lambda;
+                }
                 return meta;
             }
 
@@ -259,13 +275,13 @@ namespace rosetta::core {
             }
 
             PropertyMeta get_property_info(const std::string &name) const override {
-                const auto &info = metadata.get_property_info(name);
+                const auto  &info = metadata.get_property_info(name);
                 PropertyMeta meta;
-                meta.name        = info.name;
-                meta.getter_name = info.getter_name;
-                meta.setter_name = info.setter_name;
-                meta.value_type  = info.value_type;
-                meta.is_readonly = info.is_readonly;
+                meta.name         = info.name;
+                meta.getter_name  = info.getter_name;
+                meta.setter_name  = info.setter_name;
+                meta.value_type   = info.value_type;
+                meta.is_readonly  = info.is_readonly;
                 meta.is_writeonly = info.is_writeonly;
                 return meta;
             }
@@ -279,12 +295,14 @@ namespace rosetta::core {
                 return metadata.get_property(*typed_obj, name);
             }
 
-            Any get_property_const_void_ptr(const void *obj, const std::string &name) const override {
+            Any get_property_const_void_ptr(const void        *obj,
+                                            const std::string &name) const override {
                 Class *typed_obj = const_cast<Class *>(static_cast<const Class *>(obj));
                 return metadata.get_property(*typed_obj, name);
             }
 
-            void set_property_void_ptr(void *obj, const std::string &name, Any value) const override {
+            void set_property_void_ptr(void *obj, const std::string &name,
+                                       Any value) const override {
                 Class *typed_obj = static_cast<Class *>(obj);
                 metadata.set_property(*typed_obj, name, std::move(value));
             }

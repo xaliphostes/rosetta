@@ -1,0 +1,82 @@
+{
+    "advanced": {
+        "numpy_types": [
+            "Vector3",
+            "Matrix33",
+            "std::vector<double>"
+        ],
+        "skip_classes": [],
+        "skip_methods": []
+    },
+    "includes": {
+        "directories": [
+            "/Users/fmaerten/devs/c++/arch3/include",
+            "/Users/fmaerten/devs/c++/arch3/extern/eigen",
+            "/Users/fmaerten/devs/c++/arch3/extern/krylov/include",
+            "/Users/fmaerten/devs/c++/rosetta/include"
+        ],
+        "headers": [],
+        "library_directories": [
+            "/Users/fmaerten/devs/c++/arch3/build/lib"
+        ],
+        "libraries": [
+            "Arch3"
+        ]
+    },
+    "options": {
+        "generate_cmake": true,
+        "generate_readme": true,
+        "generate_example": true,
+        "generate_stubs": true,
+        "generate_typescript": true
+    },
+    "output": {
+        "base_dir": "./generated"
+    },
+    "project": {
+        "author": "xaliphostes",
+        "description": "arch3 auto-generated bindings",
+        "license": "MIT",
+        "name": "pyarch3",
+        "version": "1.0.0"
+    },
+    "rosetta": {
+        "registration_function": "register_rosetta",
+        "registration_header": "generator/rosetta_binding.h",
+        "registration_namespace": "",
+        "types_namespace": "",
+        "cpp_namespaces": {
+            "strip": true,
+            "separator": ""
+        }
+    },
+    "targets": {
+        "javascript": {
+            "enabled": true,
+            "extra_libs": [],
+            "extra_sources": [],
+            "output_dir": ""
+        },
+        "python": {
+            "enabled": true,
+            "extra_libs": [],
+            "extra_sources": [],
+            "output_dir": ""
+        },
+        "rest": {
+            "enabled": false,
+            "extra_libs": [],
+            "extra_sources": [],
+            "output_dir": ""
+        },
+        "wasm": {
+            "enabled": true,
+            "environment": "web,node",
+            "export_es6": false,
+            "extra_libs": [],
+            "extra_sources": [],
+            "output_dir": "",
+            "single_file": true
+        }
+    }
+}
