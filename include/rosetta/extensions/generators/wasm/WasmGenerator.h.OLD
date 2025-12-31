@@ -132,14 +132,6 @@ private:
         line("EMSCRIPTEN_BINDINGS(" + config_.module_name + "_module) {");
         indent();
         line();
-        
-        // Call Rosetta registration function first!
-        // This is critical - without it, lambda_method invocations will fail
-        if (!config_.registration_function.empty()) {
-            line("// Initialize Rosetta registry (required for lambda_method invocations)");
-            line(config_.get_registration_call() + ";");
-            line();
-        }
 
         auto &registry    = rosetta::Registry::instance();
         auto  class_names = registry.list_classes();
@@ -154,26 +146,12 @@ private:
         }
 
         // Register vector types for registered classes
-        // Skip abstract classes and classes without default constructors
         line("// Register vector types for proper array conversion");
         for (const auto &name : sorted) {
             auto *holder = registry.get_by_name(name);
             if (holder && !config_.should_skip_class(name)) {
-                // Skip abstract classes - can't instantiate them
-                if (holder->get_inheritance().is_abstract) {
-                    line("// Skipped Vector" + config_.binding_name(name) + " - abstract class");
-                    continue;
-                }
-                
-                // Skip classes that shouldn't be in vectors (configurable)
-                if (should_skip_vector_registration(name)) {
-                    line("// Skipped Vector" + config_.binding_name(name) + " - not vectorizable");
-                    continue;
-                }
-                
                 std::string cpp_type = holder->get_cpp_type_name();
-                std::string js_name = config_.binding_name(name);
-                line("register_vector<" + cpp_type + ">(\"Vector" + js_name + "\");");
+                line("register_vector<" + cpp_type + ">(\"Vector" + name + "\");");
             }
         }
         line();
@@ -182,114 +160,6 @@ private:
 
         dedent();
         line("}");
-    }
-    
-    // Check if a class should be skipped for vector registration
-    // A class can be in a vector if it's:
-    // - Not abstract
-    // - Has a default or copy constructor
-    // - Is copyable/movable (detected via heuristics)
-    bool should_skip_vector_registration(const std::string &name) const {
-        auto &registry = rosetta::Registry::instance();
-        auto *holder = registry.get_by_name(name);
-        
-        if (!holder) return true;
-        
-        // Abstract classes can't be instantiated
-        if (holder->get_inheritance().is_abstract) return true;
-        
-        // Check config for explicitly skipped vector classes
-        // Convention: add "Vector::ClassName" to skip_classes
-        if (config_.skip_classes.count("Vector::" + name) > 0) return true;
-        if (config_.skip_classes.count("Vector::" + config_.binding_name(name)) > 0) return true;
-        
-        auto ctors = holder->get_constructors();
-        
-        // No constructors registered - can't be put in vector
-        if (ctors.empty()) return true;
-        
-        // Check if class has a default constructor (required for std::vector resize)
-        bool has_default_ctor = false;
-        bool has_reference_ctor = false;
-        
-        for (const auto &ctor : ctors) {
-            auto params = ctor.get_param_types();
-            
-            if (params.empty()) {
-                has_default_ctor = true;
-            }
-            
-            // Check if any constructor takes a non-const reference
-            // This is a strong hint the class stores the reference as a member
-            // making it non-copy-assignable (like Postprocess with const Model& model_)
-            for (const auto &param : params) {
-                // Check for reference types (but not const references to primitives)
-                if (is_nonconst_reference_type(param)) {
-                    // Non-const reference parameter - likely stored as member
-                    has_reference_ctor = true;
-                }
-                // Also check for const references to complex types (like const Model&)
-                if (is_const_reference_to_class(param)) {
-                    has_reference_ctor = true;
-                }
-            }
-        }
-        
-        // If class takes a reference in constructor, it likely stores it
-        // making it non-copyable (reference members delete copy assignment)
-        if (has_reference_ctor) return true;
-        
-        // Must have default constructor for vector operations
-        if (!has_default_ctor) return true;
-        
-        return false;
-    }
-    
-    // Check if type is a const reference to a class (not a primitive)
-    // e.g., "const Model&", "const arch::Model &" -> true
-    // e.g., "const int&", "const double&" -> false
-    bool is_const_reference_to_class(const std::string &type) const {
-        std::string t = type;
-        
-        // Must have const
-        if (t.find("const") == std::string::npos) return false;
-        
-        // Must have &
-        bool has_ref = false;
-        int depth = 0;
-        for (char c : t) {
-            if (c == '<') depth++;
-            else if (c == '>') depth--;
-            else if (c == '&' && depth == 0) has_ref = true;
-        }
-        if (!has_ref) return false;
-        
-        // Check if it's NOT a primitive type
-        static const std::set<std::string> primitives = {
-            "int", "float", "double", "bool", "char", 
-            "long", "short", "unsigned", "size_t",
-            "int8_t", "int16_t", "int32_t", "int64_t",
-            "uint8_t", "uint16_t", "uint32_t", "uint64_t"
-        };
-        
-        // Extract the base type (remove const, &, whitespace)
-        std::string base = t;
-        size_t pos;
-        while ((pos = base.find("const ")) != std::string::npos) base.erase(pos, 6);
-        while ((pos = base.find("&")) != std::string::npos) base.erase(pos, 1);
-        while (!base.empty() && base[0] == ' ') base.erase(0, 1);
-        while (!base.empty() && base.back() == ' ') base.pop_back();
-        
-        // Check if base type is a primitive
-        for (const auto &prim : primitives) {
-            if (base == prim) return false;
-        }
-        
-        // Also check std::string - it's copyable
-        if (base.find("string") != std::string::npos) return false;
-        
-        // It's a const reference to a class type
-        return true;
     }
 
     std::vector<std::string> topological_sort(const std::vector<std::string> &names,
@@ -306,18 +176,11 @@ private:
             if (h) {
                 auto base = h->get_base_class();
                 if (!base.empty()) {
-                    // Try to find the base class in the registry
-                    // It might be registered with full name (arch::Base) or short name (Base)
-                    if (name_set.count(base)) {
-                        visit(base);
-                    } else {
-                        // Try stripped name
-                        size_t pos = base.rfind("::");
-                        std::string base_short = (pos != std::string::npos) ? base.substr(pos + 2) : base;
-                        if (name_set.count(base_short)) {
-                            visit(base_short);
-                        }
-                    }
+                    size_t      pos = base.rfind("::");
+                    std::string base_name =
+                        (pos != std::string::npos) ? base.substr(pos + 2) : base;
+                    if (name_set.count(base_name))
+                        visit(base_name);
                 }
             }
             sorted.push_back(n);
@@ -335,21 +198,18 @@ private:
             return;
         }
 
-        // Get clean JavaScript name (strips namespace by default)
-        std::string js_name = config_.binding_name(name);
-        
         line("// --- " + name + " ---");
         std::string cpp_type = holder->get_cpp_type_name();
         auto        base     = holder->get_base_class();
 
         if (!base.empty()) {
-            line("class_<" + cpp_type + ", base<" + base + ">>(\"" + js_name + "\")");
+            line("class_<" + cpp_type + ", base<" + base + ">>(\"" + name + "\")");
         } else {
-            line("class_<" + cpp_type + ">(\"" + js_name + "\")");
+            line("class_<" + cpp_type + ">(\"" + name + "\")");
         }
         indent();
 
-        line(".smart_ptr<std::shared_ptr<" + cpp_type + ">>(\"" + js_name + "Ptr\")");
+        line(".smart_ptr<std::shared_ptr<" + cpp_type + ">>(\"" + name + "Ptr\")");
 
         // Constructors
         for (const auto &ctor : holder->get_constructors()) {
@@ -388,28 +248,18 @@ private:
         if (params.empty()) {
             line(".constructor<>()");
         } else {
-            // Check if any parameter needs a wrapper
-            // NOTE: Plain references (Model&) work fine with embind's .constructor<>
-            // Only need wrapper for:
-            // - Pointers (Model* needs &arg conversion)
-            // - Vectors (need TypedArray conversion)
-            // - std::function (need JS function wrapping)
             bool needs_wrapper =
                 std::any_of(params.begin(), params.end(),
-                            [this](const std::string &p) { 
-                                return needs_conversion(p) || is_pointer_type(p); 
-                            });
+                            [this](const std::string &p) { return needs_conversion(p); });
 
             if (needs_wrapper) {
                 write_constructor_wrapper(cpp_type, params);
             } else {
-                // Use direct constructor - embind handles references fine
                 std::string p;
                 for (size_t i = 0; i < params.size(); ++i) {
                     if (i > 0)
                         p += ", ";
-                    // Keep the type as-is (including & for references)
-                    p += params[i];
+                    p += normalize_type(params[i]);
                 }
                 line(".constructor<" + p + ">()");
             }
@@ -418,11 +268,8 @@ private:
 
     void write_constructor_wrapper(const std::string              &cpp_type,
                                    const std::vector<std::string> &params) {
-        // Use an inline lambda with embind's constructor() overload
-        // The lambda returns by value, embind handles construction
-        
         std::ostringstream oss;
-        oss << ".constructor(+[](";
+        oss << ".class_function(\"create\", +[](";
 
         std::vector<std::string> args;
         for (size_t i = 0; i < params.size(); ++i) {
@@ -504,17 +351,10 @@ private:
             return;
         }
 
-        // Use lambda wrapper when:
-        // 1. Method is overloaded (embind can't disambiguate)
-        // 2. Return type needs conversion (vectors -> TypedArray)
-        // 3. Parameters need conversion (vectors, pointers, std::function)
-        // NOTE: Plain references (Model&) work fine with embind - no wrapper needed
-        bool needs_wrapper = info.is_overloaded ||
+        bool needs_wrapper =
             needs_conversion(return_type) ||
             std::any_of(param_types.begin(), param_types.end(),
-                        [this](const std::string &p) { 
-                            return needs_conversion(p) || is_pointer_type(p); 
-                        });
+                        [this](const std::string &p) { return needs_conversion(p); });
 
         if (needs_wrapper) {
             write_method_wrapper(cpp_type, method_name, info);
@@ -660,108 +500,8 @@ private:
         return result;
     }
 
-    // ========================================================================
-    // NEW: Pointer type detection and handling
-    // ========================================================================
-    
-    // Check if a type is a pointer type (e.g., "Model *", "Model*", "arch::Model *")
-    bool is_pointer_type(const std::string &type) const {
-        std::string t = type;
-        // Remove const
-        size_t pos;
-        while ((pos = t.find("const ")) != std::string::npos)
-            t.erase(pos, 6);
-        // Trim whitespace
-        while (!t.empty() && t[0] == ' ')
-            t.erase(0, 1);
-        while (!t.empty() && t.back() == ' ')
-            t.pop_back();
-        
-        // Check for * (but not in template arguments)
-        // Simple check: contains * and it's not inside <>
-        int depth = 0;
-        for (char c : t) {
-            if (c == '<') depth++;
-            else if (c == '>') depth--;
-            else if (c == '*' && depth == 0) return true;
-        }
-        return false;
-    }
-    
-    // Check if a type is a non-const reference type (e.g., "Model&", "arch::Model &")
-    // but NOT const reference (const Model&)
-    bool is_nonconst_reference_type(const std::string &type) const {
-        // Check if it contains & but is NOT a const reference
-        std::string t = type;
-        
-        // Trim whitespace
-        while (!t.empty() && t[0] == ' ')
-            t.erase(0, 1);
-        while (!t.empty() && t.back() == ' ')
-            t.pop_back();
-        
-        // Check for & (but not in template arguments)
-        int depth = 0;
-        bool has_ampersand = false;
-        for (char c : t) {
-            if (c == '<') depth++;
-            else if (c == '>') depth--;
-            else if (c == '&' && depth == 0) has_ampersand = true;
-        }
-        
-        if (!has_ampersand) return false;
-        
-        // Check if it's const - if "const" appears before the type name, it's a const ref
-        // e.g., "const Model&" or "const arch::Model &"
-        if (t.find("const ") == 0) return false;
-        if (t.find("const&") != std::string::npos) return false;
-        
-        return true;
-    }
-    
-    // Strip the pointer from a type, returning the base type
-    // "Model *" -> "Model", "arch::Model*" -> "arch::Model"
-    std::string strip_pointer(const std::string &type) const {
-        std::string t = type;
-        // Remove const
-        size_t pos;
-        while ((pos = t.find("const ")) != std::string::npos)
-            t.erase(pos, 6);
-        // Remove &
-        while ((pos = t.find("&")) != std::string::npos)
-            t.erase(pos, 1);
-        // Remove *
-        while ((pos = t.find("*")) != std::string::npos)
-            t.erase(pos, 1);
-        // Trim whitespace
-        while (!t.empty() && t[0] == ' ')
-            t.erase(0, 1);
-        while (!t.empty() && t.back() == ' ')
-            t.pop_back();
-        
-        return t;
-    }
-    
-    // Strip the reference from a type, returning the base type
-    // "Model&" -> "Model", "arch::Model &" -> "arch::Model"
-    std::string strip_reference(const std::string &type) const {
-        std::string t = type;
-        // Remove &
-        size_t pos;
-        while ((pos = t.find("&")) != std::string::npos)
-            t.erase(pos, 1);
-        // Trim whitespace
-        while (!t.empty() && t[0] == ' ')
-            t.erase(0, 1);
-        while (!t.empty() && t.back() == ' ')
-            t.pop_back();
-        
-        return t;
-    }
-
     // Normalize type string - remove std::__1::, allocators, const, &, etc.
-    // NOTE: Does NOT remove * - use strip_pointer for that
-    std::string normalize_type(const std::string &t) const {
+    std::string normalize_type(const std::string &t) {
         std::string r = t;
 
         // Remove std::__1:: (libc++ internal namespace)
@@ -803,14 +543,14 @@ private:
     }
 
     // Check if type is a vector (handles various forms)
-    bool is_vector_type(const std::string &type) const {
+    bool is_vector_type(const std::string &type) {
         std::string norm = normalize_type(type);
         return norm.find("vector<") != std::string::npos ||
                norm.find("std::vector<") != std::string::npos;
     }
 
     // Extract element type from vector, handling allocators properly
-    std::string extract_vector_element_type(const std::string &type) const {
+    std::string extract_vector_element_type(const std::string &type) {
         std::string norm = normalize_type(type);
 
         size_t start = norm.find("vector<");
@@ -842,21 +582,18 @@ private:
     }
 
     // Check if a type is a registered class
-    bool is_registered_class(const std::string &type_name) const {
+    bool is_registered_class(const std::string &type_name) {
         auto       &registry = rosetta::Registry::instance();
         std::string norm     = normalize_type(type_name);
-        
-        // Strip pointer if present for the check
-        std::string check_type = strip_pointer(norm);
 
         // Try the type name directly
-        if (registry.get_by_name(check_type) != nullptr)
+        if (registry.get_by_name(norm) != nullptr)
             return true;
 
         // Try stripping namespace
-        size_t pos = check_type.rfind("::");
+        size_t pos = norm.rfind("::");
         if (pos != std::string::npos) {
-            std::string short_name = check_type.substr(pos + 2);
+            std::string short_name = norm.substr(pos + 2);
             if (registry.get_by_name(short_name) != nullptr)
                 return true;
         }
@@ -868,7 +605,7 @@ private:
         return false;
     }
 
-    bool needs_conversion(const std::string &type) const {
+    bool needs_conversion(const std::string &type) {
         if (type.find("vector<") != std::string::npos)
             return true;
         if (type.find("function") != std::string::npos)
@@ -882,27 +619,11 @@ private:
         return false;
     }
 
-    // Get the JavaScript/embind parameter type for a C++ type
-    // For pointer types, returns a reference to the base type
-    // For non-const references, keeps them as references
-    std::string get_js_param_type(const std::string &type) const {
+    std::string get_js_param_type(const std::string &type) {
         if (is_vector_type(type))
             return "val";
         if (type.find("function") != std::string::npos)
             return "val";
-
-        // Handle pointer types: convert to reference for embind compatibility
-        if (is_pointer_type(type)) {
-            std::string base = strip_pointer(type);
-            return base + "&";  // Convert Model* to Model&
-        }
-        
-        // Handle non-const reference types: keep as reference
-        // embind can handle T& in lambda parameters
-        if (is_nonconst_reference_type(type)) {
-            std::string base = strip_reference(type);
-            return base + "&";  // Keep as Model&
-        }
 
         // For registered classes that need conversion
         std::string norm = normalize_type(type);
@@ -913,7 +634,7 @@ private:
     }
 
     // Check if type is a std::function
-    bool is_function_type(const std::string &type) const {
+    bool is_function_type(const std::string &type) {
         std::string norm = normalize_type(type);
         return norm.find("function<") != std::string::npos ||
                norm.find("std::function<") != std::string::npos;
@@ -925,7 +646,7 @@ private:
         std::vector<std::string> param_types;
     };
 
-    FunctionSignature extract_function_signature(const std::string &type) const {
+    FunctionSignature extract_function_signature(const std::string &type) {
         FunctionSignature sig;
         std::string       norm = normalize_type(type);
 
@@ -982,9 +703,7 @@ private:
         return sig;
     }
 
-    // Generate input conversion for a parameter
-    // For pointer types, adds & to get address from reference
-    std::string generate_input_conversion(const std::string &type, const std::string &var) const {
+    std::string generate_input_conversion(const std::string &type, const std::string &var) {
         std::string norm = normalize_type(type);
 
         // Handle std::function types
@@ -1009,16 +728,11 @@ private:
             return "jsArrayToVector<" + elem + ">(" + var + ")";
         }
 
-        // Handle pointer types: take address of the reference
-        if (is_pointer_type(type)) {
-            return "&" + var;  // Convert Model& back to Model*
-        }
-
         return var;
     }
 
     // Generate conversion code for std::function from JavaScript function
-    std::string generate_function_conversion(const std::string &type, const std::string &var) const {
+    std::string generate_function_conversion(const std::string &type, const std::string &var) {
         auto sig = extract_function_signature(type);
 
         if (sig.return_type.empty()) {
@@ -1052,7 +766,7 @@ private:
         return oss.str();
     }
 
-    std::string generate_output_conversion(const std::string &type, const std::string &var) const {
+    std::string generate_output_conversion(const std::string &type, const std::string &var) {
         std::string norm = normalize_type(type);
 
         // Handle vectors

@@ -87,7 +87,7 @@ class PythonStubGenerator : public CodeWriter {
                  ": ...");
         }
 
-        line("def __repr__(self) -> str: ...");
+        // line("def __repr__(self) -> str: ...");
         dedent();
         line();
     }

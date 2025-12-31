@@ -5,7 +5,7 @@
 // JavaScript binding.gyp Generator
 // ============================================================================
 class JsBindingGypGenerator : public CodeWriter {
-  public:
+public:
     using CodeWriter::CodeWriter;
 
     void generate() override {
@@ -15,31 +15,84 @@ class JsBindingGypGenerator : public CodeWriter {
         indent();
         line("{");
         indent();
+        
+        write_target_name();
+        write_sources();
+        write_include_dirs();
+        write_dependencies();
+        write_compiler_flags();
+        write_defines();
+        write_library_config();
+        write_platform_settings();
+        write_conditions();
+        
+        dedent();
+        line("}");
+        dedent();
+        line("]");
+        dedent();
+        line("}");
+    }
+
+private:
+    void write_target_name() {
         line("\"target_name\": \"" + config_.module_name + "\",");
         line();
-        line("\"sources\": [\"generated_napi.cxx\"],");
-        line();
-        line("\"include_dirs\": [");
+    }
+    
+    void write_sources() {
+        line("\"sources\": [");
         indent();
-        line("\"<!@(node -p \\\"require('node-addon-api').include\\\")\",");
-        for (const auto &inc : config_.include_dirs) {
-            std::string cleaned = inc;
-            if (cleaned.find("${") != std::string::npos)
-                continue;
-            line("\"" + cleaned + "\",");
+        line("\"generated_napi.cxx\"");
+        
+        // Add library source files for static compilation
+        if (config_.should_compile_sources() && !config_.source_files.empty()) {
+            for (const auto& src : config_.source_files) {
+                line(", \"" + escape_path(src) + "\"");
+            }
         }
         dedent();
         line("],");
         line();
-        line("\"dependencies\": [\"<!(node -p "
-             "\\\"require('node-addon-api').gyp\\\")\"],");
+    }
+    
+    void write_include_dirs() {
+        line("\"include_dirs\": [");
+        indent();
+        line("\"<!@(node -p \\\"require('node-addon-api').include\\\")\"");
+        for (const auto &inc : config_.include_dirs) {
+            std::string cleaned = inc;
+            if (cleaned.find("${") != std::string::npos)
+                continue;
+            line(", \"" + escape_path(cleaned) + "\"");
+        }
+        dedent();
+        line("],");
         line();
+    }
+    
+    void write_dependencies() {
+        line("\"dependencies\": [\"<!(node -p \\\"require('node-addon-api').gyp\\\")\"],");
+        line();
+    }
+    
+    void write_compiler_flags() {
         line("\"cflags!\": [\"-fno-exceptions\", \"-fno-rtti\"],");
         line("\"cflags_cc!\": [\"-fno-exceptions\", \"-fno-rtti\"],");
         line("\"cflags_cc\": [\"-std=c++20\", \"-fexceptions\"],");
         line();
+    }
+    
+    void write_defines() {
         line("\"defines\": [\"NAPI_CPP_EXCEPTIONS\"],");
         line();
+    }
+    
+    void write_library_config() {
+        // Only include library config for dynamic linking mode
+        if (!config_.should_link_library()) {
+            return;
+        }
         
         // Library directories
         if (!config_.library_dirs.empty()) {
@@ -47,7 +100,7 @@ class JsBindingGypGenerator : public CodeWriter {
             indent();
             for (size_t i = 0; i < config_.library_dirs.size(); ++i) {
                 std::string comma = (i < config_.library_dirs.size() - 1) ? "," : "";
-                line("\"" + config_.library_dirs[i] + "\"" + comma);
+                line("\"" + escape_path(config_.library_dirs[i]) + "\"" + comma);
             }
             dedent();
             line("],");
@@ -73,18 +126,20 @@ class JsBindingGypGenerator : public CodeWriter {
             line("],");
             line();
         }
-        
+    }
+    
+    void write_platform_settings() {
         line("\"xcode_settings\": {");
         indent();
         line("\"GCC_ENABLE_CPP_EXCEPTIONS\": \"YES\",");
         line("\"CLANG_CXX_LANGUAGE_STANDARD\": \"c++20\",");
         line("\"CLANG_CXX_LIBRARY\": \"libc++\",");
         line("\"MACOSX_DEPLOYMENT_TARGET\": \"10.15\",");
-        if (!config_.library_dirs.empty()) {
+        if (config_.should_link_library() && !config_.library_dirs.empty()) {
             std::string lib_paths;
             for (size_t i = 0; i < config_.library_dirs.size(); ++i) {
                 if (i > 0) lib_paths += " ";
-                lib_paths += config_.library_dirs[i];
+                lib_paths += escape_path(config_.library_dirs[i]);
             }
             line("\"LIBRARY_SEARCH_PATHS\": [\"" + lib_paths + "\"],");
         }
@@ -92,6 +147,7 @@ class JsBindingGypGenerator : public CodeWriter {
         dedent();
         line("},");
         line();
+        
         line("\"msvs_settings\": {");
         indent();
         line("\"VCCLCompilerTool\": {");
@@ -99,14 +155,14 @@ class JsBindingGypGenerator : public CodeWriter {
         line("\"ExceptionHandling\": 1,");
         line("\"AdditionalOptions\": [\"/std:c++20\"]");
         dedent();
-        if (!config_.library_dirs.empty()) {
+        if (config_.should_link_library() && !config_.library_dirs.empty()) {
             line("},");
             line("\"VCLinkerTool\": {");
             indent();
             std::string lib_dirs;
             for (size_t i = 0; i < config_.library_dirs.size(); ++i) {
                 if (i > 0) lib_dirs += ";";
-                lib_dirs += config_.library_dirs[i];
+                lib_dirs += escape_path(config_.library_dirs[i]);
             }
             line("\"AdditionalLibraryDirectories\": [\"" + lib_dirs + "\"]");
             dedent();
@@ -115,20 +171,22 @@ class JsBindingGypGenerator : public CodeWriter {
         dedent();
         line("},");
         line();
+    }
+    
+    void write_conditions() {
         line("\"conditions\": [");
         indent();
-        line("[\"OS=='linux'\", {\"cflags_cc\": [\"-std=c++20\", "
-             "\"-fexceptions\"]}],");
-        line("[\"OS=='mac'\", {\"cflags_cc\": [\"-std=c++20\", "
-             "\"-fexceptions\"]}],");
+        line("[\"OS=='linux'\", {\"cflags_cc\": [\"-std=c++20\", \"-fexceptions\"]}],");
+        line("[\"OS=='mac'\", {\"cflags_cc\": [\"-std=c++20\", \"-fexceptions\"]}],");
         line("[\"OS=='win'\", {\"defines\": [\"WIN32\", \"_WINDOWS\"]}]");
         dedent();
         line("]");
-        dedent();
-        line("}");
-        dedent();
-        line("]");
-        dedent();
-        line("}");
+    }
+    
+    std::string escape_path(const std::string& path) const {
+        std::string result = path;
+        // Replace backslashes with forward slashes for JSON
+        std::replace(result.begin(), result.end(), '\\', '/');
+        return result;
     }
 };

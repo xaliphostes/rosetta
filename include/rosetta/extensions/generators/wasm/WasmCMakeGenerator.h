@@ -13,7 +13,7 @@ public:
         write_header();
         write_project();
         write_emscripten_check();
-        write_sources();
+        write_sources();          // Now includes library sources
         write_compile_options();
         write_link_options();
         write_install();
@@ -51,12 +51,47 @@ private:
     }
 
     void write_sources() {
-        line("# WASM module");
-        line("add_executable(${MODULE_NAME}");
+        line("# ==================================================");
+        line("# Source Files");
+        line("# ==================================================");
+        
+        // WASM always requires static compilation - include library sources
+        if (!config_.source_files.empty()) {
+            line("# Library source files (WASM requires static compilation)");
+            line("set(LIB_SOURCES");
+            indent();
+            for (const auto& src : config_.source_files) {
+                line("\"" + src + "\"");
+            }
+            dedent();
+            line(")");
+            blank();
+        }
+        
+        line("# Generated binding source");
+        line("set(BINDING_SOURCES");
         indent();
-        line("generated_embind.cxx");
+        line("${CMAKE_CURRENT_SOURCE_DIR}/generated_embind.cxx");
         dedent();
         line(")");
+        blank();
+        
+        // WASM module - combine all sources
+        line("# WASM module");
+        if (!config_.source_files.empty()) {
+            line("add_executable(${MODULE_NAME}");
+            indent();
+            line("${BINDING_SOURCES}");
+            line("${LIB_SOURCES}");
+            dedent();
+            line(")");
+        } else {
+            line("add_executable(${MODULE_NAME}");
+            indent();
+            line("${BINDING_SOURCES}");
+            dedent();
+            line(")");
+        }
         line();
         
         line("# Include directories");
@@ -70,8 +105,11 @@ private:
         line(")");
         line();
         
-        if (!config_.library_dirs.empty()) {
-            line("# Library directories");
+        // Note: For WASM with static compilation, we typically don't link
+        // against dynamic libraries. But keep this for header-only or
+        // special cases where user wants to link static .a files
+        if (!config_.library_dirs.empty() && config_.should_link_library()) {
+            line("# Library directories (for static libraries)");
             line("target_link_directories(${MODULE_NAME} PRIVATE");
             indent();
             for (const auto& dir : config_.library_dirs) {
@@ -82,8 +120,8 @@ private:
             line();
         }
         
-        if (!config_.link_libraries.empty()) {
-            line("# Link libraries");
+        if (!config_.link_libraries.empty() && config_.should_link_library()) {
+            line("# Link libraries (static .a files for WASM)");
             line("target_link_libraries(${MODULE_NAME} PRIVATE");
             indent();
             for (const auto& lib : config_.link_libraries) {
@@ -113,14 +151,12 @@ private:
         line("--bind");
         line("-sWASM=1");
         
-        // Single file option - embeds WASM as base64 in JS
         if (config_.wasm_single_file) {
             line("-sSINGLE_FILE=1");
         }
         
         line("-sMODULARIZE=1");
         
-        // ES6 module export
         if (config_.wasm_export_es6) {
             line("-sEXPORT_ES6=1");
         }
@@ -129,7 +165,6 @@ private:
         line("-sALLOW_MEMORY_GROWTH=1");
         line("-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']");
         
-        // Target environment
         if (!config_.wasm_environment.empty()) {
             line("-sENVIRONMENT='" + config_.wasm_environment + "'");
         }
@@ -156,7 +191,6 @@ private:
         indent();
         line("${CMAKE_BINARY_DIR}/${MODULE_NAME}.js");
         
-        // Only install separate .wasm file if not using single file mode
         if (!config_.wasm_single_file) {
             line("${CMAKE_BINARY_DIR}/${MODULE_NAME}.wasm");
         }

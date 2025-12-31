@@ -13,8 +13,9 @@ public:
         write_header();
         write_project();
         write_python_config();
+        write_sources();          // Now properly declares LIB_SOURCES if needed
         write_pybind11_config();
-        write_module();
+        write_module();           // Now uses LIB_SOURCES if static compilation
         write_install();
     }
 
@@ -27,9 +28,37 @@ private:
         line();
     }
 
+    void write_sources() {
+        line("# ==================================================");
+        line("# Source Files");
+        line("# ==================================================");
+
+        // Static compilation: declare library source files
+        if (config_.should_compile_sources() && !config_.source_files.empty()) {
+            line("# Third-party/library source files (static compilation)");
+            line("set(LIB_SOURCES");
+            indent();
+            for (const auto &src : config_.source_files) {
+                line("\"" + src + "\"");
+            }
+            dedent();
+            line(")");
+            blank();
+        }
+        
+        line("# Generated binding source");
+        line("set(BINDING_SOURCES");
+        indent();
+        line("${CMAKE_CURRENT_SOURCE_DIR}/generated_pybind11.cxx");
+        dedent();
+        line(")");
+        blank();
+    }
+
     void write_project() {
         line("cmake_minimum_required(VERSION 3.16)");
-        line("project(" + config_.module_name + "_python VERSION " + config_.version + " LANGUAGES CXX)");
+        line("project(" + config_.module_name + "_python VERSION " + config_.version +
+             " LANGUAGES CXX)");
         line();
         line("set(CMAKE_CXX_STANDARD 20)");
         line("set(CMAKE_CXX_STANDARD_REQUIRED ON)");
@@ -66,48 +95,63 @@ private:
 
     void write_module() {
         line("# Create Python module");
-        line("pybind11_add_module(${MODULE_NAME}");
-        indent();
-        line("generated_pybind11.cxx");
-        dedent();
-        line(")");
-        line();
         
+        // Include LIB_SOURCES if static compilation is enabled
+        if (config_.should_compile_sources() && !config_.source_files.empty()) {
+            line("# Static compilation mode - compile all sources into module");
+            line("pybind11_add_module(${MODULE_NAME}");
+            indent();
+            line("${BINDING_SOURCES}");
+            line("${LIB_SOURCES}");
+            dedent();
+            line(")");
+        } else {
+            line("# Dynamic linking mode - link against pre-built library");
+            line("pybind11_add_module(${MODULE_NAME}");
+            indent();
+            line("${BINDING_SOURCES}");
+            dedent();
+            line(")");
+        }
+        line();
+
         line("# Include directories");
         line("target_include_directories(${MODULE_NAME} PRIVATE");
         indent();
         line("${CMAKE_CURRENT_SOURCE_DIR}");
-        for (const auto& dir : config_.include_dirs) {
+        for (const auto &dir : config_.include_dirs) {
             line("\"" + dir + "\"");
         }
         dedent();
         line(")");
         line();
-        
-        if (!config_.library_dirs.empty()) {
+
+        // Library directories (for dynamic linking)
+        if (config_.should_link_library() && !config_.library_dirs.empty()) {
             line("# Library directories");
             line("target_link_directories(${MODULE_NAME} PRIVATE");
             indent();
-            for (const auto& dir : config_.library_dirs) {
+            for (const auto &dir : config_.library_dirs) {
                 line("\"" + dir + "\"");
             }
             dedent();
             line(")");
             line();
         }
-        
-        if (!config_.link_libraries.empty()) {
+
+        // Link libraries (for dynamic linking)
+        if (config_.should_link_library() && !config_.link_libraries.empty()) {
             line("# Link libraries");
             line("target_link_libraries(${MODULE_NAME} PRIVATE");
             indent();
-            for (const auto& lib : config_.link_libraries) {
+            for (const auto &lib : config_.link_libraries) {
                 line(lib);
             }
             dedent();
             line(")");
             line();
         }
-        
+
         line("# Platform-specific settings");
         line("if(WIN32 AND Python_LIBRARIES)");
         indent();
@@ -115,7 +159,7 @@ private:
         dedent();
         line("endif()");
         line();
-        
+
         line("set_target_properties(${MODULE_NAME} PROPERTIES");
         indent();
         line("LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_BINARY_DIR}\"");
@@ -123,7 +167,7 @@ private:
         dedent();
         line(")");
         line();
-        
+
         line("if(WIN32)");
         indent();
         line("set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX \".pyd\")");
@@ -141,7 +185,7 @@ private:
         dedent();
         line(")");
         line();
-        
+
         if (config_.generate_stubs) {
             line("# Install type stubs");
             line("install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${MODULE_NAME}.pyi");

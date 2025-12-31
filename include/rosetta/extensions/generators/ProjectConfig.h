@@ -7,17 +7,84 @@
 // Project Configuration - Loaded from JSON/YAML config file
 // ============================================================================
 
+// Source compilation mode
+enum class LinkMode {
+    Dynamic,    // Link against pre-built library (current behavior)
+    Static,     // Compile source files directly into binding
+    Both        // Support both modes (generate both configurations)
+};
+
+struct SourceConfig {
+    LinkMode mode = LinkMode::Dynamic;
+    
+    // Explicit list of source files (relative to config file or absolute)
+    std::vector<std::string> files;
+    
+    // Glob patterns for recursive file discovery
+    std::vector<std::string> glob_patterns;
+    
+    // Patterns to exclude from glob results
+    std::vector<std::string> exclude_patterns;
+    
+    // Base directory for relative paths and glob patterns
+    std::string base_dir;
+    
+    // Helper to check if we need to compile sources
+    bool has_sources() const {
+        return !files.empty() || !glob_patterns.empty();
+    }
+    
+    // Helper to check if static compilation is enabled
+    bool is_static() const {
+        return mode == LinkMode::Static || mode == LinkMode::Both;
+    }
+    
+    // Helper to check if dynamic linking is enabled
+    bool is_dynamic() const {
+        return mode == LinkMode::Dynamic || mode == LinkMode::Both;
+    }
+};
+
 struct TargetConfig {
     bool enabled = false;
     std::string output_dir;  // Override default output directory
     std::vector<std::string> extra_sources;  // Additional source files
     std::vector<std::string> extra_libs;     // Additional libraries to link
     
+    // Per-target link mode override (optional)
+    // If not set, uses global sources.mode
+    std::optional<LinkMode> link_mode_override;
+    
+    // Per-target additional source files (merged with global)
+    SourceConfig target_sources;
+    
     // WASM-specific options
     bool single_file = false;        // Embed WASM binary in JS file
     bool export_es6 = false;         // Generate ES6 module
     std::string environment = "";    // Target environment: "web", "node", "web,node"
+    
+    // Get effective link mode (target override or global)
+    LinkMode get_link_mode(LinkMode global_mode) const {
+        return link_mode_override.value_or(global_mode);
+    }
+
+    // Check if this target has its own source configuration
+    bool has_target_sources() const {
+        return target_sources.has_sources();
+    }
 };
+
+// struct TargetConfig {
+//     bool enabled = false;
+//     std::string output_dir;  // Override default output directory
+//     std::vector<std::string> extra_sources;  // Additional source files
+//     std::vector<std::string> extra_libs;     // Additional libraries to link
+    
+//     // WASM-specific options
+//     bool single_file = false;        // Embed WASM binary in JS file
+//     bool export_es6 = false;         // Generate ES6 module
+//     std::string environment = "";    // Target environment: "web", "node", "web,node"
+// };
 
 struct ProjectConfig {
     // Project metadata
@@ -26,6 +93,9 @@ struct ProjectConfig {
     std::string description = "C++ bindings generated from Rosetta introspection";
     std::string author = "Generated";
     std::string license = "MIT";
+
+    // Sources config
+    SourceConfig sources;
     
     // Rosetta registration
     std::string registration_header;     // Path to the registration.h file
