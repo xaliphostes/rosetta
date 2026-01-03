@@ -41,7 +41,7 @@ Describe your introspection once, and export them everywhere. You do not need to
 Rosetta supports two complementary workflows:
 
 1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
-2. **Interface Description Language (IDL)** via YAML files (***STILL IN DEV MODE!***)
+2. **Interface Description Language (IDL)** via YAML files (***STILL IN DEV MODE, no sure to continue!***)
 
 ## 🧩 Usages
 
@@ -148,7 +148,7 @@ void rosetta_registration() {
 Since the introspection of your C++ classes (and free functions) is now created by Rosetta, binding is
 straightforward as long as the generator for a given language is available.
 
-Read [this tuto](./include/rosetta/extensions/generators/USAGE.md) for how to use the generators in combination with Rosetta.
+Read [**this tuto**](./include/rosetta/extensions/generators/USAGE.md) and have a look at [**this example**](examples/geometry_generator/) for how to use the generators in combination with Rosetta. Also, for a more complex example, see [**this project**](https://github.com/xaliphostes/arch3-rosetta).
 
 ## 🖼️ Qt Integration
 
