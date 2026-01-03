@@ -7,14 +7,14 @@ Custom binding generator for the geometry project that properly populates the Ro
 The standard `binding_generator` executable doesn't know about the project's classes. It queries `rosetta::Registry::instance()` at generation time, but the registry is empty because the `register_rosetta_classes()` function is never called.
 
 This custom generator solves the problem by:
-1. Including the `registration.h`
+1. Including the `registration.h` (i.e., your personal rosetta registration of a given C++ lib)
 2. Calling `register_rosetta_classes()` **before** generating
 3. Now the generator finds all the classes (Point, Triangle, Surface, Model)
 
 
 ## Build Instructions
 
-### Option 1: Build from geometry_generator (no specif)
+### 1. Build geometry_generator binary
 
 ```bash
 cd geometry_generator
@@ -22,51 +22,18 @@ mkdir build && cd build
 cmake ..
 make
 ```
+This will create the binary `geometry_generator` in the `build`directory. 
 
-### Option 2: Build from geometry_generator directory
-
-```bash
-cd geometry_generator
-mkdir build && cd build
-
-cmake .. \
-    -DBINDING_GENERATOR_DIR=../../binding_generator \
-    -DROSETTA_INCLUDE_DIR=../../include \
-    -DGEOMETRY_PROJECT_DIR=../..
-
-make
-```
-
-### Option 3: Specify absolute paths
-
-```bash
-cmake .. \
-    -DBINDING_GENERATOR_DIR=/path/to/binding_generator \
-    -DROSETTA_INCLUDE_DIR=/path/to/rosetta/include \
-    -DGEOMETRY_PROJECT_DIR=/path/to/geometry_project
-
-make
-```
-
-## Generate Bindings
+### 2. Generate Bindings
 
 After building:
 
 ```bash
-# From the build directory
+# Still from the build directory
 ./geometry_generator ../project.json
-
-# Or from project root
-./geometry_generator/build/geometry_binding_generator project.json
 ```
 
-Or use the convenience target:
-
-```bash
-make generate_bindings
-```
-
-## Expected Output
+#### Expected Output
 
 After running, you should see:
 
@@ -85,25 +52,30 @@ Configuration loaded:
 ✅ All bindings generated successfully!
 ```
 
-## Troubleshooting
+All the generated targets are in the `build/generated` folder.
 
-### "rosetta/rosetta.h not found"
-Make sure `ROSETTA_INCLUDE_DIR` points to the directory containing `rosetta/rosetta.h`.
 
-### "registration.h not found"
-Make sure `GEOMETRY_PROJECT_DIR` points to your project root that contains `bindings/registration.h`.
-
-### "BindingGeneratorLib.h not found"
-Make sure `BINDING_GENERATOR_DIR` points to the directory containing all the generator headers.
-
-### Generated bindings still empty
-Verify that `register_rosetta_classes()` is being called by adding a print statement:
-```cpp
-void register_rosetta_classes() {
-    std::cout << "Registering classes with Rosetta...\n";
-    // ... rest of registration
-}
-```
-
-## Compiling and testing
-For each binding, go to the respective folder
+### 3. Compiling and testing
+For each binding, go to the respective folder (`python`, `javascript`, `wasm`, `rest`...) and follow the instruction in the README. Typically, you will have to
+- Python : 
+    ```sh
+    mkdir build && cd build
+    cmake ..
+    make
+    ```
+- JavaScript: 
+    ```sh
+    npm i
+    ```
+- REST-API :
+    ```sh
+    mkdir build && cd build
+    cmake ..
+    make
+    ```
+- Wasm :
+    ```sh
+    mkdir build && cd build
+    emcmake cmake ..
+    emmake make
+    ```

@@ -1,5 +1,5 @@
 #pragma once
-#include "../CodeWriter.h"
+#include "../common/CodeWriter.h"
 
 // ============================================================================
 // JavaScript README Generator

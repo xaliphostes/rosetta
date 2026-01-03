@@ -148,7 +148,7 @@ void rosetta_registration() {
 Since the introspection of your C++ classes (and free functions) is now created by Rosetta, binding is
 straightforward as long as the generator for a given language is available.
 
-Read [this tuto](./generators/USAGE.md) for how to use the generators in combination with Rosetta.
+Read [this tuto](./include/rosetta/extensions/generators/USAGE.md) for how to use the generators in combination with Rosetta.
 
 ## 🖼️ Qt Integration
 
@@ -224,7 +224,7 @@ You're very welcome to create a generator based on **Rosetta introspection** for
 
 Also, any extension is welcome ;-)
 
-👉 Check out [this folder](generators/) to see the existing **Python**, **JavaScript**, **Wasm** and **REST API** generators for inspiration.
+👉 Check out [this folder](include/rosetta/extensions/generators/) to see the existing **Python**, **JavaScript**, **Wasm** and **REST API** generators for inspiration.
 
 Every new generator or extension helps expand the ecosystem — contributions are always greatly appreciated ❤️
 

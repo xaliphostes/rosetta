@@ -1,5 +1,5 @@
 #pragma once
-#include "../CodeWriter.h"
+#include "../common/CodeWriter.h"
 
 // ============================================================================
 // REST API Example Generator (index.html)
