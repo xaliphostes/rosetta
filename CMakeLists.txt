@@ -22,4 +22,4 @@ endfunction()
 enable_testing()
 auto_discover_tests()
 
-add_subdirectory(examples/cpp/basic)
+add_subdirectory(examples/cpp)
