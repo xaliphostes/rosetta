@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ============================================================================
 message("Current source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 set(BINDING_GENERATOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/binding_generator")
-set(ROSETTA_INCLUDE_DIR "../../../include")
+set(ROSETTA_INCLUDE_DIR "../../include")
 
 # ============================================================================
 # Dependencies

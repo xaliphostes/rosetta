@@ -1,4 +1,9 @@
 {
+    "variables": {
+        "PROJECT_ROOT": "../..",
+        "ROSETTA_ROOT": "../../../../",
+        "BUILD_DIR": "${PROJECT_ROOT}/build"
+    },
     "advanced": {
         "numpy_types": [
             "std::vector<double>"
@@ -8,9 +13,9 @@
     },
     "includes": {
         "directories": [
-            "../..",
-            "../../..",
-            "../../../../../../include"
+            "${PROJECT_ROOT}",
+            "${ROSETTA_ROOT}/include/",
+            "../../.."
         ],
         "headers": [
             "third/common.h",

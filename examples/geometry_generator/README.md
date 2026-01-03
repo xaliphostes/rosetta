@@ -54,7 +54,7 @@ After building:
 
 ```bash
 # From the build directory
-./geometry_binding_generator ../../project.json
+./geometry_generator ../project.json
 
 # Or from project root
 ./geometry_generator/build/geometry_binding_generator project.json

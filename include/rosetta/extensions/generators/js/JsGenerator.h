@@ -1,8 +1,8 @@
 #pragma once
 #include "../CodeWriter.h"
-#include <rosetta/rosetta.h>
 #include <algorithm>
 #include <regex>
+#include <rosetta/rosetta.h>
 #include <set>
 
 // ============================================================================
@@ -24,24 +24,22 @@ public:
 
 private:
     using ConstructorMeta = rosetta::core::Registry::MetadataHolder::ConstructorMeta;
-    using MethodMeta = rosetta::core::Registry::MetadataHolder::MethodMeta;
-    using PropertyMeta = rosetta::core::Registry::MetadataHolder::PropertyMeta;
+    using MethodMeta      = rosetta::core::Registry::MetadataHolder::MethodMeta;
+    using PropertyMeta    = rosetta::core::Registry::MetadataHolder::PropertyMeta;
 
     // Set of Python-specific dunder methods to skip
     const std::set<std::string> python_dunder_methods_ = {
-        "__repr__", "__str__", "__len__", "__getitem__", "__setitem__",
-        "__delitem__", "__iter__", "__next__", "__contains__", "__add__",
-        "__sub__", "__mul__", "__div__", "__truediv__", "__floordiv__",
-        "__mod__", "__pow__", "__and__", "__or__", "__xor__", "__lshift__",
-        "__rshift__", "__neg__", "__pos__", "__abs__", "__invert__",
-        "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
-        "__hash__", "__bool__", "__call__", "__enter__", "__exit__",
-        "__radd__", "__rsub__", "__rmul__", "__rtruediv__", "__iadd__",
-        "__isub__", "__imul__", "__itruediv__", "__copy__", "__deepcopy__"
-    };
+        "__repr__", "__str__",     "__len__",      "__getitem__", "__setitem__",  "__delitem__",
+        "__iter__", "__next__",    "__contains__", "__add__",     "__sub__",      "__mul__",
+        "__div__",  "__truediv__", "__floordiv__", "__mod__",     "__pow__",      "__and__",
+        "__or__",   "__xor__",     "__lshift__",   "__rshift__",  "__neg__",      "__pos__",
+        "__abs__",  "__invert__",  "__eq__",       "__ne__",      "__lt__",       "__le__",
+        "__gt__",   "__ge__",      "__hash__",     "__bool__",    "__call__",     "__enter__",
+        "__exit__", "__radd__",    "__rsub__",     "__rmul__",    "__rtruediv__", "__iadd__",
+        "__isub__", "__imul__",    "__itruediv__", "__copy__",    "__deepcopy__"};
 
     // Check if a method is a Python-specific dunder method
-    bool is_python_dunder_method(const std::string& method_name) const {
+    bool is_python_dunder_method(const std::string &method_name) const {
         return python_dunder_methods_.find(method_name) != python_dunder_methods_.end();
     }
 
@@ -66,15 +64,15 @@ private:
         line();
         line("#include <rosetta/rosetta.h>");
         line();
-        
+
         if (!config_.source_headers.empty()) {
             line("// Project headers");
-            for (const auto& header : config_.source_headers) {
+            for (const auto &header : config_.source_headers) {
                 line("#include <" + header + ">");
             }
             line();
         }
-        
+
         if (!config_.registration_header.empty()) {
             line(config_.get_registration_include());
             line();
@@ -101,7 +99,8 @@ private:
         line("}");
         line();
 
-        line("inline std::vector<double> typedArrayToVectorDouble(const Napi::Float64Array& arr) {");
+        line(
+            "inline std::vector<double> typedArrayToVectorDouble(const Napi::Float64Array& arr) {");
         indent();
         line("std::vector<double> vec(arr.ElementLength());");
         line("for (size_t i = 0; i < arr.ElementLength(); ++i) {");
@@ -127,7 +126,8 @@ private:
         line("}");
         line();
 
-        line("inline Napi::Int32Array vectorIntToTypedArray(Napi::Env env, const std::vector<int>& vec) {");
+        line("inline Napi::Int32Array vectorIntToTypedArray(Napi::Env env, const std::vector<int>& "
+             "vec) {");
         indent();
         line("auto arr = Napi::Int32Array::New(env, vec.size());");
         line("for (size_t i = 0; i < vec.size(); ++i) {");
@@ -145,8 +145,8 @@ private:
         line("// Forward declarations");
         line("// ============================================================================");
         line();
-        auto& registry = rosetta::Registry::instance();
-        for (const auto& name : registry.list_classes()) {
+        auto &registry = rosetta::Registry::instance();
+        for (const auto &name : registry.list_classes()) {
             if (!config_.should_skip_class(name)) {
                 std::string simple_name = get_simple_class_name(name);
                 line("class " + simple_name + "Wrapper;");
@@ -158,37 +158,43 @@ private:
         // Skip abstract classes and non-copyable types for vector conversions
         line("// Type-specific conversion function declarations");
         line("// (Implementations defined after wrapper class definitions)");
-        for (const auto& name : registry.list_classes()) {
+        for (const auto &name : registry.list_classes()) {
             if (!config_.should_skip_class(name)) {
-                auto* holder = registry.get_by_name(name);
+                auto *holder = registry.get_by_name(name);
                 if (holder) {
-                    std::string cpp_type = holder->get_cpp_type_name();
+                    std::string cpp_type  = holder->get_cpp_type_name();
                     std::string safe_name = make_safe_identifier(name);
-                    
+
                     // Check if this class should skip vector conversion
-                    // (we'll determine this based on whether it has constructors - abstract classes typically don't)
+                    // (we'll determine this based on whether it has constructors - abstract classes
+                    // typically don't)
                     bool has_default_ctor = false;
-                    auto ctors = holder->get_constructors();
-                    for (const auto& ctor : ctors) {
+                    auto ctors            = holder->get_constructors();
+                    for (const auto &ctor : ctors) {
                         if (ctor.get_param_types().empty()) {
                             has_default_ctor = true;
                             break;
                         }
                     }
-                    
+
                     // Only generate vector conversion for classes with default constructors
                     // (non-copyable and abstract classes won't work with our current approach)
                     if (has_default_ctor) {
-                        line("std::vector<" + cpp_type + "> jsArrayToVector_" + safe_name + "(Napi::Env env, const Napi::Value& arr);");
-                        line("Napi::Array vectorToJsArray_" + safe_name + "(Napi::Env env, const std::vector<" + cpp_type + ">& vec);");
+                        line("std::vector<" + cpp_type + "> jsArrayToVector_" + safe_name +
+                             "(Napi::Env env, const Napi::Value& arr);");
+                        line("Napi::Array vectorToJsArray_" + safe_name +
+                             "(Napi::Env env, const std::vector<" + cpp_type + ">& vec);");
                     } else {
                         skip_vector_conversion_.insert(name);
-                        line("// Skipped vector conversion for " + name + " (no default constructor or abstract/non-copyable)");
+                        line("// Skipped vector conversion for " + name +
+                             " (no default constructor or abstract/non-copyable)");
                     }
-                    
+
                     // Single object wrap/unwrap - use shared_ptr for safety
-                    line("std::shared_ptr<" + cpp_type + "> unwrapObjectPtr_" + safe_name + "(const Napi::Value& val);");
-                    line("Napi::Value wrapObjectPtr_" + safe_name + "(Napi::Env env, std::shared_ptr<" + cpp_type + "> val);");
+                    line("std::shared_ptr<" + cpp_type + "> unwrapObjectPtr_" + safe_name +
+                         "(const Napi::Value& val);");
+                    line("Napi::Value wrapObjectPtr_" + safe_name +
+                         "(Napi::Env env, std::shared_ptr<" + cpp_type + "> val);");
                 }
             }
         }
@@ -201,22 +207,22 @@ private:
         line("// ============================================================================");
         line();
 
-        auto& registry = rosetta::Registry::instance();
-        auto class_names = registry.list_classes();
+        auto &registry    = rosetta::Registry::instance();
+        auto  class_names = registry.list_classes();
 
-        for (const auto& name : class_names) {
-            auto* holder = registry.get_by_name(name);
+        for (const auto &name : class_names) {
+            auto *holder = registry.get_by_name(name);
             if (holder && !config_.should_skip_class(name)) {
                 write_class_wrapper(name, holder);
             }
         }
     }
 
-    void write_class_wrapper(const std::string& name,
-                             const rosetta::core::Registry::MetadataHolder* holder) {
-        std::string cpp_type = holder->get_cpp_type_name();
-        std::string simple_name = get_simple_class_name(name);
-        std::string wrapper_name = simple_name + "Wrapper";
+    void write_class_wrapper(const std::string                             &name,
+                             const rosetta::core::Registry::MetadataHolder *holder) {
+        std::string cpp_type      = holder->get_cpp_type_name();
+        std::string simple_name   = get_simple_class_name(name);
+        std::string wrapper_name  = simple_name + "Wrapper";
         std::string js_class_name = simple_name;
 
         line("// --- " + name + " ---");
@@ -233,43 +239,48 @@ private:
         indent();
 
         std::vector<std::string> members;
-        
+
         // Fields (actual C++ member fields)
-        for (const auto& field : holder->get_fields()) {
+        for (const auto &field : holder->get_fields()) {
             if (!config_.should_skip_method(name, field)) {
-                members.push_back("InstanceAccessor<&" + wrapper_name + "::GetField_" + field + 
-                                 ", &" + wrapper_name + "::SetField_" + field + ">(\"" + field + "\")");
+                members.push_back("InstanceAccessor<&" + wrapper_name + "::GetField_" + field +
+                                  ", &" + wrapper_name + "::SetField_" + field + ">(\"" + field +
+                                  "\")");
             }
         }
 
         // Properties (virtual fields via getter/setter)
-        for (const auto& prop_name : holder->get_properties()) {
+        for (const auto &prop_name : holder->get_properties()) {
             if (!config_.should_skip_method(name, prop_name)) {
                 auto prop_info = holder->get_property_info(prop_name);
                 if (prop_info.is_readonly) {
-                    members.push_back("InstanceAccessor<&" + wrapper_name + "::GetProp_" + prop_name + 
-                                     ">(\"" + prop_name + "\")");
+                    members.push_back("InstanceAccessor<&" + wrapper_name + "::GetProp_" +
+                                      prop_name + ">(\"" + prop_name + "\")");
                 } else {
-                    members.push_back("InstanceAccessor<&" + wrapper_name + "::GetProp_" + prop_name + 
-                                     ", &" + wrapper_name + "::SetProp_" + prop_name + ">(\"" + prop_name + "\")");
+                    members.push_back("InstanceAccessor<&" + wrapper_name + "::GetProp_" +
+                                      prop_name + ", &" + wrapper_name + "::SetProp_" + prop_name +
+                                      ">(\"" + prop_name + "\")");
                 }
             }
         }
-        
+
         // Methods - skip Python dunder methods and methods that shadow properties/fields
-        auto fields = holder->get_fields();
-        auto properties = holder->get_properties();
+        auto                  fields     = holder->get_fields();
+        auto                  properties = holder->get_properties();
         std::set<std::string> field_set(fields.begin(), fields.end());
         std::set<std::string> prop_set(properties.begin(), properties.end());
-        
-        for (const auto& m : holder->get_methods()) {
+
+        for (const auto &m : holder->get_methods()) {
             // Skip if this method name matches a field or property name
             // (these are likely getter methods that are already exposed as properties)
-            if (field_set.find(m) != field_set.end()) continue;
-            if (prop_set.find(m) != prop_set.end()) continue;
-            
+            if (field_set.find(m) != field_set.end())
+                continue;
+            if (prop_set.find(m) != prop_set.end())
+                continue;
+
             if (!config_.should_skip_method(name, m) && !is_python_dunder_method(m)) {
-                members.push_back("InstanceMethod<&" + wrapper_name + "::" + m + ">(\"" + m + "\")");
+                members.push_back("InstanceMethod<&" + wrapper_name + "::" + m + ">(\"" + m +
+                                  "\")");
             }
         }
 
@@ -295,37 +306,42 @@ private:
 
         line("std::shared_ptr<" + cpp_type + "> GetInstance() { return instance_; }");
         line();
-        
+
         // Allow setting instance from outside (for wrapping existing objects)
         line("void SetInstance(std::shared_ptr<" + cpp_type + "> inst) { instance_ = inst; }");
         line();
 
         // Generate field accessors
-        for (const auto& field : holder->get_fields()) {
+        for (const auto &field : holder->get_fields()) {
             if (!config_.should_skip_method(name, field)) {
                 write_field_accessors(cpp_type, field, holder);
             }
         }
 
         // Generate property accessors
-        for (const auto& prop_name : holder->get_properties()) {
+        for (const auto &prop_name : holder->get_properties()) {
             if (!config_.should_skip_method(name, prop_name)) {
                 auto prop_info = holder->get_property_info(prop_name);
                 write_property_accessors(cpp_type, prop_info, holder);
             }
         }
 
-        // Generate method wrappers - skip Python dunder methods and methods that shadow properties/fields
-        auto fields_for_methods = holder->get_fields();
-        auto props_for_methods = holder->get_properties();
-        std::set<std::string> field_set_for_methods(fields_for_methods.begin(), fields_for_methods.end());
-        std::set<std::string> prop_set_for_methods(props_for_methods.begin(), props_for_methods.end());
-        
-        for (const auto& m : holder->get_methods()) {
+        // Generate method wrappers - skip Python dunder methods and methods that shadow
+        // properties/fields
+        auto                  fields_for_methods = holder->get_fields();
+        auto                  props_for_methods  = holder->get_properties();
+        std::set<std::string> field_set_for_methods(fields_for_methods.begin(),
+                                                    fields_for_methods.end());
+        std::set<std::string> prop_set_for_methods(props_for_methods.begin(),
+                                                   props_for_methods.end());
+
+        for (const auto &m : holder->get_methods()) {
             // Skip if this method name matches a field or property name
-            if (field_set_for_methods.find(m) != field_set_for_methods.end()) continue;
-            if (prop_set_for_methods.find(m) != prop_set_for_methods.end()) continue;
-            
+            if (field_set_for_methods.find(m) != field_set_for_methods.end())
+                continue;
+            if (prop_set_for_methods.find(m) != prop_set_for_methods.end())
+                continue;
+
             if (!config_.should_skip_method(name, m) && !is_python_dunder_method(m)) {
                 write_method_wrapper(cpp_type, m, holder);
             }
@@ -340,15 +356,14 @@ private:
         line();
     }
 
-    void write_constructor(const std::string& wrapper_name,
-                           const std::string& cpp_type,
-                           const rosetta::core::Registry::MetadataHolder* holder) {
+    void write_constructor(const std::string &wrapper_name, const std::string &cpp_type,
+                           const rosetta::core::Registry::MetadataHolder *holder) {
         line(wrapper_name + "(const Napi::CallbackInfo& info)");
         line("    : Napi::ObjectWrap<" + wrapper_name + ">(info) {");
         indent();
         line("Napi::Env env = info.Env();");
         line("(void)env; // May be unused if no constructors");
-        
+
         auto ctors = holder->get_constructors();
         if (ctors.empty()) {
             // No constructors registered - might be abstract or special class
@@ -357,16 +372,16 @@ private:
         } else {
             line("size_t argc = info.Length();");
             line();
-            
+
             bool first = true;
-            for (const auto& ctor : ctors) {
-                auto params = ctor.get_param_types();
+            for (const auto &ctor : ctors) {
+                auto        params    = ctor.get_param_types();
                 std::string condition = first ? "if" : "} else if";
-                first = false;
-                
+                first                 = false;
+
                 line(condition + " (argc == " + std::to_string(params.size()) + ") {");
                 indent();
-                
+
                 if (params.empty()) {
                     line("instance_ = std::make_shared<" + cpp_type + ">();");
                 } else {
@@ -375,28 +390,29 @@ private:
                         std::string arg = generate_arg_extraction(params[i], i);
                         args.push_back(arg);
                     }
-                    line("instance_ = std::make_shared<" + cpp_type + ">(" + join(args, ", ") + ");");
+                    line("instance_ = std::make_shared<" + cpp_type + ">(" + join(args, ", ") +
+                         ");");
                 }
                 dedent();
             }
             line("} else {");
             indent();
-            line("Napi::TypeError::New(env, \"Invalid number of arguments\").ThrowAsJavaScriptException();");
+            line("Napi::TypeError::New(env, \"Invalid number of "
+                 "arguments\").ThrowAsJavaScriptException();");
             dedent();
             line("}");
         }
-        
+
         dedent();
         line("}");
         line();
     }
 
-    void write_field_accessors(const std::string& cpp_type,
-                               const std::string& field_name,
-                               const rosetta::core::Registry::MetadataHolder* holder) {
+    void write_field_accessors(const std::string &cpp_type, const std::string &field_name,
+                               const rosetta::core::Registry::MetadataHolder *holder) {
         std::type_index field_type = holder->get_field_type(field_name);
-        std::string type_str = rosetta::demangle(field_type.name());
-        
+        std::string     type_str   = rosetta::demangle(field_type.name());
+
         // Getter
         line("Napi::Value GetField_" + field_name + "(const Napi::CallbackInfo& info) {");
         indent();
@@ -407,46 +423,49 @@ private:
         line();
 
         // Setter
-        line("void SetField_" + field_name + "(const Napi::CallbackInfo& info, const Napi::Value& value) {");
+        line("void SetField_" + field_name +
+             "(const Napi::CallbackInfo& info, const Napi::Value& value) {");
         indent();
         line("Napi::Env env = info.Env();");
-        line("instance_->" + field_name + " = " + generate_value_extraction(type_str, "value") + ";");
+        line("instance_->" + field_name + " = " + generate_value_extraction(type_str, "value") +
+             ";");
         dedent();
         line("}");
         line();
     }
 
-    void write_property_accessors(const std::string& cpp_type,
-                                  const PropertyMeta& prop,
-                                  const rosetta::core::Registry::MetadataHolder* holder) {
+    void write_property_accessors(const std::string &cpp_type, const PropertyMeta &prop,
+                                  const rosetta::core::Registry::MetadataHolder *holder) {
         std::string type_str = prop.get_value_type_str();
         std::string cap_name = capitalize(prop.name);
-        
+
         // Getter
         line("Napi::Value GetProp_" + prop.name + "(const Napi::CallbackInfo& info) {");
         indent();
         line("Napi::Env env = info.Env();");
-        line("return " + generate_return_conversion(type_str, "instance_->get" + cap_name + "()") + ";");
+        line("return " + generate_return_conversion(type_str, "instance_->get" + cap_name + "()") +
+             ";");
         dedent();
         line("}");
         line();
 
         // Setter (only if not read-only)
         if (!prop.is_readonly) {
-            line("void SetProp_" + prop.name + "(const Napi::CallbackInfo& info, const Napi::Value& value) {");
+            line("void SetProp_" + prop.name +
+                 "(const Napi::CallbackInfo& info, const Napi::Value& value) {");
             indent();
             line("Napi::Env env = info.Env();");
-            line("instance_->set" + cap_name + "(" + generate_value_extraction(type_str, "value") + ");");
+            line("instance_->set" + cap_name + "(" + generate_value_extraction(type_str, "value") +
+                 ");");
             dedent();
             line("}");
             line();
         }
     }
 
-    void write_method_wrapper(const std::string& cpp_type,
-                              const std::string& method_name,
-                              const rosetta::core::Registry::MetadataHolder* holder) {
-        auto info = holder->get_method_info(method_name);
+    void write_method_wrapper(const std::string &cpp_type, const std::string &method_name,
+                              const rosetta::core::Registry::MetadataHolder *holder) {
+        auto info        = holder->get_method_info(method_name);
         auto param_types = info.get_param_types_str();
         auto return_type = info.get_return_type_str();
 
@@ -458,7 +477,8 @@ private:
         if (!param_types.empty()) {
             line("if (info.Length() < " + std::to_string(param_types.size()) + ") {");
             indent();
-            line("Napi::TypeError::New(env, \"Wrong number of arguments\").ThrowAsJavaScriptException();");
+            line("Napi::TypeError::New(env, \"Wrong number of "
+                 "arguments\").ThrowAsJavaScriptException();");
             line("return env.Undefined();");
             dedent();
             line("}");
@@ -467,17 +487,18 @@ private:
 
         // Use Rosetta's invoke_method mechanism (works for regular methods AND lambda methods)
         line("std::vector<rosetta::Any> args;");
-        
+
         // Convert each JS argument to rosetta::Any
         for (size_t i = 0; i < param_types.size(); ++i) {
             std::string extraction = generate_arg_extraction(param_types[i], i);
             line("args.push_back(rosetta::Any(" + extraction + "));");
         }
         line();
-        
+
         // Get the metadata and invoke the method
         line("auto& meta = rosetta::Registry::instance().get<" + cpp_type + ">();");
-        line("auto result = meta.invoke_method(*instance_, \"" + method_name + "\", std::move(args));");
+        line("auto result = meta.invoke_method(*instance_, \"" + method_name +
+             "\", std::move(args));");
         line();
 
         if (return_type == "void") {
@@ -498,14 +519,15 @@ private:
         line("// Static Member Definitions for Wrapper Classes");
         line("// ============================================================================");
         line();
-        
-        auto& registry = rosetta::Registry::instance();
-        auto class_names = registry.list_classes();
+
+        auto &registry    = rosetta::Registry::instance();
+        auto  class_names = registry.list_classes();
 
         // Define static constructor members
-        for (const auto& name : class_names) {
-            if (config_.should_skip_class(name)) continue;
-            std::string simple_name = get_simple_class_name(name);
+        for (const auto &name : class_names) {
+            if (config_.should_skip_class(name))
+                continue;
+            std::string simple_name  = get_simple_class_name(name);
             std::string wrapper_name = simple_name + "Wrapper";
             line("Napi::FunctionReference " + wrapper_name + "::constructor;");
         }
@@ -516,26 +538,31 @@ private:
         line("// ============================================================================");
         line();
 
-        for (const auto& name : class_names) {
-            if (config_.should_skip_class(name)) continue;
-            auto* holder = registry.get_by_name(name);
-            if (!holder) continue;
-            
-            std::string cpp_type = holder->get_cpp_type_name();
-            std::string simple_name = get_simple_class_name(name);
+        for (const auto &name : class_names) {
+            if (config_.should_skip_class(name))
+                continue;
+            auto *holder = registry.get_by_name(name);
+            if (!holder)
+                continue;
+
+            std::string cpp_type     = holder->get_cpp_type_name();
+            std::string simple_name  = get_simple_class_name(name);
             std::string wrapper_name = simple_name + "Wrapper";
-            std::string safe_name = make_safe_identifier(name);
-            
-            bool should_skip_vector = skip_vector_conversion_.find(name) != skip_vector_conversion_.end();
-            
+            std::string safe_name    = make_safe_identifier(name);
+
+            bool should_skip_vector =
+                skip_vector_conversion_.find(name) != skip_vector_conversion_.end();
+
             // Only generate vector conversion for copyable types with default constructors
             if (!should_skip_vector) {
                 // jsArrayToVector_ClassName
-                line("std::vector<" + cpp_type + "> jsArrayToVector_" + safe_name + "(Napi::Env env, const Napi::Value& val) {");
+                line("std::vector<" + cpp_type + "> jsArrayToVector_" + safe_name +
+                     "(Napi::Env env, const Napi::Value& val) {");
                 indent();
                 line("if (!val.IsArray()) {");
                 indent();
-                line("throw std::runtime_error(\"Expected an array for std::vector<" + name + ">\");");
+                line("throw std::runtime_error(\"Expected an array for std::vector<" + name +
+                     ">\");");
                 dedent();
                 line("}");
                 line("Napi::Array arr = val.As<Napi::Array>();");
@@ -546,7 +573,8 @@ private:
                 line("Napi::Value elem = arr.Get(i);");
                 line("if (elem.IsObject()) {");
                 indent();
-                line(wrapper_name + "* wrapper = Napi::ObjectWrap<" + wrapper_name + ">::Unwrap(elem.As<Napi::Object>());");
+                line(wrapper_name + "* wrapper = Napi::ObjectWrap<" + wrapper_name +
+                     ">::Unwrap(elem.As<Napi::Object>());");
                 line("if (wrapper && wrapper->GetInstance()) {");
                 indent();
                 line("result.push_back(*(wrapper->GetInstance()));");
@@ -560,15 +588,17 @@ private:
                 dedent();
                 line("}");
                 line();
-                
+
                 // vectorToJsArray_ClassName
-                line("Napi::Array vectorToJsArray_" + safe_name + "(Napi::Env env, const std::vector<" + cpp_type + ">& vec) {");
+                line("Napi::Array vectorToJsArray_" + safe_name +
+                     "(Napi::Env env, const std::vector<" + cpp_type + ">& vec) {");
                 indent();
                 line("Napi::Array arr = Napi::Array::New(env, vec.size());");
                 line("for (size_t i = 0; i < vec.size(); ++i) {");
                 indent();
                 line("Napi::Object obj = " + wrapper_name + "::constructor.New({});");
-                line(wrapper_name + "* wrapper = Napi::ObjectWrap<" + wrapper_name + ">::Unwrap(obj);");
+                line(wrapper_name + "* wrapper = Napi::ObjectWrap<" + wrapper_name +
+                     ">::Unwrap(obj);");
                 line("if (wrapper && wrapper->GetInstance()) {");
                 indent();
                 line("*(wrapper->GetInstance()) = vec[i];");
@@ -582,16 +612,18 @@ private:
                 line("}");
                 line();
             }
-            
+
             // unwrapObjectPtr_ClassName - returns shared_ptr (works for all types)
-            line("std::shared_ptr<" + cpp_type + "> unwrapObjectPtr_" + safe_name + "(const Napi::Value& val) {");
+            line("std::shared_ptr<" + cpp_type + "> unwrapObjectPtr_" + safe_name +
+                 "(const Napi::Value& val) {");
             indent();
             line("if (!val.IsObject()) {");
             indent();
             line("throw std::runtime_error(\"Expected object for " + name + "\");");
             dedent();
             line("}");
-            line(wrapper_name + "* wrapper = Napi::ObjectWrap<" + wrapper_name + ">::Unwrap(val.As<Napi::Object>());");
+            line(wrapper_name + "* wrapper = Napi::ObjectWrap<" + wrapper_name +
+                 ">::Unwrap(val.As<Napi::Object>());");
             line("if (!wrapper || !wrapper->GetInstance()) {");
             indent();
             line("throw std::runtime_error(\"Invalid " + name + " object\");");
@@ -601,9 +633,10 @@ private:
             dedent();
             line("}");
             line();
-            
+
             // wrapObjectPtr_ClassName - wraps a shared_ptr
-            line("Napi::Value wrapObjectPtr_" + safe_name + "(Napi::Env env, std::shared_ptr<" + cpp_type + "> val) {");
+            line("Napi::Value wrapObjectPtr_" + safe_name + "(Napi::Env env, std::shared_ptr<" +
+                 cpp_type + "> val) {");
             indent();
             line("if (!val) {");
             indent();
@@ -741,15 +774,15 @@ private:
 
         line("Napi::Object Init(Napi::Env env, Napi::Object exports) {");
         indent();
-        
+
         if (!config_.registration_function.empty()) {
             line("// Register classes with Rosetta");
             line(config_.get_registration_call() + ";");
             line();
         }
 
-        auto& registry = rosetta::Registry::instance();
-        for (const auto& name : registry.list_classes()) {
+        auto &registry = rosetta::Registry::instance();
+        for (const auto &name : registry.list_classes()) {
             if (!config_.should_skip_class(name)) {
                 std::string simple_name = get_simple_class_name(name);
                 line(simple_name + "Wrapper::Init(env, exports);");
@@ -772,14 +805,15 @@ private:
     }
 
     // Helper methods
-    std::string capitalize(const std::string& s) {
-        if (s.empty()) return s;
+    std::string capitalize(const std::string &s) {
+        if (s.empty())
+            return s;
         std::string result = s;
-        result[0] = std::toupper(result[0]);
+        result[0]          = std::toupper(result[0]);
         return result;
     }
 
-    std::string get_simple_class_name(const std::string& name) {
+    std::string get_simple_class_name(const std::string &name) {
         size_t pos = name.rfind("::");
         if (pos != std::string::npos) {
             return name.substr(pos + 2);
@@ -787,160 +821,177 @@ private:
         return name;
     }
 
-    std::string make_safe_identifier(const std::string& name) {
+    std::string make_safe_identifier(const std::string &name) {
         std::string result = name;
-        size_t pos;
+        size_t      pos;
         while ((pos = result.find("::")) != std::string::npos) {
             result.replace(pos, 2, "_");
         }
         return result;
     }
 
-    std::string normalize_type(const std::string& t) {
+    std::string normalize_type(const std::string &t) {
         std::string r = t;
-        
+
         // Remove std::__1:: (libc++ internal namespace)
         size_t pos;
         while ((pos = r.find("std::__1::")) != std::string::npos) {
             r.replace(pos, 10, "std::");
         }
-        
+
         // Remove allocator template arguments
         std::regex alloc_regex(",\\s*std::allocator<[^>]+>");
         r = std::regex_replace(r, alloc_regex, "");
-        
+
         // Remove const (prefix form: "const ")
-        while ((pos = r.find("const ")) != std::string::npos) r.erase(pos, 6);
+        while ((pos = r.find("const ")) != std::string::npos)
+            r.erase(pos, 6);
         // Remove const (postfix form: " const")
-        while ((pos = r.find(" const")) != std::string::npos) r.erase(pos, 6);
+        while ((pos = r.find(" const")) != std::string::npos)
+            r.erase(pos, 6);
         // Remove & but NOT *
-        while ((pos = r.find("&")) != std::string::npos) r.erase(pos, 1);
-        
+        while ((pos = r.find("&")) != std::string::npos)
+            r.erase(pos, 1);
+
         // Trim whitespace
-        while (!r.empty() && r[0] == ' ') r.erase(0, 1);
-        while (!r.empty() && r.back() == ' ') r.pop_back();
-        
+        while (!r.empty() && r[0] == ' ')
+            r.erase(0, 1);
+        while (!r.empty() && r.back() == ' ')
+            r.pop_back();
+
         return r;
     }
 
     // Check if type is a pointer type
-    bool is_pointer_type(const std::string& type) {
+    bool is_pointer_type(const std::string &type) {
         std::string norm = normalize_type(type);
         return !norm.empty() && norm.back() == '*';
     }
 
     // Get base type from pointer (strip the *)
-    std::string get_pointee_type(const std::string& type) {
+    std::string get_pointee_type(const std::string &type) {
         std::string norm = normalize_type(type);
         if (!norm.empty() && norm.back() == '*') {
             norm.pop_back();
             // Trim trailing whitespace
-            while (!norm.empty() && norm.back() == ' ') norm.pop_back();
+            while (!norm.empty() && norm.back() == ' ')
+                norm.pop_back();
         }
         return norm;
     }
 
-    bool is_vector_type(const std::string& type) {
+    bool is_vector_type(const std::string &type) {
         std::string norm = normalize_type(type);
         return norm.find("vector<") != std::string::npos ||
                norm.find("std::vector<") != std::string::npos;
     }
 
-    std::string extract_vector_element_type(const std::string& type) {
+    std::string extract_vector_element_type(const std::string &type) {
         std::string norm = normalize_type(type);
-        
+
         size_t start = norm.find("vector<");
-        if (start == std::string::npos) return "";
+        if (start == std::string::npos)
+            return "";
         start += 7;
-        
-        int depth = 1;
-        size_t end = start;
+
+        int    depth = 1;
+        size_t end   = start;
         while (end < norm.size() && depth > 0) {
-            if (norm[end] == '<') depth++;
-            else if (norm[end] == '>') depth--;
-            if (depth > 0) end++;
+            if (norm[end] == '<')
+                depth++;
+            else if (norm[end] == '>')
+                depth--;
+            if (depth > 0)
+                end++;
         }
-        
+
         std::string elem = norm.substr(start, end - start);
-        while (!elem.empty() && elem[0] == ' ') elem.erase(0, 1);
-        while (!elem.empty() && elem.back() == ' ') elem.pop_back();
-        
+        while (!elem.empty() && elem[0] == ' ')
+            elem.erase(0, 1);
+        while (!elem.empty() && elem.back() == ' ')
+            elem.pop_back();
+
         return elem;
     }
 
-    bool is_registered_class(const std::string& type_name) {
-        auto& registry = rosetta::Registry::instance();
-        std::string norm = normalize_type(type_name);
-        
+    bool is_registered_class(const std::string &type_name) {
+        auto       &registry = rosetta::Registry::instance();
+        std::string norm     = normalize_type(type_name);
+
         // Strip pointer if present
         if (!norm.empty() && norm.back() == '*') {
             norm.pop_back();
-            while (!norm.empty() && norm.back() == ' ') norm.pop_back();
+            while (!norm.empty() && norm.back() == ' ')
+                norm.pop_back();
         }
-        
-        if (registry.get_by_name(norm) != nullptr) return true;
-        
+
+        if (registry.get_by_name(norm) != nullptr)
+            return true;
+
         size_t pos = norm.rfind("::");
         if (pos != std::string::npos) {
             std::string short_name = norm.substr(pos + 2);
-            if (registry.get_by_name(short_name) != nullptr) return true;
+            if (registry.get_by_name(short_name) != nullptr)
+                return true;
         }
         return false;
     }
 
-    std::string get_registered_name(const std::string& type_name) {
-        auto& registry = rosetta::Registry::instance();
-        std::string norm = normalize_type(type_name);
-        
+    std::string get_registered_name(const std::string &type_name) {
+        auto       &registry = rosetta::Registry::instance();
+        std::string norm     = normalize_type(type_name);
+
         // Strip pointer if present
         if (!norm.empty() && norm.back() == '*') {
             norm.pop_back();
-            while (!norm.empty() && norm.back() == ' ') norm.pop_back();
+            while (!norm.empty() && norm.back() == ' ')
+                norm.pop_back();
         }
-        
-        if (registry.get_by_name(norm) != nullptr) return norm;
-        
+
+        if (registry.get_by_name(norm) != nullptr)
+            return norm;
+
         size_t pos = norm.rfind("::");
         if (pos != std::string::npos) {
             std::string short_name = norm.substr(pos + 2);
-            if (registry.get_by_name(short_name) != nullptr) return short_name;
+            if (registry.get_by_name(short_name) != nullptr)
+                return short_name;
         }
         return norm;
     }
 
-    std::string get_wrapper_name(const std::string& type_name) {
+    std::string get_wrapper_name(const std::string &type_name) {
         std::string norm = normalize_type(type_name);
         // Strip pointer if present
         if (!norm.empty() && norm.back() == '*') {
             norm.pop_back();
-            while (!norm.empty() && norm.back() == ' ') norm.pop_back();
+            while (!norm.empty() && norm.back() == ' ')
+                norm.pop_back();
         }
-        size_t pos = norm.rfind("::");
-        std::string short_name = (pos != std::string::npos) 
-            ? norm.substr(pos + 2) 
-            : norm;
+        size_t      pos        = norm.rfind("::");
+        std::string short_name = (pos != std::string::npos) ? norm.substr(pos + 2) : norm;
         return short_name + "Wrapper";
     }
 
-    std::string generate_arg_extraction(const std::string& type, size_t index) {
-        std::string idx = std::to_string(index);
+    std::string generate_arg_extraction(const std::string &type, size_t index) {
+        std::string idx  = std::to_string(index);
         std::string norm = normalize_type(type);
-        
+
         // Handle std::function types
         if (is_function_type(norm)) {
             return generate_function_arg_extraction(type, index);
         }
-        
+
         // Handle pointer parameters - get the shared_ptr and return raw pointer
         if (is_pointer_type(norm)) {
             std::string pointee = get_pointee_type(norm);
             if (is_registered_class(pointee)) {
-                std::string reg_name = get_registered_name(pointee);
+                std::string reg_name  = get_registered_name(pointee);
                 std::string safe_name = make_safe_identifier(reg_name);
                 return "unwrapObjectPtr_" + safe_name + "(info[" + idx + "]).get()";
             }
         }
-        
+
         // Handle vectors
         if (is_vector_type(norm)) {
             std::string elem = extract_vector_element_type(norm);
@@ -951,18 +1002,19 @@ private:
                 return "typedArrayToVectorInt(info[" + idx + "].As<Napi::Int32Array>())";
             }
             if (is_registered_class(elem)) {
-                std::string reg_name = get_registered_name(elem);
+                std::string reg_name  = get_registered_name(elem);
                 std::string safe_name = make_safe_identifier(reg_name);
                 // Check if we can do vector conversion for this type
                 if (skip_vector_conversion_.find(reg_name) == skip_vector_conversion_.end()) {
                     return "jsArrayToVector_" + safe_name + "(info.Env(), info[" + idx + "])";
                 } else {
                     // Fall back to error - can't convert vectors of non-copyable types
-                    return "/* ERROR: Cannot convert vector of non-copyable type " + elem + " */ std::vector<" + elem + ">()";
+                    return "/* ERROR: Cannot convert vector of non-copyable type " + elem +
+                           " */ std::vector<" + elem + ">()";
                 }
             }
         }
-        
+
         if (norm.find("string") != std::string::npos) {
             return "info[" + idx + "].As<Napi::String>().Utf8Value()";
         }
@@ -975,66 +1027,69 @@ private:
         if (norm == "float" || norm == "double") {
             return "info[" + idx + "].As<Napi::Number>().DoubleValue()";
         }
-        
+
         // For registered class types passed by value - dereference the shared_ptr
         if (is_registered_class(norm)) {
-            std::string reg_name = get_registered_name(norm);
+            std::string reg_name  = get_registered_name(norm);
             std::string safe_name = make_safe_identifier(reg_name);
             return "*unwrapObjectPtr_" + safe_name + "(info[" + idx + "])";
         }
-        
+
         return "info[" + idx + "].As<Napi::Number>().DoubleValue()";
     }
 
-    std::string get_simple_type_name(const std::string& type) {
+    std::string get_simple_type_name(const std::string &type) {
         std::string norm = normalize_type(type);
-        size_t pos = norm.rfind("::");
+        size_t      pos  = norm.rfind("::");
         if (pos != std::string::npos) {
             return norm.substr(pos + 2);
         }
         return norm;
     }
 
-    bool is_function_type(const std::string& type) {
+    bool is_function_type(const std::string &type) {
         std::string norm = normalize_type(type);
         return norm.find("function<") != std::string::npos ||
                norm.find("std::function<") != std::string::npos;
     }
 
     struct FunctionSignature {
-        std::string return_type;
+        std::string              return_type;
         std::vector<std::string> param_types;
     };
 
-    FunctionSignature extract_function_signature(const std::string& type) {
+    FunctionSignature extract_function_signature(const std::string &type) {
         FunctionSignature sig;
-        std::string norm = normalize_type(type);
-        
+        std::string       norm = normalize_type(type);
+
         size_t start = norm.find("function<");
-        if (start == std::string::npos) return sig;
+        if (start == std::string::npos)
+            return sig;
         start += 9;
-        
+
         size_t paren_start = norm.find('(', start);
-        if (paren_start == std::string::npos) return sig;
-        
+        if (paren_start == std::string::npos)
+            return sig;
+
         sig.return_type = norm.substr(start, paren_start - start);
-        while (!sig.return_type.empty() && sig.return_type[0] == ' ') 
+        while (!sig.return_type.empty() && sig.return_type[0] == ' ')
             sig.return_type.erase(0, 1);
-        while (!sig.return_type.empty() && sig.return_type.back() == ' ') 
+        while (!sig.return_type.empty() && sig.return_type.back() == ' ')
             sig.return_type.pop_back();
-        
+
         size_t paren_end = norm.find(')', paren_start);
-        if (paren_end == std::string::npos) return sig;
-        
+        if (paren_end == std::string::npos)
+            return sig;
+
         std::string params_str = norm.substr(paren_start + 1, paren_end - paren_start - 1);
-        
+
         if (!params_str.empty()) {
-            int depth = 0;
+            int    depth      = 0;
             size_t last_start = 0;
             for (size_t i = 0; i <= params_str.size(); ++i) {
                 if (i == params_str.size() || (params_str[i] == ',' && depth == 0)) {
                     std::string param = params_str.substr(last_start, i - last_start);
-                    param = normalize_type(param);
+                    param             = normalize_type(param);
                     if (!param.empty()) {
                         sig.param_types.push_back(param);
                     }
@@ -1046,88 +1101,99 @@ private:
                 }
             }
         }
-        
+
         return sig;
     }
 
-    std::string generate_function_arg_extraction(const std::string& type, size_t index) {
+    std::string generate_function_arg_extraction(const std::string &type, size_t index) {
         std::string idx = std::to_string(index);
-        auto sig = extract_function_signature(type);
-        
+        auto        sig = extract_function_signature(type);
+
         if (sig.return_type.empty()) {
             return "info[" + idx + "]";
         }
-        
+
         std::ostringstream oss;
-        
-        oss << "[fn = std::make_shared<Napi::FunctionReference>(Napi::Persistent(info[" << idx << "].As<Napi::Function>())), env = info.Env()](";
-        
+
+        oss << "[fn = std::make_shared<Napi::FunctionReference>(Napi::Persistent(info[" << idx
+            << "].As<Napi::Function>())), env = info.Env()](";
+
         for (size_t i = 0; i < sig.param_types.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0)
+                oss << ", ";
             oss << "const " << sig.param_types[i] << "& p" << i;
         }
         oss << ") -> " << sig.return_type << " {\n";
-        
+
         for (size_t i = 0; i < sig.param_types.size(); ++i) {
             std::string param_type = sig.param_types[i];
             if (is_registered_class(param_type)) {
-                std::string reg_name = get_registered_name(param_type);
+                std::string reg_name  = get_registered_name(param_type);
                 std::string safe_name = make_safe_identifier(reg_name);
-                oss << "                Napi::Value arg" << i << " = wrapObjectPtr_" << safe_name << "(env, std::make_shared<" << param_type << ">(p" << i << "));\n";
+                oss << "                Napi::Value arg" << i << " = wrapObjectPtr_" << safe_name
+                    << "(env, std::make_shared<" << param_type << ">(p" << i << "));\n";
             } else if (param_type == "double" || param_type == "float") {
-                oss << "                Napi::Value arg" << i << " = Napi::Number::New(env, p" << i << ");\n";
+                oss << "                Napi::Value arg" << i << " = Napi::Number::New(env, p" << i
+                    << ");\n";
             } else if (param_type == "int" || param_type == "long" || param_type == "size_t") {
-                oss << "                Napi::Value arg" << i << " = Napi::Number::New(env, p" << i << ");\n";
+                oss << "                Napi::Value arg" << i << " = Napi::Number::New(env, p" << i
+                    << ");\n";
             } else if (param_type == "bool") {
-                oss << "                Napi::Value arg" << i << " = Napi::Boolean::New(env, p" << i << ");\n";
+                oss << "                Napi::Value arg" << i << " = Napi::Boolean::New(env, p" << i
+                    << ");\n";
             } else if (param_type.find("string") != std::string::npos) {
-                oss << "                Napi::Value arg" << i << " = Napi::String::New(env, p" << i << ");\n";
+                oss << "                Napi::Value arg" << i << " = Napi::String::New(env, p" << i
+                    << ");\n";
             } else {
-                oss << "                Napi::Value arg" << i << " = Napi::Number::New(env, static_cast<double>(p" << i << "));\n";
+                oss << "                Napi::Value arg" << i
+                    << " = Napi::Number::New(env, static_cast<double>(p" << i << "));\n";
             }
         }
-        
+
         oss << "                Napi::Value result = fn->Call({";
         for (size_t i = 0; i < sig.param_types.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0)
+                oss << ", ";
             oss << "arg" << i;
         }
         oss << "});\n";
-        
+
         if (is_registered_class(sig.return_type)) {
-            std::string reg_name = get_registered_name(sig.return_type);
+            std::string reg_name  = get_registered_name(sig.return_type);
             std::string safe_name = make_safe_identifier(reg_name);
             oss << "                return *unwrapObjectPtr_" << safe_name << "(result);\n";
         } else if (sig.return_type == "double" || sig.return_type == "float") {
             oss << "                return result.As<Napi::Number>().DoubleValue();\n";
-        } else if (sig.return_type == "int" || sig.return_type == "long" || sig.return_type == "size_t") {
+        } else if (sig.return_type == "int" || sig.return_type == "long" ||
+                   sig.return_type == "size_t") {
             oss << "                return result.As<Napi::Number>().Int32Value();\n";
         } else if (sig.return_type == "bool") {
             oss << "                return result.As<Napi::Boolean>().Value();\n";
         } else if (sig.return_type.find("string") != std::string::npos) {
             oss << "                return result.As<Napi::String>().Utf8Value();\n";
         } else {
-            oss << "                return static_cast<" << sig.return_type << ">(result.As<Napi::Number>().DoubleValue());\n";
+            oss << "                return static_cast<" << sig.return_type
+                << ">(result.As<Napi::Number>().DoubleValue());\n";
         }
-        
+
         oss << "            }";
-        
+
         return oss.str();
     }
 
-    std::string generate_value_extraction(const std::string& type, const std::string& var) {
+    std::string generate_value_extraction(const std::string &type, const std::string &var) {
         std::string norm = normalize_type(type);
-        
+
         // Handle pointer types
         if (is_pointer_type(norm)) {
             std::string pointee = get_pointee_type(norm);
             if (is_registered_class(pointee)) {
-                std::string reg_name = get_registered_name(pointee);
+                std::string reg_name  = get_registered_name(pointee);
                 std::string safe_name = make_safe_identifier(reg_name);
                 return "unwrapObjectPtr_" + safe_name + "(" + var + ").get()";
             }
         }
-        
+
         // Handle vectors
         if (is_vector_type(norm)) {
             std::string elem = extract_vector_element_type(norm);
@@ -1138,14 +1204,14 @@ private:
                 return "typedArrayToVectorInt(" + var + ".As<Napi::Int32Array>())";
             }
             if (is_registered_class(elem)) {
-                std::string reg_name = get_registered_name(elem);
+                std::string reg_name  = get_registered_name(elem);
                 std::string safe_name = make_safe_identifier(reg_name);
                 if (skip_vector_conversion_.find(reg_name) == skip_vector_conversion_.end()) {
                     return "jsArrayToVector_" + safe_name + "(env, " + var + ")";
                 }
             }
         }
-        
+
         if (norm.find("string") != std::string::npos) {
             return var + ".As<Napi::String>().Utf8Value()";
         }
@@ -1158,32 +1224,33 @@ private:
         if (norm == "float" || norm == "double") {
             return var + ".As<Napi::Number>().DoubleValue()";
         }
-        
+
         // For registered class types
         if (is_registered_class(norm)) {
-            std::string reg_name = get_registered_name(norm);
+            std::string reg_name  = get_registered_name(norm);
             std::string safe_name = make_safe_identifier(reg_name);
             return "*unwrapObjectPtr_" + safe_name + "(" + var + ")";
         }
-        
+
         return var + ".As<Napi::Number>().DoubleValue()";
     }
 
-    std::string generate_return_conversion(const std::string& type, const std::string& var) {
+    std::string generate_return_conversion(const std::string &type, const std::string &var) {
         std::string norm = normalize_type(type);
-        
+
         // Handle pointer return types - wrap in shared_ptr
         if (is_pointer_type(norm)) {
             std::string pointee = get_pointee_type(norm);
             if (is_registered_class(pointee)) {
-                std::string reg_name = get_registered_name(pointee);
+                std::string reg_name  = get_registered_name(pointee);
                 std::string safe_name = make_safe_identifier(reg_name);
                 // Note: This assumes ownership transfer or that the pointer remains valid
                 // In production, you'd want more sophisticated lifetime management
-                return "wrapObjectPtr_" + safe_name + "(env, std::shared_ptr<" + pointee + ">(" + var + ", [](auto*){}))";
+                return "wrapObjectPtr_" + safe_name + "(env, std::shared_ptr<" + pointee + ">(" +
+                       var + ", [](auto*){}))";
             }
         }
-        
+
         // Handle vectors
         if (is_vector_type(norm)) {
             std::string elem = extract_vector_element_type(norm);
@@ -1194,35 +1261,36 @@ private:
                 return "vectorIntToTypedArray(env, " + var + ")";
             }
             if (is_registered_class(elem)) {
-                std::string reg_name = get_registered_name(elem);
+                std::string reg_name  = get_registered_name(elem);
                 std::string safe_name = make_safe_identifier(reg_name);
                 if (skip_vector_conversion_.find(reg_name) == skip_vector_conversion_.end()) {
                     return "vectorToJsArray_" + safe_name + "(env, " + var + ")";
                 }
             }
         }
-        
+
         if (norm.find("string") != std::string::npos) {
             return "Napi::String::New(env, " + var + ")";
         }
         if (norm == "bool") {
             return "Napi::Boolean::New(env, " + var + ")";
         }
-        if (norm == "int" || norm == "long" || norm == "size_t" ||
-            norm == "float" || norm == "double") {
+        if (norm == "int" || norm == "long" || norm == "size_t" || norm == "float" ||
+            norm == "double") {
             return "Napi::Number::New(env, " + var + ")";
         }
         if (norm == "void") {
             return "env.Undefined()";
         }
-        
+
         // For registered class types returned by value - wrap in shared_ptr
         if (is_registered_class(norm)) {
-            std::string reg_name = get_registered_name(norm);
+            std::string reg_name  = get_registered_name(norm);
             std::string safe_name = make_safe_identifier(reg_name);
-            return "wrapObjectPtr_" + safe_name + "(env, std::make_shared<" + norm + ">(" + var + "))";
+            return "wrapObjectPtr_" + safe_name + "(env, std::make_shared<" + norm + ">(" + var +
+                   "))";
         }
-        
+
         return "Napi::Number::New(env, " + var + ")";
     }
 };

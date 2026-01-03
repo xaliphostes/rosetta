@@ -1,6 +1,7 @@
 #pragma once
 #include "../CodeWriter.h"
 #include <rosetta/rosetta.h>
+#include <set>
 
 // ============================================================================
 // REST API Generator
@@ -13,6 +14,9 @@ public:
     using CodeWriter::CodeWriter;
 
     void generate() override {
+        // First, collect all types used in the API
+        collect_used_types();
+        
         write_header();
         write_includes();
         write_json_helpers();
@@ -24,6 +28,49 @@ public:
 
 private:
     using MethodMeta = rosetta::core::Registry::MetadataHolder::MethodMeta;
+    
+    // Track which special types are used so we can generate appropriate helpers
+    std::set<std::string> used_types_;
+    bool uses_vector3_ = false;
+    bool uses_matrix33_ = false;
+
+    // Collect all types used in method signatures and constructors
+    void collect_used_types() {
+        auto &registry = rosetta::Registry::instance();
+        
+        for (const auto &name : registry.list_classes()) {
+            auto *holder = registry.get_by_name(name);
+            if (!holder || config_.should_skip_class(name)) continue;
+            
+            // Check constructors
+            for (const auto &ctor : holder->get_constructors()) {
+                for (const auto &pt : ctor.get_param_types()) {
+                    check_type_usage(pt);
+                }
+            }
+            
+            // Check methods
+            for (const auto &m : holder->get_methods()) {
+                if (config_.should_skip_method(name, m)) continue;
+                
+                auto info = holder->get_method_info(m);
+                check_type_usage(info.get_return_type_str());
+                for (const auto &pt : info.get_param_types_str()) {
+                    check_type_usage(pt);
+                }
+            }
+        }
+    }
+    
+    void check_type_usage(const std::string &type) {
+        if (type.find("Vector3") != std::string::npos) {
+            uses_vector3_ = true;
+        }
+        if (type.find("Matrix33") != std::string::npos) {
+            uses_matrix33_ = true;
+        }
+        used_types_.insert(normalize_type(type));
+    }
 
     void write_header() {
         line("// ============================================================================");
@@ -78,7 +125,81 @@ private:
         line();
         indent();
 
+        // Only generate Vector3 helpers if Vector3 is used
+        if (uses_vector3_) {
+            line("// Vector3 conversion");
+            line("json vector3_to_json(const " + ns + "Vector3& v) {");
+            indent();
+            line("return json::array({v[0], v[1], v[2]});");
+            dedent();
+            line("}");
+            line();
+
+            line(ns + "Vector3 json_to_vector3(const json& j) {");
+            indent();
+            line("if (!j.is_array() || j.size() != 3) {");
+            indent();
+            line("throw std::runtime_error(\"Expected array of 3 elements for Vector3\");");
+            dedent();
+            line("}");
+            line("return " + ns + "Vector3(j[0].get<double>(), j[1].get<double>(), j[2].get<double>());");
+            dedent();
+            line("}");
+            line();
+        }
+
+        // Only generate Matrix33 helpers if Matrix33 is used
+        if (uses_matrix33_) {
+            line("// Matrix33 conversion");
+            line("json matrix33_to_json(const " + ns + "Matrix33& m) {");
+            indent();
+            line("json arr = json::array();");
+            line("for (int i = 0; i < 3; ++i) {");
+            indent();
+            line("json row = json::array();");
+            line("for (int j = 0; j < 3; ++j) {");
+            indent();
+            line("row.push_back(m(i, j));");
+            dedent();
+            line("}");
+            line("arr.push_back(row);");
+            dedent();
+            line("}");
+            line("return arr;");
+            dedent();
+            line("}");
+            line();
+
+            line(ns + "Matrix33 json_to_matrix33(const json& j) {");
+            indent();
+            line("if (!j.is_array() || j.size() != 3) {");
+            indent();
+            line("throw std::runtime_error(\"Expected 3x3 array for Matrix33\");");
+            dedent();
+            line("}");
+            line(ns + "Matrix33 m;");
+            line("for (int i = 0; i < 3; ++i) {");
+            indent();
+            line("if (!j[i].is_array() || j[i].size() != 3) {");
+            indent();
+            line("throw std::runtime_error(\"Expected 3x3 array for Matrix33\");");
+            dedent();
+            line("}");
+            line("for (int k = 0; k < 3; ++k) {");
+            indent();
+            line("m(i, k) = j[i][k].get<double>();");
+            dedent();
+            line("}");
+            dedent();
+            line("}");
+            line("return m;");
+            dedent();
+            line("}");
+            line();
+        }
+
         // Vector<double> to JSON
+        line("// std::vector conversions");
         line("json vector_double_to_json(const std::vector<double>& vec) {");
         indent();
         line("return json(vec);");
@@ -106,6 +227,22 @@ private:
         line("std::vector<int> json_to_vector_int(const json& j) {");
         indent();
         line("return j.get<std::vector<int>>();");
+        dedent();
+        line("}");
+        line();
+
+        // Vector<float> to JSON
+        line("json vector_float_to_json(const std::vector<float>& vec) {");
+        indent();
+        line("return json(vec);");
+        dedent();
+        line("}");
+        line();
+
+        // JSON to vector<float>
+        line("std::vector<float> json_to_vector_float(const json& j) {");
+        indent();
+        line("return j.get<std::vector<float>>();");
         dedent();
         line("}");
         line();
@@ -262,9 +399,29 @@ private:
         for (const auto &name : registry.list_classes()) {
             auto *holder = registry.get_by_name(name);
             if (holder && !config_.should_skip_class(name)) {
+                // Skip abstract classes (classes marked as abstract in config)
+                if (is_abstract_class(name, holder)) {
+                    line("// Skipping abstract class: " + name);
+                    line();
+                    continue;
+                }
                 write_class_handler(name, holder);
             }
         }
+    }
+
+    // Check if a class is abstract based on config skip list or heuristics
+    bool is_abstract_class(const std::string &name,
+                           const rosetta::core::Registry::MetadataHolder *holder) const {
+        // Check if in skip_classes config
+        for (const auto &skip : config_.skip_classes) {
+            if (skip == name || skip == name + "*") {
+                return true;
+            }
+        }
+        // Note: We can't reliably detect abstract classes at generator time
+        // Users should add abstract classes to skip_classes in config
+        return false;
     }
 
     void write_class_handler(const std::string                             &name,
@@ -381,6 +538,7 @@ private:
 
         if (valid_ctors.empty()) {
             if (ctors.empty()) {
+                // No constructors at all - try default
                 line("obj = std::make_shared<" + cpp_type + ">();");
             } else {
                 // All constructors have function params
@@ -612,6 +770,10 @@ private:
         for (const auto &name : registry.list_classes()) {
             if (config_.should_skip_class(name))
                 continue;
+            auto *holder = registry.get_by_name(name);
+            if (!holder || is_abstract_class(name, holder))
+                continue;
+                
             std::string cond = first ? "if" : "} else if";
             first            = false;
             line(cond + " (name == \"" + name + "\") {");
@@ -656,6 +818,10 @@ private:
         for (const auto &name : registry.list_classes()) {
             if (config_.should_skip_class(name))
                 continue;
+            auto *holder = registry.get_by_name(name);
+            if (!holder || is_abstract_class(name, holder))
+                continue;
+                
             std::string cond = first ? "if" : "} else if";
             first            = false;
             line(cond + " (cls == \"" + name + "\") {");
@@ -701,6 +867,10 @@ private:
         for (const auto &name : registry.list_classes()) {
             if (config_.should_skip_class(name))
                 continue;
+            auto *holder = registry.get_by_name(name);
+            if (!holder || is_abstract_class(name, holder))
+                continue;
+                
             std::string cond = first ? "if" : "} else if";
             first            = false;
             line(cond + " (cls == \"" + name + "\") {");
@@ -829,7 +999,7 @@ private:
     }
 
     // Normalize type string - remove std::__1::, allocators, const, &, etc.
-    std::string normalize_type(const std::string &t) {
+    std::string normalize_type(const std::string &t) const {
         std::string r = t;
         size_t      pos;
 
@@ -874,14 +1044,20 @@ private:
     }
 
     // Check if type is a std::function
-    bool is_function_type(const std::string &type) {
+    bool is_function_type(const std::string &type) const {
         std::string norm = normalize_type(type);
         return norm.find("function<") != std::string::npos ||
                norm.find("std::function<") != std::string::npos;
     }
+    
+    // Check if type is a pointer type
+    bool is_pointer_type(const std::string &type) const {
+        // Check original type (before normalization removes *)
+        return type.find('*') != std::string::npos;
+    }
 
     // Check if type is a registered class
-    bool is_registered_class(const std::string &type) {
+    bool is_registered_class(const std::string &type) const {
         std::string norm     = normalize_type(type);
         auto       &registry = rosetta::Registry::instance();
 
@@ -905,9 +1081,33 @@ private:
         }
         return false;
     }
+    
+    // Get the full C++ type name for a registered class
+    std::string get_registered_class_cpp_type(const std::string &type) const {
+        std::string norm     = normalize_type(type);
+        auto       &registry = rosetta::Registry::instance();
+
+        for (const auto &name : registry.list_classes()) {
+            auto *holder = registry.get_by_name(name);
+            if (holder) {
+                std::string cpp_type = normalize_type(holder->get_cpp_type_name());
+                if (norm == cpp_type || norm == name) {
+                    return holder->get_cpp_type_name();
+                }
+                size_t pos = cpp_type.rfind("::");
+                if (pos != std::string::npos) {
+                    std::string short_name = cpp_type.substr(pos + 2);
+                    if (norm == short_name) {
+                        return holder->get_cpp_type_name();
+                    }
+                }
+            }
+        }
+        return norm;
+    }
 
     // Get simple type name (strip namespace)
-    std::string get_simple_type_name(const std::string &type) {
+    std::string get_simple_type_name(const std::string &type) const {
         std::string norm = normalize_type(type);
         size_t      pos  = norm.rfind("::");
         if (pos != std::string::npos) {
@@ -918,7 +1118,7 @@ private:
 
     // Check if a method has any std::function parameters (not supported via REST)
     bool has_function_parameter(const rosetta::core::Registry::MetadataHolder *holder,
-                                const std::string                             &method_name) {
+                                const std::string                             &method_name) const {
         auto info        = holder->get_method_info(method_name);
         auto param_types = info.get_param_types_str();
         for (const auto &pt : param_types) {
@@ -930,17 +1130,26 @@ private:
     }
 
     // Helper: Generate JSON extraction code
-    std::string generate_json_extraction(const std::string &type, const std::string &json_expr) {
+    std::string generate_json_extraction(const std::string &type, const std::string &json_expr) const {
         std::string norm = normalize_type(type);
+        bool is_ptr = is_pointer_type(type);
 
-        if (type.find("Vector3") != std::string::npos) {
+        // Vector3 handling
+        if (type.find("Vector3") != std::string::npos && uses_vector3_) {
             return "json_to_vector3(" + json_expr + ")";
+        }
+        // Matrix33 handling
+        if (type.find("Matrix33") != std::string::npos && uses_matrix33_) {
+            return "json_to_matrix33(" + json_expr + ")";
         }
         if (type.find("vector<double>") != std::string::npos) {
             return "json_to_vector_double(" + json_expr + ")";
         }
         if (type.find("vector<int>") != std::string::npos) {
             return "json_to_vector_int(" + json_expr + ")";
+        }
+        if (type.find("vector<float>") != std::string::npos) {
+            return "json_to_vector_float(" + json_expr + ")";
         }
         if (type.find("string") != std::string::npos) {
             return json_expr + ".get<std::string>()";
@@ -957,9 +1166,16 @@ private:
 
         // For registered class types, expect an object ID string and retrieve from ObjectStore
         if (is_registered_class(norm)) {
-            // Return code that retrieves the object from the store by ID
-            return "*ObjectStore::instance().get<" + norm + ">(" + json_expr +
-                   ".get<std::string>())";
+            std::string full_type = get_registered_class_cpp_type(norm);
+            if (is_ptr) {
+                // Method expects a raw pointer - get the raw pointer from shared_ptr
+                return "ObjectStore::instance().get<" + full_type + ">(" + json_expr +
+                       ".get<std::string>()).get()";
+            } else {
+                // Method expects a reference or value - dereference the shared_ptr
+                return "*ObjectStore::instance().get<" + full_type + ">(" + json_expr +
+                       ".get<std::string>())";
+            }
         }
 
         // For std::function types - these should be skipped at method level
@@ -971,11 +1187,12 @@ private:
     }
 
     // Helper: Generate JSON conversion code
-    std::string generate_json_conversion(const std::string &type, const std::string &var) {
-        if (type.find("Vector3") != std::string::npos) {
+    std::string generate_json_conversion(const std::string &type, const std::string &var) const {
+        // Only use special converters if the type is actually used
+        if (type.find("Vector3") != std::string::npos && uses_vector3_) {
             return "vector3_to_json(" + var + ")";
         }
-        if (type.find("Matrix33") != std::string::npos) {
+        if (type.find("Matrix33") != std::string::npos && uses_matrix33_) {
             return "matrix33_to_json(" + var + ")";
         }
         if (type.find("vector<double>") != std::string::npos) {
@@ -984,9 +1201,13 @@ private:
         if (type.find("vector<int>") != std::string::npos) {
             return "vector_int_to_json(" + var + ")";
         }
+        if (type.find("vector<float>") != std::string::npos) {
+            return "vector_float_to_json(" + var + ")";
+        }
         if (type.find("vector<") != std::string::npos) {
             return "json(" + var + ")";
         }
+        // For other types, use generic json conversion
         return "json(" + var + ")";
     }
 };

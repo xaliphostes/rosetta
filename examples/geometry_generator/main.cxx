@@ -6,7 +6,7 @@
 // discover all registered classes.
 // ============================================================================
 
-#include "../../BindingGeneratorLib.h"
+#include <rosetta/extensions/generators/BindingGeneratorLib.h>
 
 // Include your project's registration header
 // This brings in register_rosetta_classes() and all the geometry types
