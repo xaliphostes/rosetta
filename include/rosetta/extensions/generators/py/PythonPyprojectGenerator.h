@@ -19,7 +19,8 @@ name = "${MODULE}"
 version = "${VERSION}"
 description = "${DESCRIPTION}"
 readme = "README.md"
-license = {text = "${LICENSE}"}
+license = "${LICENSE}"
+authors = [{ name = "${AUTHOR}" }]
 requires-python = ">=3.8"
 dependencies = ["numpy"]
 
@@ -29,6 +30,7 @@ dev = ["pytest", "mypy"]
              {{"MODULE", config_.module_name},
               {"VERSION", config_.version},
               {"DESCRIPTION", config_.description},
-              {"LICENSE", config_.license}});
+              {"LICENSE", config_.license},
+              {"AUTHOR", config_.author}});
     }
 };
