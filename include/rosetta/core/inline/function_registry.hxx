@@ -8,8 +8,43 @@ namespace rosetta::core {
     template <typename Ret, typename... Args>
     inline FunctionMetadata& FunctionRegistry::register_function(const std::string& name, 
                                                                  Ret (*ptr)(Args...)) {
-        auto meta = std::make_unique<FunctionMetadata>(name);
+        // Non-overloaded function: name == cpp_name, is_overloaded = false
+        auto meta = std::make_unique<FunctionMetadata>(name, name);
         meta->register_function(ptr);
+        meta->set_overloaded(false);  // Simple function, no static_cast needed
+        
+        auto* ptr_meta = meta.get();
+        functions_[name] = std::move(meta);
+        
+        return *ptr_meta;
+    }
+
+    template <typename Ret, typename... Args>
+    inline FunctionMetadata& FunctionRegistry::register_overloaded_function(const std::string& name, 
+                                                                            const std::string& func_ptr_type_str,
+                                                                            Ret (*ptr)(Args...)) {
+        // Overloaded function: name == cpp_name, is_overloaded = true
+        auto meta = std::make_unique<FunctionMetadata>(name, name);
+        meta->register_function(ptr);
+        meta->set_overloaded(true);  // Overloaded, needs static_cast
+        meta->set_func_ptr_type_str(func_ptr_type_str);  // Store exact type for code generation
+        
+        auto* ptr_meta = meta.get();
+        functions_[name] = std::move(meta);
+        
+        return *ptr_meta;
+    }
+
+    template <typename Ret, typename... Args>
+    inline FunctionMetadata& FunctionRegistry::register_function_as(const std::string& name,
+                                                                    const std::string& cpp_name,
+                                                                    const std::string& func_ptr_type_str,
+                                                                    Ret (*ptr)(Args...)) {
+        // Aliased function: name != cpp_name, is_overloaded = true (always needs static_cast)
+        auto meta = std::make_unique<FunctionMetadata>(name, cpp_name);
+        meta->register_function(ptr);
+        meta->set_overloaded(true);  // Aliased implies overloaded, needs static_cast
+        meta->set_func_ptr_type_str(func_ptr_type_str);  // Store exact type for code generation
         
         auto* ptr_meta = meta.get();
         functions_[name] = std::move(meta);

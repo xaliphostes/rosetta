@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <regex>
 #include <rosetta/rosetta.h>
+#include <rosetta/core/function_registry.h>
 #include <set>
 
 // ============================================================================
@@ -19,6 +20,7 @@ public:
         write_helpers();
         write_class_wrappers();
         write_conversion_specializations();
+        write_free_function_wrappers();
         write_init_function();
     }
 
@@ -657,6 +659,77 @@ private:
         }
     }
 
+    // ========================================================================
+    // Free Functions Support
+    // ========================================================================
+    
+    void write_free_function_wrappers() {
+        auto &func_registry = rosetta::core::FunctionRegistry::instance();
+        auto function_names = func_registry.list_functions();
+        
+        if (function_names.empty()) return;
+        
+        line("// ============================================================================");
+        line("// Free Function Wrappers");
+        line("// ============================================================================");
+        line();
+        
+        for (const auto &func_name : function_names) {
+            if (config_.should_skip_method("", func_name)) continue;
+            
+            const auto &func_meta = func_registry.get(func_name);
+            
+            // Convert type_index to strings
+            std::vector<std::string> param_types;
+            for (const auto &ti : func_meta.param_types()) {
+                param_types.push_back(rosetta::demangle(ti.name()));
+            }
+            std::string return_type = rosetta::demangle(func_meta.return_type().name());
+            
+            write_free_function_wrapper(func_name, param_types, return_type);
+        }
+    }
+
+    void write_free_function_wrapper(const std::string &func_name,
+                                     const std::vector<std::string> &param_types,
+                                     const std::string &return_type) {
+        // Generate wrapper function for the free function
+        line("Napi::Value Func_" + func_name + "(const Napi::CallbackInfo& info) {");
+        indent();
+        line("Napi::Env env = info.Env();");
+        line();
+        
+        if (!param_types.empty()) {
+            line("if (info.Length() < " + std::to_string(param_types.size()) + ") {");
+            indent();
+            line("Napi::TypeError::New(env, \"Wrong number of arguments\").ThrowAsJavaScriptException();");
+            line("return env.Undefined();");
+            dedent();
+            line("}");
+            line();
+        }
+        
+        // Extract arguments
+        std::vector<std::string> args;
+        for (size_t i = 0; i < param_types.size(); ++i) {
+            std::string extraction = generate_arg_extraction(param_types[i], i);
+            args.push_back(extraction);
+        }
+        
+        // Call the function
+        if (return_type == "void") {
+            line(func_name + "(" + join(args, ", ") + ");");
+            line("return env.Undefined();");
+        } else {
+            line("auto result = " + func_name + "(" + join(args, ", ") + ");");
+            line("return " + generate_return_conversion(return_type, "result") + ";");
+        }
+        
+        dedent();
+        line("}");
+        line();
+    }
+
     void write_init_function() {
         line("// ============================================================================");
         line("// Module Initialization");
@@ -772,6 +845,24 @@ private:
         line("}");
         line();
 
+        line("Napi::Value ListFunctions(const Napi::CallbackInfo& info) {");
+        indent();
+        line("Napi::Env env = info.Env();");
+        line("auto functions = rosetta::core::FunctionRegistry::instance().list_functions();");
+        line("auto arr = Napi::Array::New(env, functions.size());");
+        line("for (size_t i = 0; i < functions.size(); ++i) {");
+        indent();
+        line("arr.Set(i, Napi::String::New(env, functions[i]));");
+        dedent();
+        line("}");
+        line("return arr;");
+        dedent();
+        line("}");
+        line();
+
+        // Generate free function wrappers
+        write_free_function_wrappers();
+
         line("Napi::Object Init(Napi::Env env, Napi::Object exports) {");
         indent();
 
@@ -791,17 +882,36 @@ private:
         line();
 
         line("exports.Set(\"listClasses\", Napi::Function::New(env, ListClasses));");
+        line("exports.Set(\"listFunctions\", Napi::Function::New(env, ListFunctions));");
         line("exports.Set(\"getClassMethods\", Napi::Function::New(env, GetClassMethods));");
         line("exports.Set(\"getClassFields\", Napi::Function::New(env, GetClassFields));");
         line("exports.Set(\"getClassProperties\", Napi::Function::New(env, GetClassProperties));");
         line("exports.Set(\"version\", Napi::Function::New(env, Version));");
         line();
+        
+        // Register free functions
+        register_free_functions_in_exports();
+        
         line("return exports;");
         dedent();
         line("}");
         line();
 
         line("NODE_API_MODULE(" + config_.module_name + ", Init)");
+    }
+
+    void register_free_functions_in_exports() {
+        auto &func_registry = rosetta::core::FunctionRegistry::instance();
+        auto function_names = func_registry.list_functions();
+        
+        if (function_names.empty()) return;
+        
+        line("// Free functions");
+        for (const auto &func_name : function_names) {
+            if (config_.should_skip_method("", func_name)) continue;
+            line("exports.Set(\"" + func_name + "\", Napi::Function::New(env, Func_" + func_name + "));");
+        }
+        line();
     }
 
     // Helper methods

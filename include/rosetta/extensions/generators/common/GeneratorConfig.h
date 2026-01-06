@@ -59,6 +59,9 @@ struct GeneratorConfig {
     bool generate_example    = true;
     bool generate_cmake      = true;
 
+    // Python-specific options
+    std::string python_executable;  // Path to Python executable or root directory
+
     // WASM-specific options
     bool        wasm_single_file = false;
     bool        wasm_export_es6  = false;
@@ -156,6 +159,11 @@ struct GeneratorConfig {
         } else {
             // Dynamic mode - no source files to compile
             config.source_files.clear();
+        }
+
+        // Apply target-specific Python options
+        if (&target == &proj.python) {
+            config.python_executable = target.python_executable;
         }
 
         // Apply target-specific WASM options

@@ -63,6 +63,10 @@ For each binding, go to the respective folder (`python`, `javascript`, `wasm`, `
     cmake ..
     make
     ```
+    or
+    ```sh
+    pip install .
+    ```
 - JavaScript: 
     ```sh
     npm i

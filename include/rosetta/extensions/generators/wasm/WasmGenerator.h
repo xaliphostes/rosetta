@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <functional>
 #include <rosetta/rosetta.h>
+#include <rosetta/core/function_registry.h>
 #include <set>
 
 // ============================================================================
@@ -178,6 +179,7 @@ private:
         }
         line();
 
+        write_free_functions();
         write_utility_functions();
 
         dedent();
@@ -608,11 +610,85 @@ private:
         line(oss.str());
     }
 
+    // ========================================================================
+    // Free Functions Support
+    // ========================================================================
+    
+    void write_free_functions() {
+        auto &func_registry = rosetta::core::FunctionRegistry::instance();
+        auto function_names = func_registry.list_functions();
+        
+        if (function_names.empty()) return;
+        
+        line("// ============================================================================");
+        line("// Free Functions");
+        line("// ============================================================================");
+        line();
+        
+        for (const auto &func_name : function_names) {
+            if (config_.should_skip_method("", func_name)) continue;
+            
+            const auto &func_meta = func_registry.get(func_name);
+            
+            // Convert type_index to strings
+            std::vector<std::string> param_types;
+            for (const auto &ti : func_meta.param_types()) {
+                param_types.push_back(rosetta::demangle(ti.name()));
+            }
+            std::string return_type = rosetta::demangle(func_meta.return_type().name());
+            
+            // Check if we need a lambda wrapper
+            bool needs_wrapper = needs_conversion(return_type) ||
+                std::any_of(param_types.begin(), param_types.end(),
+                            [this](const std::string &p) { 
+                                return needs_conversion(p) || is_pointer_type(p); 
+                            });
+            
+            if (needs_wrapper) {
+                write_wrapped_free_function(func_name, param_types, return_type);
+            } else {
+                line("function(\"" + func_name + "\", &" + func_name + ");");
+            }
+        }
+        line();
+    }
+
+    void write_wrapped_free_function(const std::string &func_name,
+                                     const std::vector<std::string> &param_types,
+                                     const std::string &return_type) {
+        std::ostringstream oss;
+        oss << "function(\"" << func_name << "\", +[](";
+        
+        std::vector<std::string> args;
+        for (size_t i = 0; i < param_types.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << get_js_param_type(param_types[i]) << " arg" << i;
+            args.push_back(generate_input_conversion(param_types[i], "arg" + std::to_string(i)));
+        }
+        oss << ") {\n";
+        
+        if (return_type == "void") {
+            oss << "            " << func_name << "(" << join(args, ", ") << ");\n";
+        } else {
+            oss << "            auto result = " << func_name << "(" << join(args, ", ") << ");\n";
+            oss << "            return " << generate_output_conversion(return_type, "result") << ";\n";
+        }
+        oss << "        })";
+        line(oss.str());
+    }
+
     void write_utility_functions() {
         line("// Utility functions for introspection");
         line("function(\"listClasses\", +[]() {");
         indent();
         line("return rosetta::Registry::instance().list_classes();");
+        dedent();
+        line("});");
+        line();
+        
+        line("function(\"listFunctions\", +[]() {");
+        indent();
+        line("return rosetta::core::FunctionRegistry::instance().list_functions();");
         dedent();
         line("});");
         line();

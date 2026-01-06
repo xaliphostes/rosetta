@@ -9,16 +9,16 @@
 #define ROSETTA_VERSION_PATCH 0
 
 // Core
-#include "core/version.h"
 #include "core/any.h"
-#include "core/overload.h"
 #include "core/class_metadata.h"
 #include "core/demangler.h"
 #include "core/function_metadata.h"
 #include "core/function_registry.h"
 #include "core/inheritance_info.h"
+#include "core/overload.h"
 #include "core/registry.h"
 #include "core/type_kind.h"
+#include "core/version.h"
 #include "core/virtual_method_info.h"
 #include "core/virtual_method_registry.h"
 
@@ -46,23 +46,23 @@ namespace rosetta {
     using core::get_readable_type_name;
     using core::InheritanceInfo;
     using core::InheritanceType;
-    using core::Registry;
-    using core::TypeKind;
-    using core::TypeNameRegistry;
-    using core::VirtualMethodInfo;
-    using core::VirtualMethodRegistry;
-    using core::VirtualTableInfo;
-    using core::print_info;
-    using core::version;
     using core::overload;
     using core::overload_const;
     using core::overload_static;
+    using core::print_info;
+    using core::Registry;
     using core::sel;
     using core::sel_const;
+    using core::TypeKind;
+    using core::TypeNameRegistry;
+    using core::version;
+    using core::VirtualMethodInfo;
+    using core::VirtualMethodRegistry;
+    using core::VirtualTableInfo;
 
     using ConstructorMeta = core::Registry::MetadataHolder::ConstructorMeta;
-    using MethodMeta = core::Registry::MetadataHolder::MethodMeta;
-    using MethodInfo = core::Registry::MetadataHolder::MethodMeta; // synomimous
+    using MethodMeta      = core::Registry::MetadataHolder::MethodMeta;
+    using MethodInfo      = core::Registry::MetadataHolder::MethodMeta; // synomimous
 
     // ============================================================================
     // Exports of extensions namespace
@@ -150,28 +150,32 @@ namespace rosetta {
 //                        F U N C T I O N S
 // ===============================================================
 
-/**
- * @brief Register a free function with Rosetta
- *
- * Usage:
- * ROSETTA_REGISTER_FUNCTION(my_function);
- */
-#define ROSETTA_REGISTER_FUNCTION(FuncName) \
-    rosetta::core::FunctionRegistry::instance().register_function(#FuncName, &FuncName)
+// /**
+//  * @brief Register a free function with Rosetta
+//  *
+//  * Usage:
+//  * ROSETTA_REGISTER_FUNCTION(my_function);
+//  */
+// #define ROSETTA_REGISTER_FUNCTION(FuncName) \
+//     rosetta::core::FunctionRegistry::instance().register_function(#FuncName, &FuncName)
 
-/**
- * @brief Register a free function with a custom name
- */
-#define ROSETTA_REGISTER_FUNCTION_AS(FuncName, Name) \
-    rosetta::core::FunctionRegistry::instance().register_function(Name, &FuncName)
+// #define REGISTER_OVERLOADED_FUNCTION(name, RetType, ...)           \
+//     rosetta::core::FunctionRegistry::instance().register_function( \
+//         name, static_cast<RetType (*)(__VA_ARGS__)>(&name))
 
-/**
- * @brief Get metadata for a registered function
- */
-#define ROSETTA_GET_FUNCTION(FuncName) rosetta::core::FunctionRegistry::instance().get(#FuncName)
+// /**
+//  * @brief Register a free function with a custom name
+//  */
+// #define ROSETTA_REGISTER_FUNCTION_AS(FuncName, Name) \
+//     rosetta::core::FunctionRegistry::instance().register_function(Name, &FuncName)
 
-/**
- * @brief Check if a function is registered
- */
-#define ROSETTA_HAS_FUNCTION(FuncName) \
-    rosetta::core::FunctionRegistry::instance().has_function(#FuncName)
+// /**
+//  * @brief Get metadata for a registered function
+//  */
+// #define ROSETTA_GET_FUNCTION(FuncName) rosetta::core::FunctionRegistry::instance().get(#FuncName)
+
+// /**
+//  * @brief Check if a function is registered
+//  */
+// #define ROSETTA_HAS_FUNCTION(FuncName) \
+//     rosetta::core::FunctionRegistry::instance().has_function(#FuncName)

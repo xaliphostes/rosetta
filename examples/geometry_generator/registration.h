@@ -32,4 +32,6 @@ void register_rosetta_classes() {
         .constructor<>()
         .property("surfaces", &Model::getSurfaces, &Model::setSurfaces)
         .method("addSurface", &Model::addSurface);
+
+    ROSETTA_REGISTER_FUNCTION(transform);
 }

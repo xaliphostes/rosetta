@@ -25,9 +25,9 @@ namespace rosetta::core {
      * @brief Helper to select a specific overload of a non-const member function.
      *
      * Usage:
-     *   .method("setBcType", rosetta::core::overload<void, BemSurface, int, int>(&BemSurface::setBcType))
-     *   .method("setBcType", rosetta::core::overload<void, BemSurface, const String&, const
-     * String&>(&BemSurface::setBcType))
+     *   .method("setBcType", rosetta::core::overload<void, BemSurface, int,
+     * int>(&BemSurface::setBcType)) .method("setBcType", rosetta::core::overload<void, BemSurface,
+     * const String&, const String&>(&BemSurface::setBcType))
      *
      * @tparam Ret    Return type of the method
      * @tparam Class  The class containing the method
@@ -171,3 +171,74 @@ namespace rosetta::core {
  */
 #define R_OVERLOAD_STATIC(Class, RetType, MethodName, ...) \
     ROSETTA_OVERLOAD_STATIC(Class, RetType, MethodName, ##__VA_ARGS__)
+
+
+
+// ============================================================================
+// MACRO-BASED APPROACH - FREE FUNCTION OVERLOADS
+// ============================================================================
+
+/**
+ * @brief Register an overloaded free function using the FULL function pointer type.
+ *
+ * Usage:
+ *   ROSETTA_REGISTER_OVERLOADED_FUNCTION(triangulate, void(*)(SurfaceMesh&))
+ *   ROSETTA_REGISTER_OVERLOADED_FUNCTION(read, void(*)(SurfaceMesh&, const std::filesystem::path&))
+ *
+ * @param FuncName   Name of the function (without quotes, will be stringified)
+ * @param FuncPtrType Complete function pointer type, e.g., void(*)(int, double)
+ */
+// #define ROSETTA_REGISTER_OVERLOADED_FUNCTION(FuncName, FuncPtrType) \
+//     rosetta::core::FunctionRegistry::instance().register_function(  \
+//         #FuncName, static_cast<FuncPtrType>(&FuncName))
+
+/**
+ * @brief Register an overloaded free function with a custom name.
+ *
+ * Usage:
+ *   ROSETTA_REGISTER_OVERLOADED_FUNCTION_AS(triangulate, "triangulate_mesh", void(*)(SurfaceMesh&))
+ *   ROSETTA_REGISTER_OVERLOADED_FUNCTION_AS(triangulate, "triangulate_face", void(*)(SurfaceMesh&,
+ * Face))
+ *
+ * @param FuncName    Name of the C++ function (without quotes)
+ * @param AliasName   Name to register under (with quotes)
+ * @param FuncPtrType Complete function pointer type
+ */
+// #define ROSETTA_REGISTER_OVERLOADED_FUNCTION_AS(FuncName, AliasName, FuncPtrType) \
+//     rosetta::core::FunctionRegistry::instance().register_function(                \
+//         AliasName, static_cast<FuncPtrType>(&FuncName))
+
+// ============================================================================
+// TEMPLATE-BASED REGISTRATION (Alternative - avoids macro issues entirely)
+// ============================================================================
+
+/**
+ * @brief Register an overloaded free function using template syntax.
+ *
+ * Usage:
+ *   rosetta_register_overloaded<void, SurfaceMesh&>("triangulate", &triangulate);
+ *   rosetta_register_overloaded<void, SurfaceMesh&, Face>("triangulate_face", &triangulate);
+ */
+template <typename Ret, typename... Args>
+inline void rosetta_register_overloaded(const char *name, Ret (*ptr)(Args...)) {
+    rosetta::core::FunctionRegistry::instance().register_function(name, ptr);
+}
+
+// ============================================================================
+// SHORT MACRO ALIASES
+// ============================================================================
+
+// #define R_OVERLOAD(Class, RetType, MethodName, ...) \
+//     ROSETTA_OVERLOAD(Class, RetType, MethodName, ##__VA_ARGS__)
+
+// #define R_OVERLOAD_CONST(Class, RetType, MethodName, ...) \
+//     ROSETTA_OVERLOAD_CONST(Class, RetType, MethodName, ##__VA_ARGS__)
+
+// #define R_OVERLOAD_STATIC(Class, RetType, MethodName, ...) \
+//     ROSETTA_OVERLOAD_STATIC(Class, RetType, MethodName, ##__VA_ARGS__)
+
+// #define R_REG_FUNC(FuncName, FuncPtrType) \
+//     ROSETTA_REGISTER_OVERLOADED_FUNCTION(FuncName, FuncPtrType)
+
+// #define R_REG_FUNC_AS(FuncName, AliasName, FuncPtrType) \
+//     ROSETTA_REGISTER_OVERLOADED_FUNCTION_AS(FuncName, AliasName, FuncPtrType)

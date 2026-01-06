@@ -50,7 +50,13 @@ struct TargetConfig {
     std::string output_dir;  // Override default output directory
     std::vector<std::string> extra_sources;  // Additional source files
     std::vector<std::string> extra_libs;     // Additional libraries to link
-    
+
+    // Python-specific: path to Python root directory or executable
+    // Examples: "/Library/Frameworks/Python.framework/Versions/3.12" (macOS)
+    //           "/usr/bin/python3.11" (Linux executable)
+    // If set, CMake will use this to find the specific Python version
+    std::string python_executable;
+
     // Per-target link mode override (optional)
     // If not set, uses global sources.mode
     std::optional<LinkMode> link_mode_override;

@@ -282,6 +282,9 @@ private:
         get_array_if_exists(j, "extra_sources", target.extra_sources);
         get_array_if_exists(j, "extra_libs", target.extra_libs);
 
+        // Python-specific options
+        get_if_exists(j, "python_executable", target.python_executable);
+
         // WASM-specific options
         get_if_exists(j, "single_file", target.single_file);
         get_if_exists(j, "export_es6", target.export_es6);
@@ -364,6 +367,7 @@ public:
         j["targets"] = {{"python",
                          {{"enabled", true},
                           {"link_mode", "dynamic"}, // Override global mode for this target
+                          {"python_executable", ""}, // Optional: Python root dir or executable (e.g., "/Library/Frameworks/Python.framework/Versions/3.12")
                           {"output_dir", ""},
                           {"extra_sources", nlohmann::json::array()},
                           {"extra_libs", nlohmann::json::array()}}},
