@@ -4,6 +4,8 @@
 #include <memory>
 #endif
 
+#include <ostream>
+
 #include <rosetta/core/registry.h>
 
 namespace rosetta::core {

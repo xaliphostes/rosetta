@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 include_directories(include)
 
+set(BUILD_TESTING ON CACHE BOOL "" FORCE)
+
 # ---------------------------------------------------------------------
 # Detect all testing files
 # ---------------------------------------------------------------------
@@ -19,7 +21,9 @@ function (auto_discover_tests)
     endforeach()    
 endfunction()
 
-enable_testing()
-auto_discover_tests()
+if (BUILD_TESTING)
+    enable_testing()
+    auto_discover_tests()
 
-add_subdirectory(examples/cpp)
+    add_subdirectory(examples/cpp)
+endif()
