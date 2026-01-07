@@ -46,14 +46,19 @@ public:
     }
 
     static void parse_source_config(const nlohmann::json &j, SourceConfig &src,
-                                    const fs::path &config_dir) {
+                                    const fs::path &config_dir,
+                                    bool set_default_base_dir = true) {
         if (j.contains("mode")) {
             src.mode = parse_link_mode(j["mode"].get<std::string>());
         }
 
         get_if_exists(j, "base_dir", src.base_dir);
         if (src.base_dir.empty()) {
-            src.base_dir = config_dir.string();
+            // Only set default base_dir for main sources, not for target-specific sources
+            // This allows from_project_for_target to use the global base_dir as fallback
+            if (set_default_base_dir) {
+                src.base_dir = config_dir.string();
+            }
         } else if (!fs::path(src.base_dir).is_absolute()) {
             src.base_dir = (config_dir / src.base_dir).string();
         }
@@ -305,7 +310,7 @@ private:
         }
 
         if (j.contains("sources")) {
-            parse_source_config(j["sources"], target.target_sources, config_dir);
+            parse_source_config(j["sources"], target.target_sources, config_dir, false);
         }
     }
 
