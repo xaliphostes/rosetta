@@ -115,22 +115,29 @@ private:
     }
 
     // Parse variables section
+    // Priority: 1) Environment variable with same name, 2) JSON value
+    // This allows overriding any variable via environment without editing the JSON
+    // Example: ROSETTA_ROOT=/my/local/rosetta ./pmp_generator project.json
     static VariableMap parse_variables(const nlohmann::json &j) {
         VariableMap vars;
 
         if (j.contains("variables") && j["variables"].is_object()) {
             for (auto &[key, value] : j["variables"].items()) {
                 if (value.is_string()) {
-                    vars[key] = value.get<std::string>();
+                    // Check if environment variable with same name exists (takes priority)
+                    const char *env_val = std::getenv(key.c_str());
+                    if (env_val) {
+                        vars[key] = env_val;
+                    } else {
+                        vars[key] = value.get<std::string>();
+                    }
                 }
             }
         }
 
-        // Also support environment variable fallbacks: ${VAR:-default}
-        // and environment variable references: ${env:VAR}
+        // Also support explicit environment variable references: ${env:VAR}
         for (auto &[key, value] : vars) {
-            // Check for env: prefix
-            if (value.substr(0, 5) == "${env:") {
+            if (value.length() >= 6 && value.substr(0, 6) == "${env:") {
                 size_t end = value.find("}");
                 if (end != std::string::npos) {
                     std::string env_var = value.substr(6, end - 6);
