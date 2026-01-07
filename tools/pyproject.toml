@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rosetta-create"
+version = "1.0.0"
+description = "Project scaffolding tool for Rosetta binding projects"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{ name = "xaliphostes" }]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+]
+keywords = ["rosetta", "bindings", "pybind11", "code-generator", "scaffolding"]
+
+[project.scripts]
+rosetta-create = "rosetta_create.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/xaliphostes/rosetta"
+Repository = "https://github.com/xaliphostes/rosetta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+rosetta_create = ["templates/**/*"]

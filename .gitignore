@@ -16,3 +16,4 @@ idl/example/binding
 .vs
 
 generated
+*.egg-info
