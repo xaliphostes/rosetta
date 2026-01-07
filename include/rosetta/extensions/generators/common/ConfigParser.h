@@ -182,7 +182,10 @@ private:
 
     static ProjectConfig parse_config(const nlohmann::json &j, const std::string &config_path) {
         ProjectConfig config;
-        fs::path      config_dir = fs::path(config_path).parent_path();
+        // Make config_path absolute first, then get parent directory
+        // This handles the case where config_path is relative (e.g., "project.json")
+        fs::path      abs_config_path = fs::absolute(config_path);
+        fs::path      config_dir = abs_config_path.parent_path();
 
         // Project metadata
         if (j.contains("project")) {
