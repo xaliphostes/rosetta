@@ -40,8 +40,7 @@ class ProjectConfig:
     output_dir: str = ""
 
     def __post_init__(self):
-        if not self.namespace:
-            self.namespace = self.lib_name
+        # Note: namespace can be empty for libraries without a namespace
         if not self.registration_namespace:
             self.registration_namespace = f"{self.safe_name}_rosetta"
         if not self.output_dir:
@@ -266,6 +265,14 @@ int main(int argc, char* argv[]) {{
         """Generate the registration header."""
         c = self.config
 
+        # Handle namespace prefix for examples
+        if c.namespace:
+            ns_prefix = f"{c.namespace}::"
+            ns_comment = f"namespace {c.namespace}"
+        else:
+            ns_prefix = ""
+            ns_comment = "global namespace"
+
         content = f'''// ============================================================================
 // {c.lib_name} Library Rosetta Registration
 // ============================================================================
@@ -292,17 +299,17 @@ namespace {c.registration_namespace} {{
         auto &func_registry = FunctionRegistry::instance();
 
         // ====================================================================
-        // Register your classes here
+        // Register your classes here ({ns_comment})
         // ====================================================================
         //
         // Example class registration:
         //
-        // ROSETTA_REGISTER_CLASS({c.namespace}::MyClass)
+        // ROSETTA_REGISTER_CLASS({ns_prefix}MyClass)
         //     .constructor<>()
         //     .constructor<int, float>()
-        //     .method("get_value", &{c.namespace}::MyClass::get_value)
-        //     .method("set_value", &{c.namespace}::MyClass::set_value)
-        //     .field("name", &{c.namespace}::MyClass::name);
+        //     .method("get_value", &{ns_prefix}MyClass::get_value)
+        //     .method("set_value", &{ns_prefix}MyClass::set_value)
+        //     .field("name", &{ns_prefix}MyClass::name);
         //
         // ====================================================================
         // Register your functions here
@@ -310,19 +317,19 @@ namespace {c.registration_namespace} {{
         //
         // Example function registration:
         //
-        // ROSETTA_REGISTER_FUNCTION({c.namespace}::my_function);
+        // ROSETTA_REGISTER_FUNCTION({ns_prefix}my_function);
         //
         // For overloaded functions:
         //
         // ROSETTA_REGISTER_OVERLOADED_FUNCTION(
-        //     {c.namespace}::overloaded_func,
-        //     void (*)({c.namespace}::MyClass&, int)
+        //     {ns_prefix}overloaded_func,
+        //     void (*)({ns_prefix}MyClass&, int)
         // );
         //
         // ROSETTA_REGISTER_OVERLOADED_FUNCTION_AS(
-        //     {c.namespace}::overloaded_func,
+        //     {ns_prefix}overloaded_func,
         //     "overloaded_func_float",
-        //     void (*)({c.namespace}::MyClass&, float)
+        //     void (*)({ns_prefix}MyClass&, float)
         // );
 
         // TODO: Add your registrations below
@@ -455,7 +462,7 @@ namespace {c.registration_namespace} {{
     }},
 
     "types": {{
-        "namespace": "{c.namespace}"
+        "namespace": "{c.namespace if c.namespace else ''}"
     }}
 }}
 '''

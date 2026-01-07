@@ -182,7 +182,11 @@ def interactive_mode() -> ProjectConfig:
 
     # Namespace
     print("--- Namespace Configuration ---")
-    namespace = prompt_string("C++ namespace for your library", lib_name)
+    has_namespace = prompt_yes_no("Does your library use a C++ namespace?", True)
+    if has_namespace:
+        namespace = prompt_string("C++ namespace for your library", lib_name)
+    else:
+        namespace = ""
     registration_namespace = prompt_string("Registration namespace", f"{name.replace('-', '_')}_rosetta")
     print()
 
@@ -261,7 +265,7 @@ Examples:
     parser.add_argument("--lib-src-dir", default="src", help="Source subdirectory (default: src)")
 
     # Namespace
-    parser.add_argument("--namespace", help="C++ namespace (default: lib-name)")
+    parser.add_argument("--namespace", default=None, help="C++ namespace (use 'none' for no namespace, default: lib-name)")
     parser.add_argument("--registration-namespace", help="Registration namespace")
 
     # Targets
@@ -307,6 +311,14 @@ def config_from_args(args: argparse.Namespace) -> Optional[ProjectConfig]:
             local_path=args.lib_path
         )
 
+    # Handle namespace: None means use lib_name as default, "none" means no namespace
+    if args.namespace is None:
+        namespace = args.lib_name
+    elif args.namespace.lower() == "none":
+        namespace = ""  # No namespace
+    else:
+        namespace = args.namespace
+
     return ProjectConfig(
         name=args.name,
         description=args.description or f"Bindings for {args.lib_name}",
@@ -317,7 +329,7 @@ def config_from_args(args: argparse.Namespace) -> Optional[ProjectConfig]:
         lib_source=lib_source,
         lib_include_subdir=args.lib_include_dir,
         lib_src_subdir=args.lib_src_dir,
-        namespace=args.namespace or args.lib_name,
+        namespace=namespace,
         registration_namespace=args.registration_namespace or f"{args.name.replace('-', '_')}_rosetta",
         targets=targets,
         output_dir=args.output or f"./{args.name}"
