@@ -36,7 +36,9 @@ namespace rosetta::core {
             struct ConstructorMeta {
                 std::vector<std::type_index> param_types;
                 std::vector<bool>            param_is_lvalue_ref; // true if param is T&
-                size_t                       arity = 0;
+                size_t                       arity     = 0;
+                bool                         is_lambda = false;   // true if lambda constructor
+                std::string                  lambda_body;         // lambda body for code generation
 
                 /// Get parameter types as demangled strings (with & for references)
                 std::vector<std::string> get_param_types() const;
@@ -194,6 +196,8 @@ namespace rosetta::core {
                     meta.param_types         = info.param_types;
                     meta.param_is_lvalue_ref = info.param_is_lvalue_ref;
                     meta.arity               = info.arity;
+                    meta.is_lambda           = info.is_lambda;
+                    meta.lambda_body         = info.lambda_body;
                     result.push_back(meta);
                 }
                 return result;

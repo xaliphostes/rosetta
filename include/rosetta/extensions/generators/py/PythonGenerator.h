@@ -277,6 +277,12 @@ std::vector<int> numpy_to_vector_int(py::array_t<int> arr) {
     }
 
     void write_constructor(const std::string &cpp_type, const ConstructorMeta &ctor) {
+        // Handle lambda constructors - use the provided lambda body directly
+        if (ctor.is_lambda && !ctor.lambda_body.empty()) {
+            line(".def(py::init(" + ctor.lambda_body + "))");
+            return;
+        }
+
         auto params = ctor.get_param_types();
         if (params.empty()) {
             line(".def(py::init<>())");

@@ -73,7 +73,9 @@ namespace rosetta::core {
             std::function<Any(std::vector<Any>)> invoker;
             std::vector<std::type_index>         param_types;
             std::vector<bool>                    param_is_lvalue_ref; // true if param is T&
-            size_t                               arity = 0;
+            size_t                               arity     = 0;
+            bool                                 is_lambda = false;
+            std::string                          lambda_body; // For code generation
         };
         std::vector<ConstructorInfo> constructor_infos_;
 
@@ -249,6 +251,29 @@ namespace rosetta::core {
          * @brief Register a constructor
          */
         template <typename... Args> ClassMetadata &constructor();
+
+        /**
+         * @brief Register a lambda constructor for custom object creation.
+         *
+         * This allows binding a constructor with custom type conversions.
+         * The lambda receives the bound parameters and returns a Class instance.
+         *
+         * Usage:
+         *   .lambda_constructor<std::function<std::vector<double>(double, double, double)>, bool>(
+         *       "[](std::function<std::vector<double>(double, double, double)> userFct, bool isStress) {"
+         *       "    auto wrapper = [userFct](double x, double y, double z) -> Matrix33 {"
+         *       "        auto v = userFct(x, y, z);"
+         *       "        return Matrix33(v[0], v[1], v[2], v[3], v[4], v[5]);"
+         *       "    };"
+         *       "    return UserRemote(wrapper, isStress);"
+         *       "}"
+         *   );
+         *
+         * @tparam Args Parameter types that the binding will accept
+         * @param lambda_body The lambda body as a string for code generation
+         */
+        template <typename... Args>
+        ClassMetadata &lambda_constructor(const std::string &lambda_body);
 
         // ========================================================================
         // Register lambda/callable as methods (synthetic methods)

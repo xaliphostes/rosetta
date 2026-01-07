@@ -598,6 +598,33 @@ namespace rosetta::core {
         return *this;
     }
 
+    // ========================================================================
+    // Lambda constructor registration
+    // ========================================================================
+
+    template <typename Class>
+    template <typename... Args>
+    inline ClassMetadata<Class> &
+    ClassMetadata<Class>::lambda_constructor(const std::string &lambda_body) {
+        // Lambda constructors don't have a runtime invoker (they're for code generation only)
+        // But we still store parameter type info for the generators
+
+        ConstructorInfo info;
+        info.arity               = sizeof...(Args);
+        info.param_types         = {std::type_index(typeid(Args))...};
+        info.param_is_lvalue_ref = {(std::is_lvalue_reference_v<Args> &&
+                                     !std::is_const_v<std::remove_reference_t<Args>>)...};
+        info.is_lambda           = true;
+        info.lambda_body         = lambda_body;
+
+        // No runtime invoker for lambda constructors - they're code-gen only
+        info.invoker = nullptr;
+
+        constructor_infos_.push_back(info);
+
+        return *this;
+    }
+
     // Helper to extract constructor arguments, handling non-const references
     template <typename Arg> static decltype(auto) extract_ctor_arg(const Any &arg) {
         using RawType = std::remove_cv_t<std::remove_reference_t<Arg>>;
