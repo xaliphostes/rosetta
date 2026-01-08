@@ -36,6 +36,15 @@ namespace rosetta::core {
         func_ptr_type_str_ = type_str;
     }
 
+    inline FunctionMetadata &FunctionMetadata::doc(const std::string &documentation) {
+        doc_ = documentation;
+        return *this;
+    }
+
+    inline const std::string &FunctionMetadata::doc() const {
+        return doc_;
+    }
+
     inline size_t FunctionMetadata::arity() const {
         return arity_;
     }

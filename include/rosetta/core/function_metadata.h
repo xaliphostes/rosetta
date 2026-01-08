@@ -64,6 +64,9 @@ namespace rosetta::core {
         // Function invoker (type-erased)
         std::function<Any(std::vector<Any>)> invoker_;
 
+        // User documentation for this function
+        std::string doc_;
+
     public:
         /**
          * @brief Constructor
@@ -112,6 +115,18 @@ namespace rosetta::core {
          * Called during registration of overloaded functions
          */
         void set_func_ptr_type_str(const std::string &type_str);
+
+        /**
+         * @brief Set documentation for this function
+         * @param documentation The documentation string
+         * @return Reference to this for chaining
+         */
+        FunctionMetadata &doc(const std::string &documentation);
+
+        /**
+         * @brief Get documentation for this function
+         */
+        const std::string &doc() const;
 
         /**
          * @brief Get the number of parameters

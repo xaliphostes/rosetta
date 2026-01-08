@@ -39,6 +39,7 @@ namespace rosetta::core {
                 size_t                       arity     = 0;
                 bool                         is_lambda = false;   // true if lambda constructor
                 std::string                  lambda_body;         // lambda body for code generation
+                std::string                  doc;                 // user documentation
 
                 /// Get parameter types as demangled strings (with & for references)
                 std::vector<std::string> get_param_types() const;
@@ -61,6 +62,7 @@ namespace rosetta::core {
                 bool                         is_const      = false;
                 bool                         is_overloaded = false;
                 bool                         is_lambda     = false;
+                std::string                  doc;          // user documentation
 
                 /// Get parameter types as demangled strings
                 std::vector<std::string> get_param_types_str() const;
@@ -84,6 +86,7 @@ namespace rosetta::core {
                 std::type_index value_type   = std::type_index(typeid(void));
                 bool            is_readonly  = false;
                 bool            is_writeonly = false;
+                std::string     doc;         // user documentation
 
                 /// Get value type as demangled string
                 std::string get_value_type_str() const;
@@ -167,6 +170,25 @@ namespace rosetta::core {
 
             /// Get method return type
             virtual std::type_index get_method_return_type(const std::string &name) const = 0;
+
+            // ================================================================
+            // Documentation access
+            // ================================================================
+
+            /// Get class documentation
+            virtual std::string get_class_doc() const = 0;
+
+            /// Get field documentation by name
+            virtual std::string get_field_doc(const std::string &name) const = 0;
+
+            /// Get method documentation by name (first overload)
+            virtual std::string get_method_doc(const std::string &name) const = 0;
+
+            /// Get property documentation by name
+            virtual std::string get_property_doc(const std::string &name) const = 0;
+
+            /// Get constructor documentation by index
+            virtual std::string get_constructor_doc(size_t index) const = 0;
         };
 
         /**
@@ -198,6 +220,7 @@ namespace rosetta::core {
                     meta.arity               = info.arity;
                     meta.is_lambda           = info.is_lambda;
                     meta.lambda_body         = info.lambda_body;
+                    meta.doc                 = info.doc;
                     result.push_back(meta);
                 }
                 return result;
@@ -232,6 +255,7 @@ namespace rosetta::core {
                     meta.is_const      = info.is_const;
                     meta.is_overloaded = info.is_overloaded;
                     meta.is_lambda     = info.is_lambda;
+                    meta.doc           = info.doc;
                 }
                 return meta;
             }
@@ -287,6 +311,7 @@ namespace rosetta::core {
                 meta.value_type   = info.value_type;
                 meta.is_readonly  = info.is_readonly;
                 meta.is_writeonly = info.is_writeonly;
+                meta.doc          = info.doc;
                 return meta;
             }
 
@@ -345,6 +370,30 @@ namespace rosetta::core {
 
             std::type_index get_method_return_type(const std::string &name) const override {
                 return metadata.get_method_return_type(name);
+            }
+
+            // ================================================================
+            // Documentation access implementation
+            // ================================================================
+
+            std::string get_class_doc() const override {
+                return metadata.class_doc();
+            }
+
+            std::string get_field_doc(const std::string &name) const override {
+                return metadata.get_field_doc(name);
+            }
+
+            std::string get_method_doc(const std::string &name) const override {
+                return metadata.get_method_doc(name);
+            }
+
+            std::string get_property_doc(const std::string &name) const override {
+                return metadata.get_property_doc(name);
+            }
+
+            std::string get_constructor_doc(size_t index) const override {
+                return metadata.get_constructor_doc(index);
             }
         };
 

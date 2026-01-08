@@ -238,7 +238,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::property(const std::string &name,
                                                                 const T &(Class::*getter)() const,
                                                                 void (Class::*setter)(const T &)) {
         property_names_.push_back(name);
@@ -257,12 +257,12 @@ namespace rosetta::core {
         // Setter: extract value from Any and invoke the setter method
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::property(const std::string &name,
                                                                 T (Class::*getter)() const,
                                                                 void (Class::*setter)(const T &)) {
         property_names_.push_back(name);
@@ -281,12 +281,12 @@ namespace rosetta::core {
         // Setter: extract value from Any and invoke the setter method
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::property(const std::string &name,
                                                                 T &(Class::*getter)(),
                                                                 void (Class::*setter)(const T &)) {
         property_names_.push_back(name);
@@ -302,7 +302,7 @@ namespace rosetta::core {
         // Setter: extract value from Any and invoke the setter method
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     // ========================================================================
@@ -311,7 +311,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::property(const std::string &name,
                                                                 const T &(Class::*getter)() const,
                                                                 void (Class::*setter)(T)) {
         property_names_.push_back(name);
@@ -331,12 +331,12 @@ namespace rosetta::core {
         // Note: setter takes T by value, not const T&
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::property(const std::string &name,
                                                                 T (Class::*getter)() const,
                                                                 void (Class::*setter)(T)) {
         property_names_.push_back(name);
@@ -356,12 +356,12 @@ namespace rosetta::core {
         // Note: setter takes T by value, not const T&
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::property(const std::string &name,
                                                                 T &(Class::*getter)(),
                                                                 void (Class::*setter)(T)) {
         property_names_.push_back(name);
@@ -378,7 +378,7 @@ namespace rosetta::core {
         // Note: setter takes T by value, not const T&
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     // ========================================================================
@@ -387,14 +387,15 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::readonly_property(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::readonly_property(const std::string &name,
                                                                          const T &(Class::*getter)()
                                                                              const) {
         property_names_.push_back(name);
 
         PropertyInfo info;
-        info.name       = name;
-        info.value_type = std::type_index(typeid(T));
+        info.name        = name;
+        info.value_type  = std::type_index(typeid(T));
+        info.is_readonly = true;
         property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
@@ -408,18 +409,19 @@ namespace rosetta::core {
             throw std::runtime_error("Cannot set read-only property: " + name);
         };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::readonly_property(const std::string &name, T (Class::*getter)() const) {
         property_names_.push_back(name);
 
         PropertyInfo info;
-        info.name       = name;
-        info.value_type = std::type_index(typeid(T));
+        info.name        = name;
+        info.value_type  = std::type_index(typeid(T));
+        info.is_readonly = true;
         property_info_.emplace(name, info);
 
         // Getter: invoke the getter method and wrap result in Any
@@ -433,19 +435,20 @@ namespace rosetta::core {
             throw std::runtime_error("Cannot set read-only property: " + name);
         };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::writeonly_property(const std::string &name,
                                              void (Class::*setter)(const T &)) {
         property_names_.push_back(name);
 
         PropertyInfo info;
-        info.name       = name;
-        info.value_type = std::type_index(typeid(T));
+        info.name         = name;
+        info.value_type   = std::type_index(typeid(T));
+        info.is_writeonly = true;
         property_info_.emplace(name, info);
 
         // No getter - will throw if someone tries to get this field
@@ -456,7 +459,7 @@ namespace rosetta::core {
         // Setter: extract value from Any and invoke the setter method
         property_setters_[name] = [setter](Class &obj, Any value) { (obj.*setter)(value.as<T>()); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Property, name);
     }
 
     // ============================================================================
@@ -572,7 +575,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::constructor() {
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::constructor() {
         // Store in old-style vector for backward compatibility
         constructors_.emplace_back([](const std::vector<Any> &args) -> Any {
             if (args.size() != sizeof...(Args))
@@ -595,7 +598,7 @@ namespace rosetta::core {
         };
         constructor_infos_.push_back(info);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Constructor, "", constructor_infos_.size() - 1);
     }
 
     // ========================================================================
@@ -604,7 +607,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename... Args>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::lambda_constructor(const std::string &lambda_body) {
         // Lambda constructors don't have a runtime invoker (they're for code generation only)
         // But we still store parameter type info for the generators
@@ -622,7 +625,7 @@ namespace rosetta::core {
 
         constructor_infos_.push_back(info);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Constructor, "", constructor_infos_.size() - 1);
     }
 
     // Helper to extract constructor arguments, handling non-const references
@@ -654,7 +657,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::field(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::field(const std::string &name,
                                                              T Class::*ptr) {
         field_names_.push_back(name);
 
@@ -665,12 +668,12 @@ namespace rosetta::core {
 
         field_setters_[name] = [ptr](Class &obj, Any value) { obj.*ptr = value.as<T>(); };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Field, name);
     }
 
     template <typename Class>
     template <typename Base, typename T>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::base_field(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::base_field(const std::string &name,
                                                                   T Base::*ptr) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
@@ -689,7 +692,7 @@ namespace rosetta::core {
             base.*ptr  = value.as<T>();
         };
 
-        return *this;
+        return DocProxy(*this, DocTarget::Field, name);
     }
 
     // ========================================================================
@@ -698,7 +701,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::method(const std::string &name,
                                                               Ret (Class::*ptr)(Args...)) {
         // auto_register_function_converters(ptr);
 
@@ -731,7 +734,7 @@ namespace rosetta::core {
         method_info_[name].push_back(info);
         methods_[name].push_back(info.invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // ========================================================================
@@ -740,7 +743,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::method(const std::string &name,
                                                               Ret (Class::*ptr)(Args...) const) {
         // auto_register_function_converters(ptr);
 
@@ -791,7 +794,7 @@ namespace rosetta::core {
         methods_[name].push_back(info.invoker);
         const_methods_[name].push_back(const_invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // ========================================================================
@@ -801,7 +804,7 @@ namespace rosetta::core {
     // Non const version
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
         // Only add name once to method_names_
         if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
@@ -832,13 +835,13 @@ namespace rosetta::core {
         method_info_[name].push_back(info);
         methods_[name].push_back(info.invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // Const version
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::overloaded_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::overloaded_method(const std::string &name,
                                                                          Ret (Class::*ptr)(Args...)
                                                                              const) {
         // Only add name once to method_names_
@@ -887,7 +890,7 @@ namespace rosetta::core {
         methods_[name].push_back(info.invoker);
         const_methods_[name].push_back(const_invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // ========================================================================
@@ -896,7 +899,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::static_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::static_method(const std::string &name,
                                                                      Ret (*ptr)(Args...)) {
         // Only add name once to method_names_
         if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
@@ -966,7 +969,7 @@ namespace rosetta::core {
         };
         const_methods_[name].push_back(const_invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::StaticMethod, name);
     }
 
     // ========================================================================
@@ -1050,7 +1053,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Base, typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::base_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::base_method(const std::string &name,
                                                                    Ret (Base::*ptr)(Args...)) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
@@ -1083,12 +1086,12 @@ namespace rosetta::core {
         method_info_[name].push_back(info);
         methods_[name].push_back(info.invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     template <typename Class>
     template <typename Base, typename Ret, typename... Args>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::base_method(const std::string &name, Ret (Base::*ptr)(Args...) const) {
         static_assert(std::is_base_of_v<Base, Class>, "Base must be a base class of Class");
 
@@ -1138,7 +1141,7 @@ namespace rosetta::core {
         methods_[name].push_back(info.invoker);
         const_methods_[name].push_back(const_invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // ========================================================================
@@ -1147,7 +1150,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::virtual_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::virtual_method(const std::string &name,
                                                                       Ret (Class::*ptr)(Args...)) {
         std::string signature = make_signature<Ret, Args...>();
         VirtualMethodRegistry::instance().register_virtual_method<Class>(name, signature, false);
@@ -1157,7 +1160,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::virtual_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::virtual_method(const std::string &name,
                                                                       Ret (Class::*ptr)(Args...)
                                                                           const) {
         std::string signature = make_signature<Ret, Args...>();
@@ -1169,7 +1172,7 @@ namespace rosetta::core {
     // Template-only version (non-const)
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::pure_virtual_method(const std::string &name) {
         std::string signature = make_signature<Ret, Args...>();
         VirtualMethodRegistry::instance().register_virtual_method<Class>(name, signature, true);
@@ -1194,13 +1197,13 @@ namespace rosetta::core {
 
         method_info_[name].push_back(info);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // Template-only version (const)
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &
+    inline typename ClassMetadata<Class>::DocProxy
     ClassMetadata<Class>::pure_virtual_method_const(const std::string &name) {
         std::string signature = make_signature<Ret, Args...>();
         VirtualMethodRegistry::instance().register_virtual_method<Class>(name, signature, true);
@@ -1225,12 +1228,12 @@ namespace rosetta::core {
 
         method_info_[name].push_back(info);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::override_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::override_method(const std::string &name,
                                                                        Ret (Class::*ptr)(Args...)) {
         auto *vmethod = inheritance_.vtable.find_method(name);
         if (vmethod) {
@@ -1241,7 +1244,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::override_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::override_method(const std::string &name,
                                                                        Ret (Class::*ptr)(Args...)
                                                                            const) {
         auto *vmethod = inheritance_.vtable.find_method(name);
@@ -1975,7 +1978,7 @@ namespace rosetta::core {
 
     template <typename Class>
     template <typename Ret, typename... Args, typename Callable>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::lambda_method(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::lambda_method(const std::string &name,
                                                                      Callable         &&callable) {
         // Only add name once to method_names_
         if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
@@ -2002,12 +2005,12 @@ namespace rosetta::core {
         method_info_[name].push_back(info);
         methods_[name].push_back(info.invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     template <typename Class>
     template <typename Ret, typename... Args, typename Callable>
-    inline ClassMetadata<Class> &ClassMetadata<Class>::lambda_method_const(const std::string &name,
+    inline typename ClassMetadata<Class>::DocProxy ClassMetadata<Class>::lambda_method_const(const std::string &name,
                                                                            Callable &&callable) {
         // Only add name once to method_names_
         if (std::find(method_names_.begin(), method_names_.end(), name) == method_names_.end()) {
@@ -2043,7 +2046,7 @@ namespace rosetta::core {
         methods_[name].push_back(info.invoker);
         const_methods_[name].push_back(const_invoker);
 
-        return *this;
+        return DocProxy(*this, DocTarget::Method, name);
     }
 
     // Helper to invoke lambda with Class& as first argument

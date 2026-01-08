@@ -26,6 +26,7 @@ namespace rosetta::core {
         std::type_index value_type;  // Type of the property value
         bool            is_readonly  = false;
         bool            is_writeonly = false;
+        std::string     doc;         // User documentation for this property
 
         PropertyInfo() : value_type(typeid(void)) {}
         PropertyInfo(const std::string &n, std::type_index t) : name(n), value_type(t) {}
@@ -76,6 +77,7 @@ namespace rosetta::core {
             size_t                               arity     = 0;
             bool                                 is_lambda = false;
             std::string                          lambda_body; // For code generation
+            std::string                          doc;         // User documentation
         };
         std::vector<ConstructorInfo> constructor_infos_;
 
@@ -98,9 +100,10 @@ namespace rosetta::core {
             bool            is_static   = false; // Flag to identify static methods
             std::string     inherited_from; // Empty if not inherited, base class name otherwise
 
-            bool is_const      = false;
-            bool is_overloaded = false;
-            bool is_lambda     = false;
+            bool        is_const      = false;
+            bool        is_overloaded = false;
+            bool        is_lambda     = false;
+            std::string doc;          // User documentation
         };
 
     private:
@@ -116,11 +119,237 @@ namespace rosetta::core {
             std::vector<std::type_index>         arg_types;
             std::type_index                      return_type = std::type_index(typeid(void));
             size_t                               arity       = 0;
+            std::string                          doc;        // User documentation
         };
         // Store multiple StaticMethodInfo per method name to support overloads
         umapv<StaticMethodInfo> static_methods_;
 
         // ----------------------------------------
+        // Documentation storage
+        // ----------------------------------------
+        std::string         class_doc_;  // Documentation for the class itself
+        umap<std::string>   field_docs_; // Documentation for each field
+
+        // ----------------------------------------
+
+    public:
+        // ========================================================================
+        // DocProxy - Enables fluent .doc() chaining after registration calls
+        // ========================================================================
+
+        enum class DocTarget { Klass, Field, Method, Property, Constructor, StaticMethod };
+
+        class DocProxy {
+            ClassMetadata &metadata_;
+            DocTarget      target_;
+            std::string    element_name_;  // For field/method/property
+            size_t         element_index_; // For constructor (index in vector)
+
+        public:
+            DocProxy(ClassMetadata &m, DocTarget t, std::string name = "", size_t idx = 0)
+                : metadata_(m), target_(t), element_name_(std::move(name)), element_index_(idx) {}
+
+            /// Set documentation for the last registered element
+            DocProxy doc(const std::string &documentation) {
+                switch (target_) {
+                    case DocTarget::Klass:
+                        metadata_.class_doc_ = documentation;
+                        break;
+                    case DocTarget::Field:
+                        metadata_.field_docs_[element_name_] = documentation;
+                        break;
+                    case DocTarget::Method:
+                        // Set doc on all overloads with this name (last added)
+                        if (auto it = metadata_.method_info_.find(element_name_);
+                            it != metadata_.method_info_.end() && !it->second.empty()) {
+                            it->second.back().doc = documentation;
+                        }
+                        break;
+                    case DocTarget::Property:
+                        if (auto it = metadata_.property_info_.find(element_name_);
+                            it != metadata_.property_info_.end()) {
+                            it->second.doc = documentation;
+                        }
+                        break;
+                    case DocTarget::Constructor:
+                        if (element_index_ < metadata_.constructor_infos_.size()) {
+                            metadata_.constructor_infos_[element_index_].doc = documentation;
+                        }
+                        break;
+                    case DocTarget::StaticMethod:
+                        if (auto it = metadata_.static_methods_.find(element_name_);
+                            it != metadata_.static_methods_.end() && !it->second.empty()) {
+                            it->second.back().doc = documentation;
+                        }
+                        break;
+                }
+                return *this;
+            }
+
+            /// Implicit conversion to ClassMetadata& for continued chaining
+            operator ClassMetadata &() { return metadata_; }
+
+            // ================================================================
+            // Forwarding methods for chaining support
+            // These allow continued registration after .doc() or without it
+            // ================================================================
+
+            template <typename... Args>
+            DocProxy constructor() { return metadata_.template constructor<Args...>(); }
+
+            template <typename... Args>
+            DocProxy lambda_constructor(const std::string &lambda_body) {
+                return metadata_.template lambda_constructor<Args...>(lambda_body);
+            }
+
+            template <typename T>
+            DocProxy field(const std::string &name, T Class::*ptr) {
+                return metadata_.field(name, ptr);
+            }
+
+            template <typename Base, typename T>
+            DocProxy base_field(const std::string &name, T Base::*ptr) {
+                return metadata_.template base_field<Base>(name, ptr);
+            }
+
+            template <typename T>
+            DocProxy property(const std::string &name, const T &(Class::*getter)() const,
+                              void (Class::*setter)(const T &)) {
+                return metadata_.property(name, getter, setter);
+            }
+
+            template <typename T>
+            DocProxy property(const std::string &name, T (Class::*getter)() const,
+                              void (Class::*setter)(const T &)) {
+                return metadata_.property(name, getter, setter);
+            }
+
+            template <typename T>
+            DocProxy property(const std::string &name, T &(Class::*getter)(),
+                              void (Class::*setter)(const T &)) {
+                return metadata_.property(name, getter, setter);
+            }
+
+            template <typename T>
+            DocProxy property(const std::string &name, const T &(Class::*getter)() const,
+                              void (Class::*setter)(T)) {
+                return metadata_.property(name, getter, setter);
+            }
+
+            template <typename T>
+            DocProxy property(const std::string &name, T (Class::*getter)() const,
+                              void (Class::*setter)(T)) {
+                return metadata_.property(name, getter, setter);
+            }
+
+            template <typename T>
+            DocProxy property(const std::string &name, T &(Class::*getter)(),
+                              void (Class::*setter)(T)) {
+                return metadata_.property(name, getter, setter);
+            }
+
+            template <typename T>
+            DocProxy readonly_property(const std::string &name, const T &(Class::*getter)() const) {
+                return metadata_.readonly_property(name, getter);
+            }
+
+            template <typename T>
+            DocProxy readonly_property(const std::string &name, T (Class::*getter)() const) {
+                return metadata_.readonly_property(name, getter);
+            }
+
+            template <typename T>
+            DocProxy writeonly_property(const std::string &name, void (Class::*setter)(const T &)) {
+                return metadata_.writeonly_property(name, setter);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy method(const std::string &name, Ret (Class::*ptr)(Args...)) {
+                return metadata_.method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
+                return metadata_.method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
+                return metadata_.overloaded_method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
+                return metadata_.overloaded_method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy static_method(const std::string &name, Ret (*ptr)(Args...)) {
+                return metadata_.static_method(name, ptr);
+            }
+
+            template <typename Base, typename Ret, typename... Args>
+            DocProxy base_method(const std::string &name, Ret (Base::*ptr)(Args...)) {
+                return metadata_.template base_method<Base>(name, ptr);
+            }
+
+            template <typename Base, typename Ret, typename... Args>
+            DocProxy base_method(const std::string &name, Ret (Base::*ptr)(Args...) const) {
+                return metadata_.template base_method<Base>(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy virtual_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
+                return metadata_.virtual_method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy virtual_method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
+                return metadata_.virtual_method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy pure_virtual_method(const std::string &name) {
+                return metadata_.template pure_virtual_method<Ret, Args...>(name);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy pure_virtual_method_const(const std::string &name) {
+                return metadata_.template pure_virtual_method_const<Ret, Args...>(name);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy override_method(const std::string &name, Ret (Class::*ptr)(Args...)) {
+                return metadata_.override_method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args>
+            DocProxy override_method(const std::string &name, Ret (Class::*ptr)(Args...) const) {
+                return metadata_.override_method(name, ptr);
+            }
+
+            template <typename Ret, typename... Args, typename Callable>
+            DocProxy lambda_method(const std::string &name, Callable &&callable) {
+                return metadata_.template lambda_method<Ret, Args...>(name, std::forward<Callable>(callable));
+            }
+
+            template <typename Ret, typename... Args, typename Callable>
+            DocProxy lambda_method_const(const std::string &name, Callable &&callable) {
+                return metadata_.template lambda_method_const<Ret, Args...>(name, std::forward<Callable>(callable));
+            }
+
+            template <typename Base>
+            DocProxy inherits_from(const std::string &base_name = "", AccessSpecifier access = AccessSpecifier::Public) {
+                metadata_.template inherits_from<Base>(base_name, access);
+                return *this;
+            }
+
+            template <typename Base>
+            DocProxy virtually_inherits_from(const std::string &base_name = "", AccessSpecifier access = AccessSpecifier::Public) {
+                metadata_.template virtually_inherits_from<Base>(base_name, access);
+                return *this;
+            }
+        };
 
     public:
         /**
@@ -138,6 +367,67 @@ namespace rosetta::core {
          * @brief Obtient le nom de la classe
          */
         const std::string &name() const;
+
+        // ========================================================================
+        // Documentation methods
+        // ========================================================================
+
+        /**
+         * @brief Set documentation for this class
+         * @param documentation The class documentation string
+         * @return DocProxy for continued chaining
+         */
+        DocProxy doc(const std::string &documentation) {
+            class_doc_ = documentation;
+            return DocProxy(*this, DocTarget::Klass);
+        }
+
+        /**
+         * @brief Get documentation for this class
+         */
+        const std::string &class_doc() const { return class_doc_; }
+
+        /**
+         * @brief Get documentation for a field
+         * @param name Field name
+         * @return Documentation string (empty if not set)
+         */
+        std::string get_field_doc(const std::string &name) const {
+            auto it = field_docs_.find(name);
+            return it != field_docs_.end() ? it->second : "";
+        }
+
+        /**
+         * @brief Get documentation for a method (returns doc of first overload)
+         * @param name Method name
+         * @return Documentation string (empty if not set)
+         */
+        std::string get_method_doc(const std::string &name) const {
+            auto it = method_info_.find(name);
+            if (it != method_info_.end() && !it->second.empty()) {
+                return it->second.front().doc;
+            }
+            return "";
+        }
+
+        /**
+         * @brief Get documentation for a property
+         * @param name Property name
+         * @return Documentation string (empty if not set)
+         */
+        std::string get_property_doc(const std::string &name) const {
+            auto it = property_info_.find(name);
+            return it != property_info_.end() ? it->second.doc : "";
+        }
+
+        /**
+         * @brief Get documentation for a constructor by index
+         * @param index Constructor index
+         * @return Documentation string (empty if not set or out of range)
+         */
+        std::string get_constructor_doc(size_t index) const {
+            return index < constructor_infos_.size() ? constructor_infos_[index].doc : "";
+        }
 
         /**
          * @brief Get inheritance information (const version)
@@ -161,63 +451,63 @@ namespace rosetta::core {
          * @param setter Pointer to setter method
          */
         template <typename T>
-        ClassMetadata &property(const std::string &name, const T &(Class::*getter)() const,
-                                void (Class::*setter)(const T &));
+        DocProxy property(const std::string &name, const T &(Class::*getter)() const,
+                          void (Class::*setter)(const T &));
 
         /**
          * @brief Register a virtual field - variant with getter returning by value
          */
         template <typename T>
-        ClassMetadata &property(const std::string &name, T (Class::*getter)() const,
-                                void (Class::*setter)(const T &));
+        DocProxy property(const std::string &name, T (Class::*getter)() const,
+                          void (Class::*setter)(const T &));
 
         /**
          * @brief Register a virtual field - variant with non-const reference getter
          */
         template <typename T>
-        ClassMetadata &property(const std::string &name, T &(Class::*getter)(),
-                                void (Class::*setter)(const T &));
+        DocProxy property(const std::string &name, T &(Class::*getter)(),
+                          void (Class::*setter)(const T &));
 
         /**
          * @brief Register a virtual field - setter takes value by value (not const ref)
          */
         template <typename T>
-        ClassMetadata &property(const std::string &name, const T &(Class::*getter)() const,
-                                void (Class::*setter)(T));
+        DocProxy property(const std::string &name, const T &(Class::*getter)() const,
+                          void (Class::*setter)(T));
 
         /**
          * @brief Register a virtual field - getter by value, setter by value
          */
         template <typename T>
-        ClassMetadata &property(const std::string &name, T (Class::*getter)() const,
-                                void (Class::*setter)(T));
+        DocProxy property(const std::string &name, T (Class::*getter)() const,
+                          void (Class::*setter)(T));
 
         /**
          * @brief Register a virtual field - non-const ref getter, setter by value
          */
         template <typename T>
-        ClassMetadata &property(const std::string &name, T &(Class::*getter)(),
-                                void (Class::*setter)(T));
+        DocProxy property(const std::string &name, T &(Class::*getter)(),
+                          void (Class::*setter)(T));
 
         /**
          * @brief Register a read-only virtual field (getter only, no setter)
          */
         template <typename T>
-        ClassMetadata &readonly_property(const std::string &name,
-                                         const T &(Class::*getter)() const);
+        DocProxy readonly_property(const std::string &name,
+                                   const T &(Class::*getter)() const);
 
         /**
          * @brief Register a read-only virtual field - variant returning by value
          */
         template <typename T>
-        ClassMetadata &readonly_property(const std::string &name, T (Class::*getter)() const);
+        DocProxy readonly_property(const std::string &name, T (Class::*getter)() const);
 
         /**
          * @brief Register a write-only virtual field (setter only, no getter)
          */
         template <typename T>
-        ClassMetadata &writeonly_property(const std::string &name,
-                                          void (Class::*setter)(const T &));
+        DocProxy writeonly_property(const std::string &name,
+                                    void (Class::*setter)(const T &));
 
         // ========================================================================
         // Declare inheritance
@@ -250,7 +540,7 @@ namespace rosetta::core {
         /**
          * @brief Register a constructor
          */
-        template <typename... Args> ClassMetadata &constructor();
+        template <typename... Args> DocProxy constructor();
 
         /**
          * @brief Register a lambda constructor for custom object creation.
@@ -273,7 +563,7 @@ namespace rosetta::core {
          * @param lambda_body The lambda body as a string for code generation
          */
         template <typename... Args>
-        ClassMetadata &lambda_constructor(const std::string &lambda_body);
+        DocProxy lambda_constructor(const std::string &lambda_body);
 
         // ========================================================================
         // Register lambda/callable as methods (synthetic methods)
@@ -299,7 +589,7 @@ namespace rosetta::core {
          * @param callable  The lambda or callable object
          */
         template <typename Ret, typename... Args, typename Callable>
-        ClassMetadata &lambda_method(const std::string &name, Callable &&callable);
+        DocProxy lambda_method(const std::string &name, Callable &&callable);
 
         /**
          * @brief Register a lambda or callable as a const method.
@@ -313,7 +603,7 @@ namespace rosetta::core {
          * @param callable  The lambda or callable object
          */
         template <typename Ret, typename... Args, typename Callable>
-        ClassMetadata &lambda_method_const(const std::string &name, Callable &&callable);
+        DocProxy lambda_method_const(const std::string &name, Callable &&callable);
 
     private:
         // Helper to construct with proper indexing
@@ -341,7 +631,7 @@ namespace rosetta::core {
          * @param name Name of the field
          * @param ptr Pointer to member field
          */
-        template <typename T> ClassMetadata &field(const std::string &name, T Class::*ptr);
+        template <typename T> DocProxy field(const std::string &name, T Class::*ptr);
 
         /**
          * @brief Enregistre un champ d'une classe de base
@@ -351,7 +641,7 @@ namespace rosetta::core {
          * @param ptr Pointeur vers membre de la base
          */
         template <typename Base, typename T>
-        ClassMetadata &base_field(const std::string &name, T Base::*ptr);
+        DocProxy base_field(const std::string &name, T Base::*ptr);
 
         // ========================================================================
         // Register non const methods
@@ -365,14 +655,14 @@ namespace rosetta::core {
          * @param ptr Pointer to the method
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...));
+        DocProxy method(const std::string &name, Ret (Class::*ptr)(Args...));
 
         /**
          * @brief Register an overloaded non-const method (disambiguated with explicit signature)
          * Use this with ROSETTA_OVERLOAD macro for methods that have multiple overloads
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...));
+        DocProxy overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...));
 
         // ========================================================================
         // Register const methods
@@ -382,14 +672,14 @@ namespace rosetta::core {
          * @brief Register const method
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &method(const std::string &name, Ret (Class::*ptr)(Args...) const);
+        DocProxy method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         /**
          * @brief Register an overloaded const method (disambiguated with explicit signature)
          * Use this with ROSETTA_OVERLOAD_CONST macro
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
+        DocProxy overloaded_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         // ========================================================================
         // Register static methods
@@ -403,7 +693,7 @@ namespace rosetta::core {
          * @param ptr Pointer to the static function
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &static_method(const std::string &name, Ret (*ptr)(Args...));
+        DocProxy static_method(const std::string &name, Ret (*ptr)(Args...));
 
         // ========================================================================
         // METHODS FROM BASE CLASSES
@@ -424,13 +714,13 @@ namespace rosetta::core {
          * @brief Register non const method from base class
          */
         template <typename Base, typename Ret, typename... Args>
-        ClassMetadata &base_method(const std::string &name, Ret (Base::*ptr)(Args...));
+        DocProxy base_method(const std::string &name, Ret (Base::*ptr)(Args...));
 
         /**
          * @brief Register const method from base class
          */
         template <typename Base, typename Ret, typename... Args>
-        ClassMetadata &base_method(const std::string &name, Ret (Base::*ptr)(Args...) const);
+        DocProxy base_method(const std::string &name, Ret (Base::*ptr)(Args...) const);
 
         // ========================================================================
         // Register virtual methods
@@ -440,39 +730,39 @@ namespace rosetta::core {
          * @brief Register non-const virtual method
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &virtual_method(const std::string &name, Ret (Class::*ptr)(Args...));
+        DocProxy virtual_method(const std::string &name, Ret (Class::*ptr)(Args...));
 
         /**
          * @brief register const virtual method
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &virtual_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
+        DocProxy virtual_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         /**
          * @brief Register pure virtual method - template-only version (non-const)
          * Use when you don't have/need the function pointer
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &pure_virtual_method(const std::string &name);
+        DocProxy pure_virtual_method(const std::string &name);
 
         /**
          * @brief Register pure virtual method - template-only version (const)
          * Use when you don't have/need the function pointer
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &pure_virtual_method_const(const std::string &name);
+        DocProxy pure_virtual_method_const(const std::string &name);
 
         /**
          * @brief Register non-const method that overrides a base virtual method
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &override_method(const std::string &name, Ret (Class::*ptr)(Args...));
+        DocProxy override_method(const std::string &name, Ret (Class::*ptr)(Args...));
 
         /**
          * @brief Register const method that overrides a base virtual method
          */
         template <typename Ret, typename... Args>
-        ClassMetadata &override_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
+        DocProxy override_method(const std::string &name, Ret (Class::*ptr)(Args...) const);
 
         // ========================================================================
         // Auto-detect properties from get/set method pairs
