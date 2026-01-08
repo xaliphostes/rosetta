@@ -1,0 +1,79 @@
+{
+    "variables": {
+        "BUILD_DIR": "build",
+        "ROSETTA_ROOT": "${BUILD_DIR}/_deps/rosetta-src",
+        "GEOM_ROOT": "."
+    },
+
+    "project": {
+        "name": "geom",
+        "version": "1.0.0",
+        "description": "a test",
+        "author": "xaliphostes",
+        "license": "MIT"
+    },
+
+    "rosetta": {
+        "registration_header": "bindings/geometry_registration.h",
+        "registration_function": "geometry_rosetta::register_all"
+    },
+
+    "output_base_dir": "generated",
+
+    "sources": {
+        "mode": "static",
+        "base_dir": "${GEOM_ROOT}/src",
+        "files": [],
+        "glob_patterns": [
+            "**/*.cpp"
+        ],
+        "exclude_patterns": [
+            "**/test/**",
+            "**/*_test.cpp",
+            "**/examples/**",
+            "**/main.cpp"
+        ]
+    },
+
+    "includes": {
+        "directories": [
+            "${GEOM_ROOT}",
+            "${ROSETTA_ROOT}/include"
+        ],
+        "headers": [],
+        "library_directories": [],
+        "libraries": []
+    },
+
+    "targets": {
+        "python": {
+            "enabled": true,
+            "python_executable": "",
+            "module_name": "geom",
+            "output_dir": "",
+            "link_mode": "static",
+            "sources": {
+                "glob_patterns": ["**/*.cpp"],
+                "exclude_patterns": ["**/test/**", "**/main.cpp", "**/examples/**"]
+            }
+        },        "wasm": {
+            "enabled": true,
+            "module_name": "geom_wasm",
+            "output_dir": "",
+            "single_file": true,
+            "export_es6": false,
+            "environment": "web,node"
+        },        "javascript": {
+            "enabled": true,
+            "module_name": "geom_js",
+            "output_dir": ""
+        },        "rest": {
+            "enabled": true,
+            "output_dir": ""
+        }
+    },
+
+    "types": {
+        "namespace": ""
+    }
+}
