@@ -232,6 +232,19 @@ private:
             get_array_if_exists(inc, "headers", config.source_headers);
             get_array_if_exists(inc, "libraries", config.link_libraries);
 
+            // Parse include glob patterns
+            if (inc.contains("glob_patterns") && inc["glob_patterns"].is_array()) {
+                for (const auto& gp : inc["glob_patterns"]) {
+                    IncludeGlobPattern pattern;
+                    get_if_exists(gp, "base_dir", pattern.base_dir);
+                    get_if_exists(gp, "pattern", pattern.pattern);
+                    if (!pattern.base_dir.empty() && !fs::path(pattern.base_dir).is_absolute()) {
+                        pattern.base_dir = (config_dir / pattern.base_dir).string();
+                    }
+                    config.include_globs.push_back(pattern);
+                }
+            }
+
             // Resolve relative paths
             resolve_paths(config.include_dirs, config_dir);
             resolve_paths(config.library_dirs, config_dir);

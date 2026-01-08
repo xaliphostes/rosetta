@@ -58,6 +58,31 @@ INCLUDE_DIRS = [
         emit(R"(
 ]
 
+# Library directories
+LIBRARY_DIRS = [
+)");
+
+        // Add library directories
+        for (const auto &lib_dir : config_.library_dirs) {
+            if (lib_dir.find("${") != std::string::npos) continue;  // Skip CMake variables
+            line("    '" + lib_dir + "',");
+        }
+
+        emit(R"(
+]
+
+# Libraries to link
+LIBRARIES = [
+)");
+
+        // Add libraries
+        for (const auto &lib : config_.link_libraries) {
+            line("    '" + lib + "',");
+        }
+
+        emit(R"(
+]
+
 # Platform-specific compiler and linker flags
 if platform.system() == 'Windows':
     extra_compile_args = ['/std:c++20', '/EHsc', '/O2']
@@ -74,6 +99,8 @@ ext_modules = [
         '${MODULE}',
         sources=SOURCES,
         include_dirs=INCLUDE_DIRS,
+        library_dirs=LIBRARY_DIRS,
+        libraries=LIBRARIES,
         language='c++',
         extra_compile_args=extra_compile_args,
         extra_link_args=extra_link_args,

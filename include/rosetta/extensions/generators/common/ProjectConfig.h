@@ -45,6 +45,12 @@ struct SourceConfig {
     }
 };
 
+// Include directory glob pattern for discovering modular include directories
+struct IncludeGlobPattern {
+    std::string base_dir;    // Base directory to search from
+    std::string pattern;     // Glob pattern (e.g., "*/include")
+};
+
 struct TargetConfig {
     bool enabled = false;
     std::string output_dir;  // Override default output directory
@@ -116,10 +122,11 @@ struct ProjectConfig {
     std::string namespace_separator = ""; // Separator to use instead of "::" (empty = strip entirely)
     
     // Include configuration
-    std::vector<std::string> include_dirs;   // Include directories
-    std::vector<std::string> library_dirs;   // Library directories (-L paths)
-    std::vector<std::string> source_headers; // Headers to include in generated code
-    std::vector<std::string> link_libraries; // Libraries to link against
+    std::vector<std::string> include_dirs;            // Explicit include directories
+    std::vector<IncludeGlobPattern> include_globs;    // Glob patterns for include dirs
+    std::vector<std::string> library_dirs;            // Library directories (-L paths)
+    std::vector<std::string> source_headers;          // Headers to include in generated code
+    std::vector<std::string> link_libraries;          // Libraries to link against
     
     // Output configuration
     std::string output_base_dir = "./generated";

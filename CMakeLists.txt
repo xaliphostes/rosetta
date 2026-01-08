@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 include_directories(include)
 
-set(BUILD_TESTING ON CACHE BOOL "" FORCE)
+set(ROSETTA_BUILD_TESTING ON CACHE BOOL "" FORCE)
 
 # ---------------------------------------------------------------------
 # Detect all testing files
@@ -21,7 +21,7 @@ function (auto_discover_tests)
     endforeach()    
 endfunction()
 
-if (BUILD_TESTING)
+if (ROSETTA_BUILD_TESTING)
     enable_testing()
     auto_discover_tests()
 

@@ -38,10 +38,18 @@ With support to:
 
 Describe your introspection once, and export them everywhere. You do not need to know anything about the underlaying libs that are used for the bindings (NAPI, Pybind11, Rice...)
 
-Rosetta supports two complementary workflows:
+## Examples
+- [CGAL-rosetta](https://github.com/xaliphostes/cgal-rosetta) based on the [CGAL](https://github.com/CGAL/cgal) library, for 3D surfaces intersections and remeshing
 
-1. **Direct C++ registration** using C++ introspection. This type of registration is fine grained and let you control everything
-2. **Interface Description Language (IDL)** via YAML files (***STILL IN DEV MODE, no sure to continue!***)
+  <img src="media/cgal-rosetta.png" alt="Logo rosetta" width="300">
+
+- [PMP-rosetta](https://github.com/xaliphostes/pmp-rosetta) based on the [PMP](https://github.com/pmp-library/pmp-library) library, for decimation, remeshing, subdivision or smoothing
+
+  <img src="media/pmp-rosetta.png" alt="Logo rosetta" width="300">
+
+- [Arch-rosetta](https://github.com/xaliphostes/arch3-rosetta) based on the [Arch](https://github.com/xaliphostes/arch3) library, the successor of [Poly3D](https://structuralgeology.stanford.edu) from Stanford and [iBem3D](https://www.sciencedirect.com/science/article/abs/pii/S0098300414001496#:~:text=Review-,iBem3D%2C%20a%20three-dimensional%20iterative%20boundary%20element%20method%20using%20angular,dislocations%20for%20modeling%20geologic%20structures) from slb, a 3D Boundary Element Method in geomechanics
+
+  <img src="media/arch-rosetta.jpg" alt="Logo rosetta" width="300">
 
 ## 🧩 Usages
 
@@ -85,7 +93,6 @@ Rosetta supports two complementary workflows:
 1.  **Validation system** — Runtime constraints and checks
 2.  **Serialization**
 3.  **Documentation generation** — Markdown / HTML export
-4.  **IDL language** - See [this example](./idl/example/geometry.yaml) 
 5.  **Qt Integration** — QML bridge for dynamic property editing, automatic property editor widgets
 6.  **Undo/Redo extension** - Generic undo/redo manager for tracking and reverting property/field changes
   
@@ -105,7 +112,6 @@ Rosetta supports two complementary workflows:
 | REST API generation | ✅ | ❌ | ❌ | ❌ |
 | Serialization | ✅ | ✅ | ✅ | ⚠️ |
 | Qt integration | ✅ | ✅ | ⚠️ | ❌ |
-| IDL support | 🚧 | ✅ | ❌ | ❌ |
 
 ### Legends
 
@@ -146,9 +152,11 @@ void rosetta_registration() {
 
 ### 3. Generate the binding for any language (Python, JavaScript, TypeScript, Wasm, REST-API...)
 Since the introspection of your C++ classes (and free functions) is now created by Rosetta, binding is
-straightforward as long as the generator for a given language is available.
+straightforward as long as the generator for a given language is available. To generate a rosetta skeleton for your project, use [**this tool**](./tools/README.md), a project scaffolding tool for creating Rosetta binding projects.
 
-Read [**this tuto**](./include/rosetta/extensions/generators/USAGE.md) and have a look at [**this example**](examples/geometry_generator/) for how to use the generators in combination with Rosetta. Also, for a more complex example, see [**this project**](https://github.com/xaliphostes/arch3-rosetta).
+Read [**this tuto**](./include/rosetta/extensions/generators/USAGE.md) and have a look at [**this example**](examples/geometry_generator/) for how to use the generators in combination with Rosetta.
+
+Also, for more complex examples, see (1) [**this project**](https://github.com/xaliphostes/arch3-rosetta), (2) [**this one**](https://github.com/xaliphostes/cgal-rosetta) or (3) [**this one**](https://github.com/xaliphostes/pmp-rosetta).
 
 ## 🖼️ Qt Integration
 

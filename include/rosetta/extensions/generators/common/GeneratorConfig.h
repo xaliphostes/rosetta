@@ -90,6 +90,12 @@ struct GeneratorConfig {
         config.namespace_separator = proj.namespace_separator;
 
         config.include_dirs   = proj.include_dirs;
+
+        // Resolve include glob patterns and append to include_dirs
+        auto glob_includes = resolve_include_globs(proj.include_globs);
+        config.include_dirs.insert(config.include_dirs.end(),
+                                   glob_includes.begin(), glob_includes.end());
+
         config.library_dirs   = proj.library_dirs;
         config.source_headers = proj.source_headers;
         config.link_libraries = proj.link_libraries;
@@ -299,6 +305,39 @@ struct GeneratorConfig {
         std::cout << "  Resolved " << result.size() << " source files from " << src.base_dir
                   << "\n";
 
+        return result;
+    }
+
+    // Resolve include glob patterns to actual directories
+    static std::vector<std::string> resolve_include_globs(const std::vector<IncludeGlobPattern>& globs) {
+        std::vector<std::string> result;
+
+        for (const auto& gp : globs) {
+            if (gp.base_dir.empty()) continue;
+
+            fs::path base(gp.base_dir);
+            if (!fs::exists(base) || !fs::is_directory(base)) {
+                std::cerr << "Warning: include glob base_dir does not exist: " << gp.base_dir << "\n";
+                continue;
+            }
+
+            // Handle pattern like "*/include" - find subdirectories matching pattern
+            if (gp.pattern == "*/include") {
+                for (const auto& entry : fs::directory_iterator(base)) {
+                    if (!entry.is_directory()) continue;
+                    fs::path include_path = entry.path() / "include";
+                    if (fs::exists(include_path) && fs::is_directory(include_path)) {
+                        result.push_back(include_path.string());
+                    }
+                }
+            } else {
+                // For other patterns, try simple glob matching
+                std::cerr << "Warning: unsupported include glob pattern: " << gp.pattern
+                          << " (only '*/include' is currently supported)\n";
+            }
+        }
+
+        std::cout << "  Resolved " << result.size() << " include directories from glob patterns\n";
         return result;
     }
 
