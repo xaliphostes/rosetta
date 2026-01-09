@@ -131,6 +131,19 @@ private:
             line(")");
             line();
         }
+
+        // Compile definitions
+        if (!config_.defines.empty()) {
+            line("# Compile definitions");
+            line("target_compile_definitions(${MODULE_NAME} PRIVATE");
+            indent();
+            for (const auto &def : config_.defines) {
+                line(def.to_cmake_string());
+            }
+            dedent();
+            line(")");
+            line();
+        }
     }
 
     void write_compile_options() {

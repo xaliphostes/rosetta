@@ -84,7 +84,15 @@ private:
     }
     
     void write_defines() {
-        line("\"defines\": [\"NAPI_CPP_EXCEPTIONS\"],");
+        line("\"defines\": [");
+        indent();
+        line("\"NAPI_CPP_EXCEPTIONS\"");
+        // Add user-defined macros
+        for (const auto &def : config_.defines) {
+            line(", \"" + def.to_cmake_string() + "\"");
+        }
+        dedent();
+        line("],");
         line();
     }
     

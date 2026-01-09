@@ -153,6 +153,18 @@ private:
         line("endif()");
         line();
 
+        // Compile definitions
+        if (!config_.defines.empty()) {
+            line("target_compile_definitions(${MODULE_NAME} PRIVATE");
+            indent();
+            for (const auto &def : config_.defines) {
+                line(def.to_cmake_string());
+            }
+            dedent();
+            line(")");
+            line();
+        }
+
         line("# Platform-specific settings");
         line("if(WIN32)");
         indent();

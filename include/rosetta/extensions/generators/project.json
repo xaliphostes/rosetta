@@ -57,6 +57,12 @@
             "Arch3"
         ]
     },
+
+    "defines": [
+        "ENABLE_LOGGING",
+        {"name": "VERSION", "value": "\"1.0.0\""},
+        {"name": "MAX_THREADS", "value": "8"}
+    ],
     
     "output": {
         "base_dir": "./generated"

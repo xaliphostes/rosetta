@@ -40,6 +40,9 @@ struct GeneratorConfig {
     std::vector<std::string> source_headers;
     std::vector<std::string> link_libraries;
 
+    // C++ preprocessor definitions
+    std::vector<DefineConfig> defines;
+
     // Source compilation settings
     LinkMode                 link_mode = LinkMode::Dynamic;
     std::vector<std::string> source_files; // Resolved list of all source files
@@ -99,6 +102,7 @@ struct GeneratorConfig {
         config.library_dirs   = proj.library_dirs;
         config.source_headers = proj.source_headers;
         config.link_libraries = proj.link_libraries;
+        config.defines        = proj.defines;
 
         // Source configuration
         config.link_mode    = proj.sources.mode;

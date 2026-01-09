@@ -51,6 +51,29 @@ struct IncludeGlobPattern {
     std::string pattern;     // Glob pattern (e.g., "*/include")
 };
 
+// C++ preprocessor macro definition
+struct DefineConfig {
+    std::string name;        // Macro name (e.g., "DEBUG", "VERSION")
+    std::string value;       // Optional value (empty for flag-style defines)
+
+    // Check if this is a simple flag (no value)
+    bool is_flag() const { return value.empty(); }
+
+    // Get CMake-compatible definition string
+    // Returns "NAME" for flags, "NAME=VALUE" for valued defines
+    std::string to_cmake_string() const {
+        if (is_flag()) return name;
+        return name + "=" + value;
+    }
+
+    // Get C++ preprocessor compatible string
+    // Returns "#define NAME" or "#define NAME VALUE"
+    std::string to_cpp_string() const {
+        if (is_flag()) return "#define " + name;
+        return "#define " + name + " " + value;
+    }
+};
+
 struct TargetConfig {
     bool enabled = false;
     std::string output_dir;  // Override default output directory
@@ -127,6 +150,9 @@ struct ProjectConfig {
     std::vector<std::string> library_dirs;            // Library directories (-L paths)
     std::vector<std::string> source_headers;          // Headers to include in generated code
     std::vector<std::string> link_libraries;          // Libraries to link against
+
+    // C++ preprocessor definitions
+    std::vector<DefineConfig> defines;                // Macro definitions (e.g., DEBUG, VERSION="1.0")
     
     // Output configuration
     std::string output_base_dir = "./generated";

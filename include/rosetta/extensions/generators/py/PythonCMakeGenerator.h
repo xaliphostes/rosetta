@@ -140,6 +140,17 @@ private:
             blank();
         }
 
+        // Compile definitions
+        if (!config_.defines.empty()) {
+            cmake_target_block("target_compile_definitions", "${MODULE_NAME}", "PRIVATE",
+                               [&]() {
+                                   for (const auto &def : config_.defines) {
+                                       line(def.to_cmake_string());
+                                   }
+                               });
+            blank();
+        }
+
         // Platform-specific settings
         cmake_if("WIN32 AND Python_LIBRARIES", [&]() {
             line("target_link_libraries(${MODULE_NAME} PRIVATE ${Python_LIBRARIES})");

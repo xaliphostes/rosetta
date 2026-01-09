@@ -250,6 +250,25 @@ private:
             resolve_paths(config.library_dirs, config_dir);
         }
 
+        // Parse C++ preprocessor definitions
+        if (j.contains("defines") && j["defines"].is_array()) {
+            for (const auto &def : j["defines"]) {
+                DefineConfig define_cfg;
+                if (def.is_string()) {
+                    // Simple flag: "DEBUG" -> #define DEBUG
+                    define_cfg.name = def.get<std::string>();
+                } else if (def.is_object()) {
+                    // Object with name and optional value:
+                    // {"name": "VERSION", "value": "\"1.0\""} -> #define VERSION "1.0"
+                    get_if_exists(def, "name", define_cfg.name);
+                    get_if_exists(def, "value", define_cfg.value);
+                }
+                if (!define_cfg.name.empty()) {
+                    config.defines.push_back(define_cfg);
+                }
+            }
+        }
+
         if (j.contains("sources")) {
             parse_source_config(j["sources"], config.sources, config_dir);
         }
@@ -390,6 +409,14 @@ public:
              {"myproject/core/Types.h", "myproject/core/Model.h", "myproject/core/Solver.h"}},
             {"libraries", {"myproject_core"}}};
 
+        // C++ preprocessor definitions
+        // Can be simple strings (flag macros) or objects with name/value
+        j["defines"] = nlohmann::json::array({
+            "DEBUG",                                               // Simple flag: #define DEBUG
+            {{"name", "VERSION"}, {"value", "\"1.0.0\""}},         // With value: #define VERSION "1.0.0"
+            {{"name", "MAX_BUFFER_SIZE"}, {"value", "4096"}}       // Numeric: #define MAX_BUFFER_SIZE 4096
+        });
+
         j["output"] = {{"base_dir", "./generated"}};
 
         j["targets"] = {{"python",
@@ -449,5 +476,9 @@ public:
         std::cout << "\nPer-target overrides:\n";
         std::cout << "  - link_mode: override global mode for specific target\n";
         std::cout << "  - sources: additional/override source config per target\n";
+        std::cout << "\nC++ preprocessor definitions ('defines' section):\n";
+        std::cout << "  - Simple string: \"DEBUG\" -> #define DEBUG\n";
+        std::cout << "  - Object with value: {\"name\": \"VERSION\", \"value\": \"\\\"1.0\\\"\"} -> #define VERSION \"1.0\"\n";
+        std::cout << "  - Numeric value: {\"name\": \"MAX_SIZE\", \"value\": \"100\"} -> #define MAX_SIZE 100\n";
     }
 };
