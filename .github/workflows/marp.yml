@@ -39,7 +39,7 @@ jobs:
         env:
           MARP_USER: root:root
         with:
-          args: presentation.md --pdf --allow-local-files -o site/presentation.pdf
+          args: docs/slides.md --pdf --allow-local-files -o site/presentation.pdf
 
       - uses: actions/configure-pages@v5
 
