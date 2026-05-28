@@ -1,0 +1,16 @@
+{
+  "name": "reflected-person",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Auto-N-API bindings via C++26 reflection (demo).",
+  "main": "test_reflected_person.js",
+  "scripts": {
+    "build": "cmake-js compile",
+    "rebuild": "cmake-js rebuild",
+    "test": "node test_reflected_person.js"
+  },
+  "devDependencies": {
+    "cmake-js": "^7.3.0",
+    "node-addon-api": "^8.0.0"
+  }
+}

@@ -1,0 +1,21 @@
+# See https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+#
+BasedOnStyle: LLVM   # or Google, LLVM, Mozilla, Chromium, WebKit, Microsoft, GNU
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 100
+NamespaceIndentation: All # or None, Inner, All

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Person REST playground</title>
+<style>
+  :root {
+    --bg: #1a1a1a; --fg: #e8e8e8; --muted: #888;
+    --accent: #4cb050; --error: #e57373;
+    --card: #262626; --border: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 1.5em;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+    max-width: 900px;
+  }
+  h1 { margin: 0 0 .25em; font-weight: 400; }
+  .sub { color: var(--muted); margin-bottom: 1.5em; font-size: .9em; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1em; margin-bottom: 1em;
+  }
+  .card h2 {
+    margin: 0 0 .75em; font-size: 1em; font-weight: 500;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+  }
+  .row {
+    display: grid; grid-template-columns: 120px 1fr auto auto;
+    gap: .5em; align-items: center; margin-bottom: .5em;
+  }
+  .row:last-child { margin-bottom: 0; }
+  label { color: var(--muted); }
+  label .hint { color: #555; font-size: .85em; margin-left: .3em; }
+  input, button {
+    background: #333; color: var(--fg); border: 1px solid var(--border);
+    padding: .4em .7em; border-radius: 4px; font: inherit;
+  }
+  input:focus { outline: 1px solid var(--accent); }
+  button { cursor: pointer; transition: background .15s; min-width: 70px; }
+  button:hover:not(:disabled) { background: #444; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #000; }
+  button.danger  { background: var(--error);  border-color: var(--error);  color: #000; }
+  .status {
+    display: flex; gap: 1em; align-items: center;
+    padding: .6em 1em; margin-bottom: 1em;
+    background: #2a2a2a; border-radius: 6px;
+  }
+  .status .id { font-weight: 600; color: var(--accent); }
+  .status .id.empty { color: var(--muted); font-weight: 400; }
+  pre.log {
+    max-height: 320px; overflow-y: auto; margin: 0;
+    font-size: .82em; line-height: 1.45;
+    background: #0e0e0e; padding: 1em; border-radius: 6px;
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+  }
+  .log .meta { color: #555; }
+  .log .ok   { color: var(--accent); }
+  .log .err  { color: var(--error); }
+</style>
+</head>
+<body>
+
+<h1>Person REST playground</h1>
+<div class="sub">
+  Every endpoint below was generated from one C++26 reflection walk over the
+  annotated <code>Person</code> struct — no per-route hand-written code.
+</div>
+
+<div class="status">
+  <button id="create" class="primary">+ Create Person</button>
+  <span>Current id: <span id="curId" class="id empty">—</span></span>
+  <span style="flex:1"></span>
+  <button id="del" class="danger" disabled>Delete</button>
+</div>
+
+<div class="card">
+  <h2>Fields</h2>
+  <div class="row">
+    <label>name</label>
+    <input id="in-name" type="text" placeholder="(plain string field)">
+    <button class="get" data-field="name" disabled>GET</button>
+    <button class="put" data-field="name" disabled>PUT</button>
+  </div>
+  <div class="row">
+    <label>age <span class="hint">[0..150]</span></label>
+    <input id="in-age" type="number" min="-50" max="500" placeholder="(range annotated)">
+    <button class="get" data-field="age" disabled>GET</button>
+    <button class="put" data-field="age" disabled>PUT</button>
+  </div>
+  <div class="row">
+    <label>id <span class="hint">readonly</span></label>
+    <input id="in-id" type="text" placeholder="(PUT will 403)">
+    <button class="get" data-field="id" disabled>GET</button>
+    <button class="put" data-field="id" disabled>PUT</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Methods</h2>
+  <div class="row">
+    <label>greet(s)</label>
+    <input id="in-greet" type="text" value="Hello">
+    <span></span>
+    <button id="greet" disabled>POST</button>
+  </div>
+  <div class="row">
+    <label>clear()</label>
+    <span class="hint">resets name + age, leaves id</span>
+    <span></span>
+    <button id="clear" disabled>POST</button>
+  </div>
+</div>
+
+<pre class="log" id="log"></pre>
+
+<script>
+const BASE = '';   // same origin as the C++ server
+let currentId = null;
+
+const $ = sel => document.querySelector(sel);
+const logEl = $('#log');
+const curEl = $('#curId');
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
+
+function tlog(method, url, status, body, ok) {
+  const ts = new Date().toISOString().substr(11, 8);
+  const cls = ok ? 'ok' : 'err';
+  const display = body === null || body === undefined
+    ? '' : (typeof body === 'string' ? body : JSON.stringify(body));
+  logEl.innerHTML += `<span class="meta">${ts}</span> ${method.padEnd(6)} `
+    + `${escapeHtml(url)} <span class="${cls}">→ ${status}</span>`
+    + (display ? `  ${escapeHtml(display)}` : '')
+    + '\n';
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function api(method, path, body) {
+  const opts = { method };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  let r, text, parsed = null;
+  try {
+    r = await fetch(BASE + path, opts);
+    text = await r.text();
+    try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
+    tlog(method, path, r.status, parsed, r.ok);
+    return { status: r.status, body: parsed, ok: r.ok };
+  } catch (e) {
+    tlog(method, path, 'ERR', String(e), false);
+    return { status: 0, body: null, ok: false };
+  }
+}
+
+function setEnabled(enabled) {
+  document.querySelectorAll('.card button, #del').forEach(b => {
+    b.disabled = !enabled;
+  });
+}
+
+function setCurrentId(id) {
+  currentId = id;
+  if (id === null) {
+    curEl.textContent = '—';
+    curEl.classList.add('empty');
+  } else {
+    curEl.textContent = id;
+    curEl.classList.remove('empty');
+  }
+  setEnabled(id !== null);
+}
+
+$('#create').onclick = async () => {
+  const r = await api('POST', '/Person');
+  if (r.ok && r.body && typeof r.body.id === 'number') {
+    setCurrentId(r.body.id);
+  }
+};
+
+$('#del').onclick = async () => {
+  if (currentId === null) return;
+  const r = await api('DELETE', `/Person/${currentId}`);
+  if (r.ok) setCurrentId(null);
+};
+
+document.querySelectorAll('button.get').forEach(b => {
+  b.onclick = async () => {
+    if (currentId === null) return;
+    const field = b.dataset.field;
+    const r = await api('GET', `/Person/${currentId}/${field}`);
+    if (r.ok) $(`#in-${field}`).value = r.body ?? '';
+  };
+});
+
+document.querySelectorAll('button.put').forEach(b => {
+  b.onclick = async () => {
+    if (currentId === null) return;
+    const field = b.dataset.field;
+    let value = $(`#in-${field}`).value;
+    if (field === 'age') value = Number(value);
+    await api('PUT', `/Person/${currentId}/${field}`, value);
+  };
+});
+
+$('#greet').onclick = async () => {
+  if (currentId === null) return;
+  const salutation = $('#in-greet').value;
+  await api('POST', `/Person/${currentId}/greet`, [salutation]);
+};
+
+$('#clear').onclick = async () => {
+  if (currentId === null) return;
+  await api('POST', `/Person/${currentId}/clear`, []);
+};
+
+setCurrentId(null);
+</script>
+
+</body>
+</html>

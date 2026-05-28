@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Reflected Person (WASM)</title>
+    <style>
+        body { font-family: monospace; margin: 2em; }
+        pre  { background: #f0f0f0; padding: 1em; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<h1>Reflected Person (WASM)</h1>
+<p>Open via <code>http://</code> — <code>file://</code> can't load the .wasm.</p>
+<pre id="out"></pre>
+<script src="reflected_person.js"></script>
+<script>
+const out = document.getElementById('out');
+const log = s => { out.textContent += s + '\n'; };
+
+createModule().then(m => {
+    const p = new m.Person();
+    log('Person() created');
+
+    p.name = 'Alice';
+    p.age  = 42;
+    log(`  name=${p.name}, age=${p.age}`);
+
+    try { p.age = 999;     } catch (e) { log(`range error: ${e}`); }
+    try { p.id  = 'p-999'; } catch (e) { log(`readonly error: ${e}`); }
+
+    log(`greet('Hello') -> ${p.greet('Hello')}`);
+
+    p.clear();
+    log(`after clear: name="${p.name}", age=${p.age}`);
+
+    p.delete();
+}).catch(err => log(`module load failed: ${err}`));
+</script>
+</body>
+</html>

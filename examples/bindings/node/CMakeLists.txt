@@ -1,0 +1,80 @@
+# Standalone build of the auto-N-API example.
+#
+# From this directory:
+#   npm install                        # pulls node-addon-api + cmake-js
+#   npx cmake-js compile               # configures + builds (sets CMAKE_JS_INC)
+#   node test_reflected_person.js
+#
+# Requires the clang-p2996 fork at $HOME/devs/c++/clang-p2996/build
+# (override with -DCLANG_P2996_ROOT=...).
+
+cmake_minimum_required(VERSION 3.28)
+
+set(CLANG_P2996_ROOT "$ENV{HOME}/devs/c++/clang-p2996/build"
+    CACHE PATH "Bloomberg clang-p2996 fork build directory")
+
+if(NOT CMAKE_CXX_COMPILER)
+    set(CMAKE_C_COMPILER   "${CLANG_P2996_ROOT}/bin/clang")
+    set(CMAKE_CXX_COMPILER "${CLANG_P2996_ROOT}/bin/clang++")
+endif()
+
+project(auto_napi_example CXX)
+
+set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# node-addon-api headers — installed by `npm install` into node_modules.
+if(NOT NODE_ADDON_API_DIR)
+    execute_process(
+        COMMAND node -p "require('node-addon-api').include"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE NODE_ADDON_API_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    string(REGEX REPLACE "^\"|\"$" "" NODE_ADDON_API_DIR "${NODE_ADDON_API_DIR}")
+endif()
+
+# Build target as a .node addon. CMAKE_JS_INC/CMAKE_JS_SRC/CMAKE_JS_LIB
+# are populated by cmake-js when invoked via `npx cmake-js compile`.
+add_library(reflected_person SHARED auto_napi.cpp ${CMAKE_JS_SRC})
+
+set_target_properties(reflected_person PROPERTIES
+    PREFIX ""
+    SUFFIX ".node")
+
+target_include_directories(reflected_person PRIVATE
+    ${CMAKE_JS_INC}
+    ${NODE_ADDON_API_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
+
+target_link_libraries(reflected_person PRIVATE ${CMAKE_JS_LIB})
+
+target_compile_definitions(reflected_person PRIVATE
+    NAPI_VERSION=8)
+
+target_compile_options(reflected_person PRIVATE
+    -freflection
+    -freflection-latest
+    -fexperimental-library
+    -fannotation-attributes)
+
+target_link_options(reflected_person PRIVATE
+    -nostdlib++
+    -L${CLANG_P2996_ROOT}/lib
+    -Wl,-rpath,${CLANG_P2996_ROOT}/lib
+    -lc++
+    -lc++abi)
+
+if(APPLE)
+    # Node symbols are looked up at load time inside the host process.
+    target_link_options(reflected_person PRIVATE
+        -Wl,-undefined,dynamic_lookup)
+endif()
+
+# Copy the .node next to the JS test so `require('./reflected_person.node')`
+# works without juggling output directories.
+add_custom_command(TARGET reflected_person POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:reflected_person>
+        ${CMAKE_CURRENT_SOURCE_DIR}/$<TARGET_FILE_NAME:reflected_person>)
