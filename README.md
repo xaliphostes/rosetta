@@ -10,6 +10,8 @@ Node bindings, REST/QML/Qt glue, a Markdown doc generator, a moc-less
 signals/slots/properties layer, and so on. The point is to keep the source
 class clean and let reflection do the rest.
 
+>>> Presentation >>> [**here**](https://xaliphostes.github.io/rosetta2/)
+
 ## Status
 
 Prototype. Tracks the in-flight C++26 reflection papers:

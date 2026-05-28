@@ -1,0 +1,58 @@
+name: Build and deploy Marp deck
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/slides.md'
+      - 'media/**'
+      - '.github/workflows/marp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage media assets alongside the HTML
+        run: mkdir -p site && cp -R media site/media
+
+      - name: Render presentation.md with Marp
+        uses: docker://marpteam/marp-cli:latest
+        env:
+          MARP_USER: root:root
+        with:
+          args: presentation.md --html --allow-local-files -o site/index.html
+
+      - name: Also render a PDF
+        uses: docker://marpteam/marp-cli:latest
+        env:
+          MARP_USER: root:root
+        with:
+          args: presentation.md --pdf --allow-local-files -o site/presentation.pdf
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
