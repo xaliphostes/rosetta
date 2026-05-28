@@ -27,19 +27,19 @@ jobs:
       - name: Stage media assets alongside the HTML
         run: mkdir -p site && cp -R media site/media
 
-      - name: Render presentation.md with Marp
+      - name: Render docs/slides.md with Marp
         uses: docker://marpteam/marp-cli:latest
         env:
           MARP_USER: root:root
         with:
-          args: presentation.md --html --allow-local-files -o site/index.html
+          args: docs/slides.md --html --allow-local-files -o site/index.html
 
       - name: Also render a PDF
         uses: docker://marpteam/marp-cli:latest
         env:
           MARP_USER: root:root
         with:
-          args: docs/slides.md --pdf --allow-local-files -o site/presentation.pdf
+          args: docs/slides.md --pdf --allow-local-files -o site/slides.pdf
 
       - uses: actions/configure-pages@v5
 
