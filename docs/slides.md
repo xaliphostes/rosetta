@@ -3,7 +3,6 @@ marp: true
 theme: default
 paginate: true
 header: "Rosetta · C++26 reflection in anger"
-footer: "fmaerten@gmail.com"
 class: invert
 style: |
   section { font-size: 24px; }

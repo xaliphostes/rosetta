@@ -11,7 +11,7 @@ signals/slots/properties layer, and so on. The point is to keep the source
 class clean and let reflection do the rest.
 
 
-[![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta2/)  
+[![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta2/)
 
 ## Status
 
