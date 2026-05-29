@@ -2,7 +2,7 @@
 #
 # From this directory:
 #   cmake -G Ninja -B build && cmake --build build
-#   ./build/thermostat
+#   ./build/moc
 
 cmake_minimum_required(VERSION 3.28)
 
@@ -21,18 +21,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-add_executable(thermostat main.cpp)
+add_executable(moc main.cpp)
 
-target_include_directories(thermostat PRIVATE
+target_include_directories(moc PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 
-target_compile_options(thermostat PRIVATE
+target_compile_options(moc PRIVATE
     -freflection
     -freflection-latest
     -fexperimental-library
     -fannotation-attributes)
 
-target_link_options(thermostat PRIVATE
+target_link_options(moc PRIVATE
     -nostdlib++
     -L${CLANG_P2996_ROOT}/lib
     -Wl,-rpath,${CLANG_P2996_ROOT}/lib

@@ -24,10 +24,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
+# Pin to the active `python3` so pybind11 doesn't pick up a different
+# interpreter (e.g. Homebrew 3.14) when several Pythons coexist. Without
+# this the built .so can be ABI-incompatible with the runtime python.
+execute_process(
+    COMMAND python3 -c "import sys; print(sys.executable)"
+    OUTPUT_VARIABLE Python_EXECUTABLE
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(Python3_EXECUTABLE "${Python_EXECUTABLE}" CACHE FILEPATH "" FORCE)
+set(PYBIND11_FINDPYTHON ON)
+
 # Locate pybind11. If it's installed via pip, hint cmake at python3.
 if(NOT pybind11_DIR)
     execute_process(
-        COMMAND python3 -m pybind11 --cmakedir
+        COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir
         OUTPUT_VARIABLE pybind11_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
@@ -39,7 +49,7 @@ find_package(pybind11 REQUIRED CONFIG)
 pybind11_add_module(reflected_person NO_EXTRAS auto_pybind.cpp)
 
 target_include_directories(reflected_person PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include)
 
 target_compile_options(reflected_person PRIVATE
     -freflection

@@ -1,0 +1,12 @@
+{
+  "user_include": "../bindings",
+  "rosetta_include": "../../include",
+  "classes": [
+    {
+      "name": "Person",
+      "header": "person.h",
+      "lib": "reflected_person",
+      "targets": ["python", "node", "rest", "web"]
+    }
+  ]
+}

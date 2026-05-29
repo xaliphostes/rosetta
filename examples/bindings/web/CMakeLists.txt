@@ -32,7 +32,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 add_executable(reflected_person auto_emscripten.cpp)
 
 target_include_directories(reflected_person PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include)
 
 target_compile_options(reflected_person PRIVATE
     -freflection

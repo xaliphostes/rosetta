@@ -36,7 +36,7 @@ FetchContent_MakeAvailable(httplib json)
 add_executable(auto_rest auto_rest.cpp)
 
 target_include_directories(auto_rest PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include)
 
 target_link_libraries(auto_rest PRIVATE
     httplib::httplib

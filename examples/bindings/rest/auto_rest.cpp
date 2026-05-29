@@ -7,7 +7,7 @@
 // See CMakeLists.txt in this folder.
 
 #include "../person.h"
-#include "rest_visitor.h"
+#include <rosetta/visitors/rest_visitor.h>
 #include <cstdio>
 
 int main(int argc, char **argv) {

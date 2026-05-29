@@ -46,7 +46,7 @@ set_target_properties(reflected_person PROPERTIES
 target_include_directories(reflected_person PRIVATE
     ${CMAKE_JS_INC}
     ${NODE_ADDON_API_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include)
 
 target_link_libraries(reflected_person PRIVATE ${CMAKE_JS_LIB})
 

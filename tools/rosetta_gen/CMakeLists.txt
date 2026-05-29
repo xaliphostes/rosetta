@@ -1,0 +1,30 @@
+# Standalone build of the rosetta_gen framework tool.
+#
+# From the repo root:
+#   cmake -G Ninja -S tools/rosetta_gen -B tools/rosetta_gen/build
+#   cmake --build tools/rosetta_gen/build
+#   ./tools/rosetta_gen/build/rosetta_gen examples/generate/manifest.json
+#
+# This tool reads manifest.json and emits a per-project tool source
+# (<project>_gen.cpp + CMakeLists.txt + bindings.h). Uses the system C++
+# compiler — no clang-p2996 fork needed (this tool does not use
+# reflection, only JSON parsing and text templating).
+
+cmake_minimum_required(VERSION 3.28)
+
+project(rosetta_gen CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Single-header release (≈900KB) instead of cloning the full repo
+# (which carries ~200MB of test data).
+include(FetchContent)
+FetchContent_Declare(json
+    URL      https://github.com/nlohmann/json/releases/download/v3.11.3/include.zip
+    URL_HASH SHA256=a22461d13119ac5c78f205d3df1db13403e58ce1bb1794edc9313677313f4a9d)
+FetchContent_MakeAvailable(json)
+
+add_executable(rosetta_gen rosetta_gen.cpp)
+target_include_directories(rosetta_gen PRIVATE ${json_SOURCE_DIR}/include)
