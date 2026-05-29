@@ -4,11 +4,15 @@
 
 # Rosetta (v2)
 
-A C++26 reflection playground. One `consteval` walk over a class, plus a small
-annotation surface, is enough to drive a growing set of backends — Python and
-Node bindings, REST/QML/Qt glue, a Markdown doc generator, a moc-less
-signals/slots/properties layer, and so on. The point is to keep the source
-class clean and let reflection do the rest.
+A C++26 reflection playground that generates Python, Node, REST, and
+WebAssembly bindings for **your existing classes — without modifying
+them**. Point rosetta at a header via a small `manifest.json`, run one
+tool, get per-language binding projects out.
+
+Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment,
+not a requirement: add them where you want docstrings, validation, or
+UI hints; leave the rest of the class alone. Reflection does the work
+either way.
 
 
 [![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta2/)
@@ -37,16 +41,24 @@ No mainline compiler implements enough of these proposals yet.
 
 ```
 include/rosetta/
-  annotations.h    shared annotation types: doc, range, readonly
+  annotations.h    shared annotation types: doc, range, readonly, ...
   walk.h           single consteval walk<T>(visitor) over fields + methods,
                    forwarding each member with its full annotation pack
   docgen.h         walk visitor that emits a Markdown reference for T
+  generate.h       reflection-driven binding scaffolder: rosetta::generate<T>
   mini_moc.h       signals / slots / properties on top of reflection;
                    Qt-style ergonomics, no separate moc tool
+  visitors/        per-backend bind kits (pybind, N-API, REST, emscripten)
+
+tools/
+  rosetta_gen/     framework tool: manifest.json → project-specific scaffolder
 
 tests/             one .cpp per concept; each builds to a runnable demo
-examples/          bindings/ (python, node, rest, web), docgen/, qml/, qt/
-docs/              design notes (FREE_FUNCTIONS, OTHER_ANNOTATIONS, TODO)
+examples/
+  bindings/        hand-written reference backends (python, node, rest, web)
+  generate/        manifest-driven, generated bindings (no class modification)
+  docgen/  qml/  qt/  moc/
+docs/              QUICKSTART, GENERATE, design notes (FREE_FUNCTIONS, ...)
 ```
 
 ## Build the test suite
@@ -63,78 +75,78 @@ cmake --build build
 
 Each test is self-contained; pick by name (see `tests/CMakeLists.txt`).
 
-## A taste
+## A taste — bind your existing library
 
-### Annotated class + Markdown docs
-
-```cpp
-#include <rosetta/annotations.h>
-#include <rosetta/docgen.h>
-#include <iostream>
-
-struct Person {
-    [[= rosetta::doc{"the person's display name"}]]
-    std::string name;
-
-    [[= rosetta::doc{"age in whole years"}, = rosetta::range{0, 150}]]
-    int age = 0;
-
-    [[= rosetta::doc{"server-assigned identifier"}, = rosetta::readonly{}]]
-    std::string id;
-
-    [[= rosetta::doc{"Greet using the given salutation."}]]
-    std::string greet(std::string const& salutation) const;
-};
-
-int main() {
-    std::cout << rosetta::generate_markdown<Person>();
-}
-```
-
-### Signals / slots / properties without moc
+You have this header. Don't change it:
 
 ```cpp
-#include <rosetta/mini_moc.h>
+// my_lib/person.h
 #include <string>
 
-class Person {
-public:
-    [[= rosetta::moc::signal]] rosetta::moc::Signal<std::string const&> nameChanged;
-    [[= rosetta::moc::signal]] rosetta::moc::Signal<int>                ageChanged;
-
-    [[= rosetta::moc::property{"name", "nameChanged"}]] std::string m_name;
-    [[= rosetta::moc::property{"age",  "ageChanged"}]]  int         m_age = 0;
+struct Person {
+    std::string name;
+    int         age = 0;
+    std::string id;
+    std::string greet(const std::string &salutation) const;
 };
+```
 
-struct Logger {
-    [[= rosetta::moc::slot]] void onAge(int v) { /* ... */ }
-};
+Write a small `manifest.json` somewhere alongside it:
 
-int main() {
-    Person p; Logger l;
-    rosetta::moc::connect<"ageChanged", "onAge">(p, l);  // checked at compile time
-    rosetta::moc::set<"age">(p, 30);                     // fires ageChanged
-    rosetta::moc::set<"age">(p, 30);                     // equality-gated, silent
+```json
+{
+  "user_include": "../my_lib",
+  "rosetta_include": "/path/to/rosetta/include",
+  "classes": [
+    { "name": "Person", "header": "person.h",
+      "lib": "my_person", "targets": ["python", "node", "rest", "web"] }
+  ]
 }
 ```
 
-Wrong signal name → `static_assert`. Wrong argument types → normal template
-error. No `.moc` file, no code-generation step.
+Run the framework tool, build the project-specific tool it emits, run
+that:
+
+```bash
+# (one-time) build the framework scaffolder
+cmake -G Ninja -S tools/rosetta_gen -B tools/rosetta_gen/build
+cmake --build tools/rosetta_gen/build
+
+# manifest.json → bindings.h + my_person_gen.cpp + CMakeLists.txt
+./tools/rosetta_gen/build/rosetta_gen path/to/manifest.json
+
+# build & run the generated tool → per-backend project tree under output/
+cmake -G Ninja -S path/to/generated -B path/to/generated/build
+cmake --build path/to/generated/build
+./path/to/generated/build/my_person_gen --out path/to/output
+```
+
+Result: `output/{python,node,rest,web}/` — each a self-contained CMake
+project. `cd output/python && cmake -B build && cmake --build build`
+and you `import my_person`.
+
+The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md);
+the manifest schema, the `binding_info<T>` trait, and the layered
+tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The
+worked example lives in `examples/generate/`.
 
 ## Examples
 
-| Path                     | What it shows                                       |
-|--------------------------|-----------------------------------------------------|
-| `examples/docgen`        | Reflection-driven Markdown reference generator      |
-| `examples/qt`            | Building a Qt widget form from a reflected struct   |
-| `examples/qml`           | Exposing a reflected C++ object to QML              |
-| `examples/bindings/python` | pybind11-style binding generated from reflection  |
-| `examples/bindings/node` | N-API binding generated from reflection             |
-| `examples/bindings/rest` | HTTP/REST surface generated from reflection         |
-| `examples/bindings/web`  | WebAssembly binding (requires reflection-aware emsdk) |
+| Path                       | What it shows                                       |
+|----------------------------|-----------------------------------------------------|
+| `examples/generate`        | Manifest-driven generation (no class modification)  |
+| `examples/docgen`          | Reflection-driven Markdown reference generator      |
+| `examples/qt`              | Building a Qt widget form from a reflected struct   |
+| `examples/qml`             | Exposing a reflected C++ object to QML              |
+| `examples/bindings/python` | Hand-written pybind11 backend (reference)           |
+| `examples/bindings/node`   | Hand-written N-API backend (reference)              |
+| `examples/bindings/rest`   | Hand-written HTTP/REST backend (reference)          |
+| `examples/bindings/web`    | Hand-written WebAssembly backend (requires reflection-aware emsdk) |
 
 ## Design notes
 
+- `docs/QUICKSTART.md` — five-step guide to generating bindings for an existing library
+- `docs/GENERATE.md` — full reference for `rosetta::generate`, the manifest schema, and the tool layering
 - `docs/FREE_FUNCTIONS.md` — sketch for reflecting namespace-scope functions
 - `docs/OTHER_ANNOTATIONS.md` — proposed annotation kinds beyond the current three
 - `docs/TODO.md` — what the walker and visitor surface still miss (enums, bases,
