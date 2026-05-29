@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <experimental/meta>
 
 namespace rosetta {
@@ -43,5 +44,99 @@ namespace rosetta {
     struct readonly {
         bool operator==(const readonly &) const = default;
     };
+
+    /**
+     * @brief Drop-down / choice-list annotation for string-like members. Each
+     * choice literal is routed through std::define_static_string so the
+     * annotation stays NTTP-eligible.
+     *
+     * Usage:
+     *   [[= rosetta::combobox{{"red", "green", "blue"}}]]
+     *   std::string color;
+     *
+     * The choice list is capped at MAX entries. Past that, a combobox is the
+     * wrong widget — switch to a search/autocomplete.
+     */
+    struct combobox {
+        static constexpr std::size_t MAX = 16;
+        const char                  *choices[MAX]{};
+        std::size_t                  count = 0;
+
+        constexpr combobox() = default;
+
+        template <std::size_t N> consteval combobox(const char *const (&arr)[N]) : count(N) {
+            static_assert(N <= MAX, "rosetta::combobox: too many choices (max 16)");
+            for (std::size_t i = 0; i < N; ++i)
+                choices[i] = std::define_static_string(arr[i]);
+        }
+
+        bool operator==(const combobox &) const = default;
+    };
+
+    /**
+     * @brief Display-name override for UI backends. When attached to a
+     * member or method, replaces the C++ identifier in the rendered
+     * label. The identifier is still the lookup key used by
+     * setField / getField / invoker — only the visible text changes.
+     *
+     * Usage:
+     *   [[= rosetta::label{"Full name"}]]
+     *   std::string name;
+     */
+    struct label {
+        const char *text;
+        consteval label(const char *t) : text(std::define_static_string(t)) {}
+        bool operator==(const label &) const = default;
+    };
+
+    /**
+     * @brief Action-button annotation for methods. The label overrides the
+     * default "Call" / method-name text on the action button rendered by
+     * a UI backend. An empty label means "use the method's identifier."
+     *
+     * Usage:
+     *   [[= rosetta::button{"Reset"}]]
+     *   void clear();
+     */
+    struct button {
+        const char *label;
+        consteval button() : label(std::define_static_string("")) {}
+        consteval button(const char *l) : label(std::define_static_string(l)) {}
+        bool operator==(const button &) const = default;
+    };
+
+    /**
+     * @brief Widget hint annotations. Orthogonal to validation annotations
+     * like `range`: a backend uses these to pick an editor when more than
+     * one would be valid for the field's type.
+     *
+     * Usage:
+     *   [[ = rosetta::range{0, 150}, = rosetta::widget::slider ]]
+     *   int age;
+     *
+     * Each tag is an inline constexpr instance so it can be written
+     * without braces in the annotation, matching `rosetta::moc::signal`.
+     */
+    namespace widget {
+
+        struct spin_tag {
+            bool operator==(const spin_tag &) const = default;
+        };
+        struct slider_tag {
+            bool operator==(const slider_tag &) const = default;
+        };
+        struct checkbox_tag {
+            bool operator==(const checkbox_tag &) const = default;
+        };
+        struct textfield_tag {
+            bool operator==(const textfield_tag &) const = default;
+        };
+
+        inline constexpr spin_tag      spin{};
+        inline constexpr slider_tag    slider{};
+        inline constexpr checkbox_tag  checkbox{};
+        inline constexpr textfield_tag textfield{};
+
+    } // namespace widget
 
 } // namespace rosetta

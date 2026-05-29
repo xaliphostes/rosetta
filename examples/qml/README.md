@@ -23,13 +23,23 @@ there is no hand-written, per-`Person` markup in `Main.qml`.
 └──────────────────────────────────────────────────────┘
 ```
 
+Each editor commits to the bound struct on its natural signal — Enter or
+focus loss for TextField, `valueModified` for SpinBox, `toggled` for
+CheckBox, `activated` for ComboBox, release for Slider. There are no
+GET / PUT buttons.
+
 Annotation behaviour mirrors the python / rest backends:
 
-| Annotation     | Effect on the UI                                  |
-|----------------|---------------------------------------------------|
-| `doc{...}`     | tooltip on the field / method label               |
-| `readonly`     | editor disabled, **PUT** replaced with **ro**     |
-| `range{lo,hi}` | shown next to label; invalid values logged in red |
+| Annotation       | Effect on the UI                                        |
+|------------------|---------------------------------------------------------|
+| `doc{...}`       | tooltip on the field / method label                     |
+| `readonly`       | editor disabled, `[ro]` suffix on the label             |
+| `range{lo,hi}`   | shown next to label; invalid values logged in red       |
+| `combobox{{...}}`| editor becomes a drop-down; off-list commits logged red |
+| `widget::slider` | numeric editor becomes a Slider instead of a SpinBox    |
+| `widget::checkbox`| renders the field as a CheckBox (useful for int 0/1)   |
+| `widget::textfield`| renders the field as a TextField with range validator |
+| `button{"label"}` | overrides the action button text on a method row        |
 
 ## Build
 

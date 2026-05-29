@@ -11,24 +11,34 @@ intermediate — the visitor constructs `QSpinBox`, `QLineEdit`,
 ┌──────────────────────────────────────────────────────┐
 │ Person — generated from one C++26 reflection walk    │
 ├─[ Fields ]───────────────────────────────────────────┤
-│  name           [Alice            ]   GET   PUT      │
-│  age [0..150]   [ 42 ▲▼           ]   GET   PUT      │
-│  id             [s-123            ]   GET   ro       │
+│  name              [Alice                       ]    │
+│  age [0..150]      [════════•═════════════════ 42]   │
+│  id [ro]           [s-123                       ]    │
 ├─[ Methods ]──────────────────────────────────────────┤
 │  greet(1)       [salutation       ]         Call     │
-│  clear(0)                                   Call     │
+│                                                Reset │
 ├──────────────────────────────────────────────────────┤
 │  log...                                              │
 └──────────────────────────────────────────────────────┘
 ```
 
+Each editor commits to the target struct on its natural signal — Enter or
+focus loss for text, arrow click / Enter for spin boxes, toggle for
+checkboxes, selection for combo boxes, release for sliders. There are no
+GET / PUT buttons.
+
 Annotation behaviour mirrors the python / rest / qml backends:
 
-| Annotation     | Effect on the UI                                       |
-|----------------|--------------------------------------------------------|
-| `doc{...}`     | tooltip on the field / method label                    |
-| `readonly`     | editor disabled, **PUT** button replaced by **ro**     |
-| `range{lo,hi}` | spinbox bounds + range hint on the label + PUT re-check|
+| Annotation        | Effect on the UI                                          |
+|-------------------|-----------------------------------------------------------|
+| `doc{...}`        | tooltip on the field / method label                       |
+| `readonly`        | editor disabled, `[ro]` suffix on the label               |
+| `range{lo,hi}`    | spinbox/slider bounds + range hint on the label + re-check|
+| `combobox{{...}}` | editor becomes a `QComboBox` of the allowed choices       |
+| `widget::slider`  | int + range renders as `QSlider` + value label            |
+| `widget::checkbox`| arithmetic field renders as `QCheckBox` (0/1)             |
+| `widget::textfield`| numeric field renders as `QLineEdit` (range validator)   |
+| `button{"label"}` | overrides the action button text on a method row          |
 
 ## Build
 

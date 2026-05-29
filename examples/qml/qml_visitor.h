@@ -11,10 +11,22 @@
 //     leaves `obj` ready to be exposed to QML via a context property.
 //
 // Annotation behaviour mirrors the other backends:
-//   readonly      -> setField returns an error
-//   range{lo,hi}  -> setField rejects out-of-range numeric values
-//   doc           -> surfaced as `doc` on each field/method entry so the
-//                    QML side can show it as a tooltip
+//   readonly        -> setField returns an error
+//   range{lo,hi}    -> setField rejects out-of-range numeric values
+//   combobox{...}   -> setField rejects values outside the choice list; the
+//                      choices are forwarded so the QML side can render a
+//                      drop-down editor
+//   widget::slider  -> forwarded as the `widget` hint so the QML side can
+//                      swap a SpinBox for a Slider (orthogonal to validation)
+//   widget::checkbox-> forwarded as the `widget` hint so the QML side can
+//                      render an int 0/1 flag as a CheckBox
+//   widget::textfield-> forwarded as the `widget` hint so the QML side
+//                      can render a numeric field as a TextField with an
+//                      IntValidator / DoubleValidator from range{lo, hi}
+//   button{"label"} -> overrides the action button text on a method row
+//                      (defaults to "Call" when absent)
+//   doc             -> surfaced as `doc` on each field/method entry so the
+//                      QML side can show it as a tooltip
 
 #pragma once
 
@@ -112,10 +124,15 @@ namespace rosetta {
         template <std::meta::info Fld, auto... Anns> void field(const char *name) {
             using F                 = [:std::meta::type_of(Fld):];
             constexpr auto dann     = ann::get_or<doc>(doc{""}, Anns...);
+            constexpr auto lbl      = ann::get_or<label>(label{""}, Anns...);
             const QString  qname    = QString::fromUtf8(name);
+            const QString  qdisplay = (lbl.text[0] != '\0')
+                                          ? QString::fromUtf8(lbl.text)
+                                          : qname;
 
             QVariantMap info;
-            info[QStringLiteral("name")]     = qname;
+            info[QStringLiteral("name")]        = qname;
+            info[QStringLiteral("displayName")] = qdisplay;
             info[QStringLiteral("type")]     = qml_detail::type_tag<F>();
             info[QStringLiteral("doc")]      = QString::fromUtf8(dann.text);
             info[QStringLiteral("readonly")] = ann::has<readonly>(Anns...);
@@ -128,6 +145,27 @@ namespace rosetta {
                 info[QStringLiteral("min")] = 0.0;
                 info[QStringLiteral("max")] = 0.0;
             }
+            if constexpr (ann::has<widget::slider_tag>(Anns...)) {
+                info[QStringLiteral("widget")] = QStringLiteral("slider");
+            } else if constexpr (ann::has<widget::checkbox_tag>(Anns...)) {
+                info[QStringLiteral("widget")] = QStringLiteral("checkbox");
+            } else if constexpr (ann::has<widget::textfield_tag>(Anns...)) {
+                info[QStringLiteral("widget")] = QStringLiteral("textfield");
+            } else if constexpr (ann::has<widget::spin_tag>(Anns...)) {
+                info[QStringLiteral("widget")] = QStringLiteral("spin");
+            } else {
+                info[QStringLiteral("widget")] = QString{};
+            }
+            info[QStringLiteral("hasChoices")] = ann::has<combobox>(Anns...);
+            if constexpr (ann::has<combobox>(Anns...)) {
+                constexpr auto cb = ann::get_or<combobox>(combobox{}, Anns...);
+                QVariantList   choices;
+                for (std::size_t i = 0; i < cb.count; ++i)
+                    choices.append(QString::fromUtf8(cb.choices[i]));
+                info[QStringLiteral("choices")] = choices;
+            } else {
+                info[QStringLiteral("choices")] = QVariantList{};
+            }
             info[QStringLiteral("value")] = qml_detail::to_variant<F>(target->[:Fld:]);
             obj->appendField(info);
 
@@ -139,6 +177,22 @@ namespace rosetta {
             if constexpr (ann::has<readonly>(Anns...)) {
                 obj->registerSetter(qname, [qname](const QVariant &) -> QString {
                     return qname + QStringLiteral(" is read-only");
+                });
+            } else if constexpr (ann::has<combobox>(Anns...)) {
+                constexpr auto cb = ann::get_or<combobox>(combobox{}, Anns...);
+                obj->registerSetter(qname, [tgt, qname, cb](const QVariant &v) -> QString {
+                    const QString s = v.toString();
+                    bool          ok = false;
+                    for (std::size_t i = 0; i < cb.count; ++i) {
+                        if (s == QString::fromUtf8(cb.choices[i])) {
+                            ok = true;
+                            break;
+                        }
+                    }
+                    if (!ok)
+                        return qname + QStringLiteral(" not in allowed choices");
+                    tgt->[:Fld:] = qml_detail::from_variant<F>(v);
+                    return {};
                 });
             } else if constexpr (ann::has<range>(Anns...) && std::is_arithmetic_v<F>) {
                 constexpr auto r = ann::get_or<range>(range{0, 0}, Anns...);
@@ -162,9 +216,14 @@ namespace rosetta {
         }
 
         template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
-            constexpr auto dann  = ann::get_or<doc>(doc{""}, Anns...);
-            constexpr auto arity = std::define_static_array(std::meta::parameters_of(Fn)).size();
-            const QString  qname = QString::fromUtf8(name);
+            constexpr auto dann     = ann::get_or<doc>(doc{""}, Anns...);
+            constexpr auto btn      = ann::get_or<button>(button{}, Anns...);
+            constexpr auto lbl      = ann::get_or<label>(label{""}, Anns...);
+            constexpr auto arity    = std::define_static_array(std::meta::parameters_of(Fn)).size();
+            const QString  qname    = QString::fromUtf8(name);
+            const QString  qdisplay = (lbl.text[0] != '\0')
+                                          ? QString::fromUtf8(lbl.text)
+                                          : qname;
 
             QVariantList paramTypes;
             template for (constexpr auto p :
@@ -174,8 +233,10 @@ namespace rosetta {
             }
 
             QVariantMap info;
-            info[QStringLiteral("name")]       = qname;
+            info[QStringLiteral("name")]        = qname;
+            info[QStringLiteral("displayName")] = qdisplay;
             info[QStringLiteral("doc")]        = QString::fromUtf8(dann.text);
+            info[QStringLiteral("button")]     = QString::fromUtf8(btn.label);
             info[QStringLiteral("arity")]      = static_cast<int>(arity);
             info[QStringLiteral("isStatic")]   = false;
             info[QStringLiteral("paramTypes")] = paramTypes;
@@ -189,9 +250,14 @@ namespace rosetta {
         }
 
         template <std::meta::info Fn, auto... Anns> void method_static(const char *name) {
-            constexpr auto dann  = ann::get_or<doc>(doc{""}, Anns...);
-            constexpr auto arity = std::define_static_array(std::meta::parameters_of(Fn)).size();
-            const QString  qname = QString::fromUtf8(name);
+            constexpr auto dann     = ann::get_or<doc>(doc{""}, Anns...);
+            constexpr auto btn      = ann::get_or<button>(button{}, Anns...);
+            constexpr auto lbl      = ann::get_or<label>(label{""}, Anns...);
+            constexpr auto arity    = std::define_static_array(std::meta::parameters_of(Fn)).size();
+            const QString  qname    = QString::fromUtf8(name);
+            const QString  qdisplay = (lbl.text[0] != '\0')
+                                          ? QString::fromUtf8(lbl.text)
+                                          : qname;
 
             QVariantList paramTypes;
             template for (constexpr auto p :
@@ -201,8 +267,10 @@ namespace rosetta {
             }
 
             QVariantMap info;
-            info[QStringLiteral("name")]       = qname;
+            info[QStringLiteral("name")]        = qname;
+            info[QStringLiteral("displayName")] = qdisplay;
             info[QStringLiteral("doc")]        = QString::fromUtf8(dann.text);
+            info[QStringLiteral("button")]     = QString::fromUtf8(btn.label);
             info[QStringLiteral("arity")]      = static_cast<int>(arity);
             info[QStringLiteral("isStatic")]   = true;
             info[QStringLiteral("paramTypes")] = paramTypes;

@@ -7,9 +7,17 @@
 // Field row layout:    label  [editor]  GET  PUT     (PUT may be read-only)
 // Method row layout:   label  [args...]  Call   <result>
 //
+// There are no GET / PUT buttons — each editor commits on its natural
+// signal (TextField editingFinished, SpinBox valueModified, CheckBox
+// toggled, ComboBox activated, Slider release).
+//
 // Annotations surface here as:
-//   readonly  -> editor disabled, PUT button replaced with "ro" badge
-//   range     -> hint shown next to label, error toast on invalid PUT
+//   readonly  -> editor disabled, "[ro]" suffix on the label
+//   range     -> hint shown next to label, error toast on invalid commit
+//   combobox  -> editor becomes a drop-down of the allowed choices
+//   widget    -> picks the editor when more than one would fit (e.g.
+//                int + range can be a SpinBox or a Slider; int 0/1 can
+//                be a CheckBox)
 //   doc       -> tooltip on label
 
 import QtQuick
@@ -71,12 +79,22 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         spacing: 8
 
+                        function commit(v) {
+                            var err = inspector.setField(modelData.name, v);
+                            if (err.length === 0)
+                                root.logLine(modelData.name + " ← "
+                                             + JSON.stringify(v), true);
+                            else
+                                root.logLine(modelData.name + " failed: " + err, false);
+                        }
+
                         // doc tooltip on hover
                         Label {
-                            text: modelData.name
+                            text: modelData.displayName
                                   + (modelData.hasRange
                                      ? " [" + modelData.min + ".." + modelData.max + "]"
                                      : "")
+                                  + (modelData.readonly ? " [ro]" : "")
                             color: "#bbb"
                             Layout.preferredWidth: 160
                             ToolTip.visible: hoverHandler.hovered && modelData.doc.length > 0
@@ -88,9 +106,15 @@ ApplicationWindow {
                             id: editorLoader
                             Layout.fillWidth: true
                             sourceComponent: {
-                                if (modelData.type === "int")    return intEditor;
-                                if (modelData.type === "double") return doubleEditor;
-                                if (modelData.type === "bool")   return boolEditor;
+                                if (modelData.hasChoices)            return comboEditor;
+                                if (modelData.widget === "slider"
+                                    && modelData.hasRange)           return sliderEditor;
+                                if (modelData.widget === "checkbox") return boolEditor;
+                                if (modelData.widget === "textfield"
+                                    && modelData.type === "int")     return intTextEditor;
+                                if (modelData.type === "int")        return intEditor;
+                                if (modelData.type === "double")     return doubleEditor;
+                                if (modelData.type === "bool")       return boolEditor;
                                 return stringEditor;
                             }
                             property var fieldInfo: modelData
@@ -103,6 +127,23 @@ ApplicationWindow {
                                           ? editorLoader.currentValue : ""
                                     enabled: !editorLoader.fieldInfo.readonly
                                     onTextChanged: editorLoader.currentValue = text
+                                    onEditingFinished: commit(text)
+                                }
+                            }
+                            Component {
+                                id: intTextEditor
+                                TextField {
+                                    text: String(editorLoader.currentValue || 0)
+                                    enabled: !editorLoader.fieldInfo.readonly
+                                    validator: IntValidator {
+                                        bottom: editorLoader.fieldInfo.hasRange
+                                                ? editorLoader.fieldInfo.min : -2147483648
+                                        top:    editorLoader.fieldInfo.hasRange
+                                                ? editorLoader.fieldInfo.max :  2147483647
+                                    }
+                                    onTextChanged: editorLoader.currentValue =
+                                        parseInt(text || "0")
+                                    onEditingFinished: commit(parseInt(text || "0"))
                                 }
                             }
                             Component {
@@ -114,7 +155,10 @@ ApplicationWindow {
                                           ? editorLoader.fieldInfo.max :  2147483647
                                     value: editorLoader.currentValue || 0
                                     enabled: !editorLoader.fieldInfo.readonly
-                                    onValueModified: editorLoader.currentValue = value
+                                    onValueModified: {
+                                        editorLoader.currentValue = value;
+                                        commit(value);
+                                    }
                                 }
                             }
                             Component {
@@ -124,6 +168,7 @@ ApplicationWindow {
                                     enabled: !editorLoader.fieldInfo.readonly
                                     validator: DoubleValidator {}
                                     onTextChanged: editorLoader.currentValue = parseFloat(text)
+                                    onEditingFinished: commit(parseFloat(text))
                                 }
                             }
                             Component {
@@ -131,34 +176,54 @@ ApplicationWindow {
                                 CheckBox {
                                     checked: !!editorLoader.currentValue
                                     enabled: !editorLoader.fieldInfo.readonly
-                                    onToggled: editorLoader.currentValue = checked
+                                    onToggled: {
+                                        editorLoader.currentValue = checked;
+                                        commit(checked);
+                                    }
                                 }
                             }
-                        }
-
-                        Button {
-                            text: "GET"
-                            onClicked: {
-                                var v = inspector.getField(modelData.name);
-                                editorLoader.currentValue = v;
-                                root.logLine("GET " + modelData.name + " = "
-                                             + JSON.stringify(v), true);
+                            Component {
+                                id: comboEditor
+                                ComboBox {
+                                    model: editorLoader.fieldInfo.choices
+                                    enabled: !editorLoader.fieldInfo.readonly
+                                    currentIndex: {
+                                        var v = editorLoader.currentValue;
+                                        for (var i = 0; i < model.length; ++i)
+                                            if (model[i] === v) return i;
+                                        return 0;
+                                    }
+                                    onActivated: {
+                                        editorLoader.currentValue = model[currentIndex];
+                                        commit(model[currentIndex]);
+                                    }
+                                }
                             }
-                        }
-
-                        Button {
-                            text: modelData.readonly ? "ro" : "PUT"
-                            enabled: !modelData.readonly
-                            onClicked: {
-                                var err = inspector.setField(modelData.name,
-                                                             editorLoader.currentValue);
-                                if (err.length === 0)
-                                    root.logLine("PUT " + modelData.name + " ← "
-                                                 + JSON.stringify(editorLoader.currentValue),
-                                                 true);
-                                else
-                                    root.logLine("PUT " + modelData.name + " failed: "
-                                                 + err, false);
+                            Component {
+                                id: sliderEditor
+                                RowLayout {
+                                    spacing: 8
+                                    Slider {
+                                        Layout.fillWidth: true
+                                        from: editorLoader.fieldInfo.min
+                                        to:   editorLoader.fieldInfo.max
+                                        stepSize: editorLoader.fieldInfo.type === "int" ? 1 : 0
+                                        value: editorLoader.currentValue || 0
+                                        enabled: !editorLoader.fieldInfo.readonly
+                                        onMoved: editorLoader.currentValue =
+                                            (editorLoader.fieldInfo.type === "int"
+                                             ? Math.round(value) : value)
+                                        onPressedChanged: {
+                                            if (!pressed) commit(editorLoader.currentValue);
+                                        }
+                                    }
+                                    Label {
+                                        text: editorLoader.currentValue
+                                        color: "#bbb"
+                                        Layout.preferredWidth: 40
+                                        horizontalAlignment: Text.AlignRight
+                                    }
+                                }
                             }
                         }
                     }
@@ -194,7 +259,8 @@ ApplicationWindow {
                         spacing: 8
 
                         Label {
-                            text: modelData.name + "(" + modelData.arity + ")"
+                            visible: !(modelData.button && modelData.button.length > 0)
+                            text: modelData.displayName + "(" + modelData.arity + ")"
                                   + (modelData.isStatic ? " [static]" : "")
                             color: "#bbb"
                             Layout.preferredWidth: 160
@@ -214,10 +280,14 @@ ApplicationWindow {
                             }
                         }
 
-                        Item { Layout.fillWidth: true }
+                        Item {
+                            Layout.fillWidth: true
+                            visible: !(modelData.button && modelData.button.length > 0)
+                        }
 
                         Button {
-                            text: "Call"
+                            text: modelData.button && modelData.button.length > 0
+                                  ? modelData.button : "Call"
                             onClicked: {
                                 var args = [];
                                 for (var i = 0; i < argsRepeater.count; ++i) {

@@ -4,28 +4,41 @@
 // Qt Widgets backend: implements the rosetta::walk visitor concept.
 //
 // Provides:
-//   - rosetta::WidgetVisitor<T> — emits a row of widgets per field/method
-//     into two QFormLayouts; wires GET/PUT/Call handlers directly via
-//     QObject::connect (no QML, no moc on this side — Qt's own widget
-//     signals are enough).
+//   - rosetta::WidgetVisitor<T> — emits one editor per field into a
+//     QFormLayout; each editor commits to the target struct directly on
+//     its natural signal (QLineEdit::editingFinished,
+//     QSpinBox::valueChanged, QCheckBox::toggled, QComboBox::activated,
+//     QSlider::sliderReleased). No GET / PUT buttons.
 //   - rosetta::build_inspector<T>(target, typeName) — entry point: builds
 //     the window, runs the walk, returns a QWidget you can show().
 //
 // Annotation behaviour mirrors the qml / python / rest backends:
-//   readonly      -> editor disabled, PUT button replaced with "ro"
-//   range{lo,hi}  -> bounds set on spinbox; PUT also re-checks
-//   doc           -> tooltip on the field/method label
+//   readonly         -> editor disabled, "[ro]" suffix on the field label
+//   range{lo,hi}     -> bounds set on spinbox/slider; commit also re-checks
+//   combobox{{...}}  -> editor becomes a QComboBox of the allowed choices
+//   widget::slider   -> int + range renders as QSlider + value label
+//                       instead of QSpinBox
+//   widget::checkbox -> arithmetic field renders as QCheckBox (0/1)
+//   widget::textfield-> numeric field renders as QLineEdit with
+//                       QIntValidator / QDoubleValidator; bounds come
+//                       from a separate range{lo, hi}
+//   button{"label"}  -> overrides the action button text on a method row
+//                       (defaults to "Call" when absent)
+//   doc              -> tooltip on the field/method label
 
 #pragma once
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
-#include <QGroupBox>
+#include <QDoubleValidator>
 #include <QHBoxLayout>
+#include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSlider>
 #include <QSpinBox>
 #include <QTextEdit>
 #include <QTime>
@@ -100,8 +113,11 @@ namespace rosetta {
         }
 
         // Free helper so the visitor doesn't need to outlive the walk —
-        // handlers capture `log` directly instead of `this`.
+        // handlers capture `log` directly instead of `this`. `log == nullptr`
+        // disables logging (build_inspector with with_log = false).
         inline void log_line(QTextEdit *log, const QString &msg, bool ok) {
+            if (!log)
+                return;
             const QString ts    = QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
             const QString color = ok ? QStringLiteral("#4cb050") : QStringLiteral("#e57373");
             log->append(QStringLiteral("<span style=\"color:#555\">") + ts +
@@ -118,32 +134,123 @@ namespace rosetta {
         T           *target;
 
         template <std::meta::info Fld, auto... Anns> void field(const char *name) {
-            using F                 = [:std::meta::type_of(Fld):];
-            constexpr auto dann     = ann::get_or<doc>(doc{""}, Anns...);
-            constexpr bool ro       = ann::has<readonly>(Anns...);
-            constexpr bool has_rng  = ann::has<range>(Anns...);
-            constexpr auto rng      = ann::get_or<range>(range{0, 0}, Anns...);
-            const QString  qname    = QString::fromUtf8(name);
-            T             *tgt      = target;
+            using F                      = [:std::meta::type_of(Fld):];
+            constexpr auto dann          = ann::get_or<doc>(doc{""}, Anns...);
+            constexpr bool ro            = ann::has<readonly>(Anns...);
+            constexpr bool has_rng       = ann::has<range>(Anns...);
+            constexpr auto rng           = ann::get_or<range>(range{0, 0}, Anns...);
+            constexpr bool has_cb        = ann::has<combobox>(Anns...);
+            constexpr auto cb            = ann::get_or<combobox>(combobox{}, Anns...);
+            constexpr bool want_slider    = ann::has<widget::slider_tag>(Anns...);
+            constexpr bool want_checkbox  = ann::has<widget::checkbox_tag>(Anns...);
+            constexpr bool want_textfield = ann::has<widget::textfield_tag>(Anns...);
+            constexpr auto lbl           = ann::get_or<label>(label{""}, Anns...);
+            const QString  qname         = QString::fromUtf8(name);
+            const QString  qdisplay      = (lbl.text[0] != '\0')
+                                               ? QString::fromUtf8(lbl.text)
+                                               : qname;
+            T             *tgt           = target;
 
-            // -------- editor widget + typed get/set helpers --------
-            QWidget                          *editor = nullptr;
-            std::function<QVariant()>         read_editor;
-            std::function<void(const F &)>    write_editor;
+            // -------- editor widget + commit-signal wiring --------
+            //
+            // Each branch builds the editor and stores a `wire_commit`
+            // lambda that knows which Qt signal of *this* editor means
+            // "user finished a change" (returnPressed/valueChanged/
+            // toggled/activated/sliderReleased). After the branches we
+            // build the actual commit lambda and call wire_commit once.
+            QWidget                                       *editor = nullptr;
+            std::function<QVariant()>                      read_editor;
+            std::function<void(std::function<void()>)>     wire_commit;
 
-            if constexpr (std::is_same_v<F, std::string>) {
+            if constexpr (has_cb && std::is_same_v<F, std::string>) {
+                auto *box = new QComboBox();
+                for (std::size_t i = 0; i < cb.count; ++i)
+                    box->addItem(QString::fromUtf8(cb.choices[i]));
+                const QString current = QString::fromStdString(tgt->[:Fld:]);
+                const int     idx     = box->findText(current);
+                box->setCurrentIndex(idx < 0 ? 0 : idx);
+                box->setEnabled(!ro);
+                editor      = box;
+                read_editor = [box] { return QVariant(box->currentText()); };
+                wire_commit = [box](std::function<void()> commit) {
+                    QObject::connect(box, &QComboBox::activated, box,
+                                     [commit](int) { commit(); });
+                };
+            } else if constexpr (want_slider && std::is_integral_v<F> && has_rng) {
+                auto *wrap = new QWidget();
+                auto *whb  = new QHBoxLayout(wrap);
+                whb->setContentsMargins(0, 0, 0, 0);
+                auto *sl  = new QSlider(Qt::Horizontal);
+                auto *val = new QLabel();
+                sl->setRange(static_cast<int>(rng.min), static_cast<int>(rng.max));
+                sl->setValue(static_cast<int>(tgt->[:Fld:]));
+                sl->setEnabled(!ro);
+                val->setMinimumWidth(40);
+                val->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                val->setText(QString::number(sl->value()));
+                QObject::connect(sl, &QSlider::valueChanged, val,
+                                 [val](int v) { val->setText(QString::number(v)); });
+                whb->addWidget(sl, /*stretch*/ 1);
+                whb->addWidget(val);
+                editor      = wrap;
+                read_editor = [sl] { return QVariant(sl->value()); };
+                wire_commit = [sl](std::function<void()> commit) {
+                    QObject::connect(sl, &QSlider::sliderReleased, sl, commit);
+                };
+            } else if constexpr (want_checkbox && std::is_arithmetic_v<F>) {
+                auto *cbw = new QCheckBox();
+                cbw->setChecked(static_cast<bool>(tgt->[:Fld:]));
+                cbw->setEnabled(!ro);
+                editor      = cbw;
+                read_editor = [cbw] { return QVariant(cbw->isChecked() ? 1 : 0); };
+                wire_commit = [cbw](std::function<void()> commit) {
+                    QObject::connect(cbw, &QCheckBox::toggled, cbw,
+                                     [commit](bool) { commit(); });
+                };
+            } else if constexpr (want_textfield && std::is_arithmetic_v<F>) {
+                auto *le = new QLineEdit();
+                if constexpr (std::is_integral_v<F>) {
+                    auto *v = new QIntValidator(le);
+                    if constexpr (has_rng)
+                        v->setRange(static_cast<int>(rng.min),
+                                    static_cast<int>(rng.max));
+                    le->setValidator(v);
+                    le->setText(QString::number(static_cast<qlonglong>(tgt->[:Fld:])));
+                } else {
+                    auto *v = new QDoubleValidator(le);
+                    if constexpr (has_rng)
+                        v->setRange(rng.min, rng.max);
+                    v->setNotation(QDoubleValidator::ScientificNotation);
+                    le->setValidator(v);
+                    le->setText(QString::number(static_cast<double>(tgt->[:Fld:]),
+                                                'g', 12));
+                }
+                le->setReadOnly(ro);
+                editor      = le;
+                // QVariant(QString) -> from_variant<int/double> uses Qt's
+                // built-in string-to-numeric conversion.
+                read_editor = [le] { return QVariant(le->text()); };
+                wire_commit = [le](std::function<void()> commit) {
+                    QObject::connect(le, &QLineEdit::editingFinished, le, commit);
+                };
+            } else if constexpr (std::is_same_v<F, std::string>) {
                 auto *le = new QLineEdit(QString::fromStdString(tgt->[:Fld:]));
                 le->setReadOnly(ro);
-                editor       = le;
-                read_editor  = [le] { return QVariant(le->text()); };
-                write_editor = [le](const F &v) { le->setText(QString::fromStdString(v)); };
+                editor      = le;
+                read_editor = [le] { return QVariant(le->text()); };
+                wire_commit = [le](std::function<void()> commit) {
+                    QObject::connect(le, &QLineEdit::editingFinished, le, commit);
+                };
             } else if constexpr (std::is_same_v<F, bool>) {
                 auto *cb = new QCheckBox();
                 cb->setChecked(tgt->[:Fld:]);
                 cb->setEnabled(!ro);
-                editor       = cb;
-                read_editor  = [cb] { return QVariant(cb->isChecked()); };
-                write_editor = [cb](const F &v) { cb->setChecked(v); };
+                editor      = cb;
+                read_editor = [cb] { return QVariant(cb->isChecked()); };
+                wire_commit = [cb](std::function<void()> commit) {
+                    QObject::connect(cb, &QCheckBox::toggled, cb,
+                                     [commit](bool) { commit(); });
+                };
             } else if constexpr (std::is_integral_v<F>) {
                 auto *sb = new QSpinBox();
                 if constexpr (has_rng)
@@ -152,9 +259,15 @@ namespace rosetta {
                     sb->setRange(INT_MIN, INT_MAX);
                 sb->setValue(static_cast<int>(tgt->[:Fld:]));
                 sb->setReadOnly(ro);
-                editor       = sb;
-                read_editor  = [sb] { return QVariant(sb->value()); };
-                write_editor = [sb](const F &v) { sb->setValue(static_cast<int>(v)); };
+                editor      = sb;
+                read_editor = [sb] { return QVariant(sb->value()); };
+                // valueChanged fires on arrow click + Enter; connection is
+                // wired *after* setValue above, so the initial assignment
+                // does not commit.
+                wire_commit = [sb](std::function<void()> commit) {
+                    QObject::connect(sb, &QSpinBox::valueChanged, sb,
+                                     [commit](int) { commit(); });
+                };
             } else if constexpr (std::is_floating_point_v<F>) {
                 auto *sb = new QDoubleSpinBox();
                 if constexpr (has_rng)
@@ -164,84 +277,69 @@ namespace rosetta {
                 sb->setDecimals(6);
                 sb->setValue(static_cast<double>(tgt->[:Fld:]));
                 sb->setReadOnly(ro);
-                editor       = sb;
-                read_editor  = [sb] { return QVariant(sb->value()); };
-                write_editor = [sb](const F &v) { sb->setValue(static_cast<double>(v)); };
+                editor      = sb;
+                read_editor = [sb] { return QVariant(sb->value()); };
+                wire_commit = [sb](std::function<void()> commit) {
+                    QObject::connect(sb, &QDoubleSpinBox::valueChanged, sb,
+                                     [commit](double) { commit(); });
+                };
             } else {
                 auto *le = new QLineEdit();
                 le->setReadOnly(true);
                 le->setPlaceholderText(QStringLiteral("(unsupported type)"));
                 editor      = le;
                 read_editor = [] { return QVariant{}; };
-                write_editor = [](const F &) {};
+                wire_commit = [](std::function<void()>) {};
             }
 
-            // -------- row layout: [editor] [GET] [PUT or ro] --------
-            auto *row     = new QWidget();
-            auto *hbox    = new QHBoxLayout(row);
-            hbox->setContentsMargins(0, 0, 0, 0);
-            hbox->addWidget(editor, /*stretch*/ 1);
-
-            QTextEdit *log_ptr = log;
-            auto      *get_btn = new QPushButton(QStringLiteral("GET"));
-            hbox->addWidget(get_btn);
-            QObject::connect(get_btn, &QPushButton::clicked, row,
-                             [log_ptr, tgt, write_editor, qname] {
-                                 F v = tgt->[:Fld:];
-                                 write_editor(v);
-                                 widget_detail::log_line(
-                                     log_ptr,
-                                     QStringLiteral("GET ") + qname + QStringLiteral(" = ") +
-                                         widget_detail::to_variant<F>(v).toString(),
-                                     true);
-                             });
-
-            if constexpr (ro) {
-                auto *badge = new QPushButton(QStringLiteral("ro"));
-                badge->setEnabled(false);
-                hbox->addWidget(badge);
-            } else {
-                auto *put_btn = new QPushButton(QStringLiteral("PUT"));
-                hbox->addWidget(put_btn);
-                QObject::connect(put_btn, &QPushButton::clicked, row,
-                                 [log_ptr, tgt, read_editor, qname] {
-                                     F val = widget_detail::from_variant<F>(read_editor());
-                                     if constexpr (has_rng && std::is_arithmetic_v<F>) {
-                                         double d = static_cast<double>(val);
-                                         if (d < rng.min || d > rng.max) {
-                                             widget_detail::log_line(
-                                                 log_ptr,
-                                                 qname + QStringLiteral(" out of range"), false);
-                                             return;
-                                         }
-                                     }
-                                     tgt->[:Fld:] = val;
-                                     widget_detail::log_line(
-                                         log_ptr,
-                                         QStringLiteral("PUT ") + qname + QStringLiteral(" ← ") +
-                                             widget_detail::to_variant<F>(val).toString(),
-                                         true);
-                                 });
+            // -------- commit on edit (no GET / PUT buttons) --------
+            if constexpr (!ro) {
+                QTextEdit *log_ptr = log;
+                auto       commit  = [log_ptr, tgt, read_editor, qname]() {
+                    F val = widget_detail::from_variant<F>(read_editor());
+                    if constexpr (has_rng && std::is_arithmetic_v<F>) {
+                        double d = static_cast<double>(val);
+                        if (d < rng.min || d > rng.max) {
+                            widget_detail::log_line(
+                                log_ptr, qname + QStringLiteral(" out of range"), false);
+                            return;
+                        }
+                    }
+                    tgt->[:Fld:] = val;
+                    widget_detail::log_line(
+                        log_ptr,
+                        qname + QStringLiteral(" ← ") +
+                            widget_detail::to_variant<F>(val).toString(),
+                        true);
+                };
+                wire_commit(commit);
             }
 
-            // -------- label with [range] hint + doc tooltip --------
-            QString label_text = qname;
-            if constexpr (has_rng)
-                label_text += QStringLiteral(" [%1..%2]")
-                                  .arg(rng.min)
-                                  .arg(rng.max);
+            // -------- label with [range] / [ro] hints + doc tooltip --------
+            QString label_text = qdisplay;
+            // if constexpr (has_rng)
+            //     label_text += QStringLiteral(" [%1..%2]")
+            //                       .arg(rng.min)
+            //                       .arg(rng.max);
+            // if constexpr (ro)
+            //     label_text += QStringLiteral(" [ro]");
             auto *label = new QLabel(label_text);
             if (dann.text[0] != '\0')
                 label->setToolTip(QString::fromUtf8(dann.text));
 
-            fields_layout->addRow(label, row);
+            fields_layout->addRow(label, editor);
         }
 
         template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
-            constexpr auto dann  = ann::get_or<doc>(doc{""}, Anns...);
-            constexpr auto arity = std::define_static_array(std::meta::parameters_of(Fn)).size();
-            const QString  qname = QString::fromUtf8(name);
-            T             *tgt   = target;
+            constexpr auto dann     = ann::get_or<doc>(doc{""}, Anns...);
+            constexpr auto btn      = ann::get_or<button>(button{}, Anns...);
+            constexpr auto lbl      = ann::get_or<label>(label{""}, Anns...);
+            constexpr auto arity    = std::define_static_array(std::meta::parameters_of(Fn)).size();
+            const QString  qname    = QString::fromUtf8(name);
+            const QString  qdisplay = (lbl.text[0] != '\0')
+                                          ? QString::fromUtf8(lbl.text)
+                                          : qname;
+            T             *tgt      = target;
 
             auto *row  = new QWidget();
             auto *hbox = new QHBoxLayout(row);
@@ -256,11 +354,18 @@ namespace rosetta {
                 hbox->addWidget(le);
                 inputs.push_back(le);
             }
-            hbox->addStretch(1);
+            const bool has_btn_label = (btn.label[0] != '\0');
+            if (!has_btn_label)
+                hbox->addStretch(1);
 
-            QTextEdit *log_ptr  = log;
-            auto      *call_btn = new QPushButton(QStringLiteral("Call"));
+            QTextEdit *log_ptr   = log;
+            const QString btn_text = has_btn_label
+                                         ? QString::fromUtf8(btn.label)
+                                         : QStringLiteral("Call");
+            auto      *call_btn  = new QPushButton(btn_text);
             hbox->addWidget(call_btn);
+            if (has_btn_label)
+                hbox->addStretch(1);
             QObject::connect(call_btn, &QPushButton::clicked, row,
                              [log_ptr, tgt, inputs, qname] {
                                  QVariantList args;
@@ -275,17 +380,25 @@ namespace rosetta {
                                      true);
                              });
 
-            auto *label = new QLabel(qname + QStringLiteral("(") + QString::number(arity) +
-                                     QStringLiteral(")"));
-            if (dann.text[0] != '\0')
-                label->setToolTip(QString::fromUtf8(dann.text));
-            methods_layout->addRow(label, row);
+            if (btn.label[0] != '\0') {
+                methods_layout->addRow(row);
+            } else {
+                auto *label = new QLabel(qdisplay);
+                if (dann.text[0] != '\0')
+                    label->setToolTip(QString::fromUtf8(dann.text));
+                methods_layout->addRow(label, row);
+            }
         }
 
         template <std::meta::info Fn, auto... Anns> void method_static(const char *name) {
-            constexpr auto dann  = ann::get_or<doc>(doc{""}, Anns...);
-            constexpr auto arity = std::define_static_array(std::meta::parameters_of(Fn)).size();
-            const QString  qname = QString::fromUtf8(name);
+            constexpr auto dann     = ann::get_or<doc>(doc{""}, Anns...);
+            constexpr auto btn      = ann::get_or<button>(button{}, Anns...);
+            constexpr auto lbl      = ann::get_or<label>(label{""}, Anns...);
+            constexpr auto arity    = std::define_static_array(std::meta::parameters_of(Fn)).size();
+            const QString  qname    = QString::fromUtf8(name);
+            const QString  qdisplay = (lbl.text[0] != '\0')
+                                          ? QString::fromUtf8(lbl.text)
+                                          : qname;
 
             auto *row  = new QWidget();
             auto *hbox = new QHBoxLayout(row);
@@ -300,11 +413,18 @@ namespace rosetta {
                 hbox->addWidget(le);
                 inputs.push_back(le);
             }
-            hbox->addStretch(1);
+            const bool has_btn_label = (btn.label[0] != '\0');
+            if (!has_btn_label)
+                hbox->addStretch(1);
 
-            QTextEdit *log_ptr  = log;
-            auto      *call_btn = new QPushButton(QStringLiteral("Call"));
+            QTextEdit *log_ptr   = log;
+            const QString btn_text = has_btn_label
+                                         ? QString::fromUtf8(btn.label)
+                                         : QStringLiteral("Call");
+            auto      *call_btn  = new QPushButton(btn_text);
             hbox->addWidget(call_btn);
+            if (has_btn_label)
+                hbox->addStretch(1);
             QObject::connect(call_btn, &QPushButton::clicked, row,
                              [log_ptr, inputs, qname] {
                                  QVariantList args;
@@ -319,15 +439,22 @@ namespace rosetta {
                                      true);
                              });
 
-            auto *label = new QLabel(qname + QStringLiteral("(") + QString::number(arity) +
-                                     QStringLiteral(") [static]"));
-            if (dann.text[0] != '\0')
-                label->setToolTip(QString::fromUtf8(dann.text));
-            methods_layout->addRow(label, row);
+            if (btn.label[0] != '\0') {
+                methods_layout->addRow(row);
+            } else {
+                auto *label = new QLabel(qdisplay + QStringLiteral("(") +
+                                         QString::number(arity) +
+                                         QStringLiteral(") [static]"));
+                if (dann.text[0] != '\0')
+                    label->setToolTip(QString::fromUtf8(dann.text));
+                methods_layout->addRow(label, row);
+            }
         }
     };
 
-    template <typename T> QWidget *build_inspector(T &target, const QString &type_name) {
+    template <typename T>
+    QWidget *build_inspector(T &target, const QString &type_name,
+                             bool with_log = false) {
         auto *root = new QWidget();
         root->setWindowTitle(type_name + QStringLiteral(" — Qt Widgets inspector"));
 
@@ -339,21 +466,37 @@ namespace rosetta {
         heading->setStyleSheet(QStringLiteral("color:#888;"));
         vbox->addWidget(heading);
 
-        auto *fields_group  = new QGroupBox(QStringLiteral("Fields"));
-        auto *fields_layout = new QFormLayout(fields_group);
-        vbox->addWidget(fields_group);
+        // One panel for fields + methods. The form widget is capped in
+        // width and wrapped in an HBox with a stretch on the right, so
+        // the pack stays glued to the left edge as the window resizes.
+        auto *form_widget = new QWidget();
+        form_widget->setMaximumWidth(560);
+        auto *form_layout = new QFormLayout(form_widget);
+        form_layout->setLabelAlignment(Qt::AlignLeft);
 
-        auto *methods_group  = new QGroupBox(QStringLiteral("Methods"));
-        auto *methods_layout = new QFormLayout(methods_group);
-        vbox->addWidget(methods_group);
+        auto *form_row = new QHBoxLayout();
+        form_row->setContentsMargins(0, 0, 0, 0);
+        form_row->addWidget(form_widget);
+        form_row->addStretch(1);
+        vbox->addLayout(form_row);
 
-        auto *log = new QTextEdit();
-        log->setReadOnly(true);
-        log->setFontFamily(QStringLiteral("Menlo"));
-        log->setStyleSheet(QStringLiteral("background:#0e0e0e; color:#e8e8e8;"));
-        vbox->addWidget(log, /*stretch*/ 1);
+        QTextEdit *log = nullptr;
+        if (with_log) {
+            log = new QTextEdit();
+            log->setReadOnly(true);
+            log->setFontFamily(QStringLiteral("Menlo"));
+            log->setStyleSheet(QStringLiteral("background:#0e0e0e; color:#e8e8e8;"));
+            vbox->addWidget(log, /*stretch*/ 1);
+        } else {
+            // Without a log to soak up vertical space, pin the form to
+            // the top and leave the bottom empty.
+            vbox->addStretch(1);
+        }
 
-        WidgetVisitor<T> v{fields_layout, methods_layout, log, &target};
+        // Fields and methods share the same form_layout — they appear in
+        // walk order (fields first, then methods). `log` may be nullptr;
+        // log_line() short-circuits in that case.
+        WidgetVisitor<T> v{form_layout, form_layout, log, &target};
         walk<T>(v);
         return root;
     }

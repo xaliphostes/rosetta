@@ -9,16 +9,16 @@
 // Build flags: -freflection -freflection-latest -fannotation-attributes
 // See CMakeLists.txt in this folder.
 
-#include "../bindings/person.h"
+#include "algo.h"
 #include "widget_visitor.h"
 #include <QApplication>
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    Person   person;
-    QWidget *inspector = rosetta::build_inspector<Person>(person, QStringLiteral("Person"));
-    inspector->resize(720, 560);
+    Algo     algo;
+    QWidget *inspector = rosetta::build_inspector<Algo>(algo, QStringLiteral("Algo"), true);
+    inspector->resize(300, 300);
     inspector->show();
 
     return app.exec();

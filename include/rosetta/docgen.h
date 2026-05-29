@@ -22,9 +22,10 @@
 //   <doc>
 //
 // Annotation surface:
-//   doc{"..."}     -> description column / method body paragraph
-//   readonly       -> "_(readonly)_" tag in the description column
-//   range{lo, hi}  -> "(range: lo..hi)" tag in the description column
+//   doc{"..."}        -> description column / method body paragraph
+//   readonly          -> "_(readonly)_" tag in the description column
+//   range{lo, hi}     -> "(range: lo..hi)" tag in the description column
+//   combobox{{"a","b"}}-> "(choices: a , b)" tag in the description column
 
 #pragma once
 
@@ -92,6 +93,8 @@ namespace rosetta {
             constexpr bool ro      = ann::has<readonly>(Anns...);
             constexpr bool has_rng = ann::has<range>(Anns...);
             constexpr auto rng     = ann::get_or<range>(range{0, 0}, Anns...);
+            constexpr bool has_cb  = ann::has<combobox>(Anns...);
+            constexpr auto cb      = ann::get_or<combobox>(combobox{}, Anns...);
 
             ensure_fields_header();
 
@@ -99,6 +102,19 @@ namespace rosetta {
             if constexpr (has_rng) {
                 std::ostringstream tag;
                 tag << "(range: " << rng.min << ".." << rng.max << ")";
+                if (!desc.empty())
+                    desc += " ";
+                desc += tag.str();
+            }
+            if constexpr (has_cb) {
+                std::ostringstream tag;
+                tag << "(choices: ";
+                for (std::size_t i = 0; i < cb.count; ++i) {
+                    if (i)
+                        tag << ", ";
+                    tag << cb.choices[i];
+                }
+                tag << ")";
                 if (!desc.empty())
                     desc += " ";
                 desc += tag.str();
