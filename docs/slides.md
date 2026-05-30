@@ -70,16 +70,115 @@ Not shippable. Very fun.
 
 ```
 include/rosetta/
-  annotations.h   doc / range / readonly — shared structural types
+  annotations.h   doc / range / readonly / ... — shared structural types
   walk.h          consteval walk<T>(visitor) over fields + methods
   docgen.h        a visitor that emits Markdown reference docs
+  generate.h      reflection-driven binding scaffolder: rosetta::generate<T>
   mini_moc.h      signals / slots / properties on top of reflection
+  visitors/       per-backend bind kits (pybind, N-API, REST, emscripten)
 
-examples/         qt, qml, docgen, moc, bindings/{python,node,rest,web}
-tests/            one .cpp per concept, each builds to a runnable demo
+tools/rosetta_gen/  framework tool: manifest.json → project-specific scaffolder
+
+examples/  bindings/, generate/, qt, qml, docgen, moc
+tests/     one .cpp per concept, each builds to a runnable demo
 ```
 
-The whole core is **~400 lines of headers**.
+The whole core is **~600 lines of headers**.
+
+---
+
+## Bind your existing library — *no class modification*
+
+You have a `.h`. You want Python / Node / REST / WASM. **Don't touch
+the class.**
+
+```cpp
+// my_lib/person.h — exactly what you already have
+struct Person {
+    std::string name;
+    int         age = 0;
+    std::string id;
+    std::string greet(const std::string& s) const;
+};
+```
+
+Plus one tiny config:
+
+```json
+{
+  "user_include":    "../my_lib",
+  "rosetta_include": "/path/to/rosetta/include",
+  "classes": [
+    { "name":"Person", "header":"person.h",
+      "lib":"my_person", "targets":["python","node","rest","web"] }
+  ]
+}
+```
+
+That's the entire user-authored surface.
+
+---
+
+## Pipeline at a glance
+
+```
+   person.h                    manifest.json
+   (your unchanged class)      (5-line config)
+            \                       /
+             \                     /
+              ▼                   ▼
+           ┌────────────────────────────┐
+           │  rosetta_gen               │  ← framework tool
+           └─────────────┬──────────────┘     (ships with rosetta)
+                         │
+                         ▼
+       generated/   bindings.h, <lib>_gen.cpp, CMakeLists.txt
+                         │
+                  cmake + build
+                         │
+                         ▼
+           ┌────────────────────────────┐
+           │  <lib>_gen                 │  ← project-specific tool
+           └─────────────┬──────────────┘     (uses C++26 reflection)
+                         │
+                    --out output/
+                         │
+                         ▼
+       output/      python/   node/   rest/   web/
+                         │
+                  cmake + build (each)
+                         │
+                         ▼
+                .so      .node      exe      .wasm
+```
+
+Two tools, two CMake builds, **zero edits to your headers**.
+
+---
+
+## `rosetta::generate<T>` — what the per-project tool boils down to
+
+```cpp
+template <typename T> void generate(const GenerateOptions& opt) {
+    using info = binding_info<T>;          // trait specialization
+                                           // (manifest-emitted)
+    Ctx c;
+    c.class_name  = std::meta::identifier_of(^^T);
+    c.lib_name    = info::lib;
+    c.header      = info::header;
+    c.readme_body = generate_markdown<T>();  // docgen walks T
+
+    for (std::string_view t : info::targets) {
+        if      (t == "python") emit_python(opt.out_dir, c);
+        else if (t == "node")   emit_node  (opt.out_dir, c);
+        else if (t == "rest")   emit_rest  (opt.out_dir, c);
+        else if (t == "web")    emit_web   (opt.out_dir, c);
+    }
+}
+```
+
+`binding_info<T>` is a non-intrusive trait — the class is never edited.
+The trait is itself generated from `manifest.json`.
 
 ---
 
@@ -102,7 +201,11 @@ Constraints: must be **structural** + reach static storage with linkage
 
 ---
 
-## Annotated class
+## *Optional:* enrich members with annotations
+
+If you *want* docstrings, validation, UI hints, or readonly semantics,
+add them where they pay off. Mix and match — the rest of the class
+stays plain.
 
 ```cpp
 struct Person {
@@ -120,7 +223,8 @@ struct Person {
 };
 ```
 
-No registration, no macros. The annotations *are* the metadata.
+No registration, no macros. The annotations *are* the metadata — and
+they're opt-in, per field.
 
 ---
 
@@ -297,22 +401,30 @@ fork, you can already point a single class at seven different ecosystems.
 
 <!-- _class: lead -->
 
-## Try it
+## Try it — bind your own header
 
 ```bash
-git clone <repo>
-cd rosetta2/tests
-cmake -B build && cmake --build build
-./build/moc
-./build/docgen
+# 1. build the framework tool (one-time)
+cmake -G Ninja -S tools/rosetta_gen -B tools/rosetta_gen/build
+cmake --build tools/rosetta_gen/build
+
+# 2. point it at your manifest
+./tools/rosetta_gen/build/rosetta_gen path/to/manifest.json
+
+# 3. build the project-specific tool it just emitted
+cmake -G Ninja -S path/to/generated -B path/to/generated/build
+cmake --build path/to/generated/build
+
+# 4. produce the per-backend binding projects
+./path/to/generated/build/<lib>_gen --out path/to/output
+
+# 5. build any backend
+cd path/to/output/python && cmake -B build && cmake --build build
+python -c "import <lib>"
 ```
 
-```bash
-cd ../examples/moc
-cmake -G Ninja -B build && cmake --build build
-./build/thermostat
-```
-
-Source: `include/rosetta/` · Demos: `examples/` · Tests: `tests/`
+Worked example: `examples/generate/`
+Walkthroughs: `docs/QUICKSTART.md`, `docs/GENERATE.md`
+Source: `include/rosetta/` · Tests: `tests/` · Slides → repo root
 
 P2996 / P3394 / P3294 — `wg21.link`

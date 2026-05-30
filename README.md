@@ -14,6 +14,8 @@ not a requirement: add them where you want docstrings, validation, or
 UI hints; leave the rest of the class alone. Reflection does the work
 either way.
 
+[QUICKSTART](docs/QUICKSTART.md)
+
 
 [![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta2/)
 

@@ -6,11 +6,43 @@ steps. You don't have to modify your class definitions at all — and
 *if* you want richer bindings, you can opt in with member-level
 annotations later.
 
+## The workflow at a glance
+
+```mermaid
+flowchart TD
+    H["person.h<br/><i>your unchanged class</i>"]:::user
+    M["manifest.json<br/><i>5-line config</i>"]:::user
+
+    H --> R
+    M --> R
+
+    R(["rosetta_gen<br/><i>framework tool, ships with rosetta</i>"]):::tool
+
+    R --> G["generated/<br/>bindings.h<br/>&lt;lib&gt;_gen.cpp<br/>CMakeLists.txt"]:::gen
+
+    G -->|"cmake + build"| L(["&lt;lib&gt;_gen<br/><i>project-specific tool</i>"]):::tool
+
+    L -->|"--out output/"| O["output/<br/>python/ &nbsp; node/<br/>rest/ &nbsp; web/"]:::gen
+
+    O -->|"cmake + build each"| F["per-backend artifacts<br/>.so &nbsp; .node &nbsp; exe &nbsp; .wasm"]:::final
+
+    classDef user  fill:#e8f4f8,stroke:#2980b9,stroke-width:2px
+    classDef tool  fill:#fdf2e9,stroke:#e67e22,stroke-width:2px
+    classDef gen   fill:#f5f5f5,stroke:#7f8c8d,stroke-dasharray:5 5
+    classDef final fill:#e8f8ec,stroke:#27ae60,stroke-width:2px
+```
+
+Blue = you write it. Orange = a tool you run. Dashed grey = generated
+output. Green = the finished binding artifacts.
+
+Two stages of generation, two CMake builds — described step by step
+below.
+
 ## 0. Prerequisites
 
 - The clang-p2996 fork at `$HOME/devs/c++/clang-p2996/build`
   (override with `-DCLANG_P2996_ROOT=…`).
-- CMake ≥ 3.28, Ninja, a system C++17 compiler.
+- CMake ≥ 3.28, Ninja, a system C++26 compiler.
 - For Python: `pip install pybind11`. For Node: `npm`. For Web: emsdk.
 
 ## 1. Your class — leave it as-is
