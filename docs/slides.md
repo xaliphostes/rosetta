@@ -108,9 +108,10 @@ Plus one tiny config:
 {
   "user_include":    "../my_lib",
   "rosetta_include": "/path/to/rosetta/include",
+  "generator_name":  "my_person_gen",
+  "targets": ["python","node","rest","web"],
   "classes": [
-    { "name":"Person", "header":"person.h",
-      "lib":"my_person", "targets":["python","node","rest","web"] }
+    { "name":"Person", "header":"person.h" }
   ]
 }
 ```
@@ -132,13 +133,13 @@ That's the entire user-authored surface.
            └─────────────┬──────────────┘     (ships with rosetta)
                          │
                          ▼
-       generated/   bindings.h, <lib>_gen.cpp, CMakeLists.txt
+       generated/   bindings.h, <generator_name>.cpp, CMakeLists.txt
                          │
                   cmake + build
                          │
                          ▼
            ┌────────────────────────────┐
-           │  <lib>_gen                 │  ← project-specific tool
+           │  <generator_name>          │  ← project-specific tool
            └─────────────┬──────────────┘     (uses C++26 reflection)
                          │
                     --out output/
@@ -416,7 +417,7 @@ cmake -G Ninja -S path/to/generated -B path/to/generated/build
 cmake --build path/to/generated/build
 
 # 4. produce the per-backend binding projects
-./path/to/generated/build/<lib>_gen --out path/to/output
+./path/to/generated/build/<generator_name> --out path/to/output
 
 # 5. build any backend
 cd path/to/output/python && cmake -B build && cmake --build build

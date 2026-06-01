@@ -93,39 +93,52 @@ struct Person {
 };
 ```
 
-Write a small `manifest.json` somewhere alongside it:
+Write a small `manifest.json` next to it. Each `targets` entry names the
+module/library produced for that backend; list every class you want bound:
 
 ```json
 {
   "user_include": "../my_lib",
   "rosetta_include": "/path/to/rosetta/include",
+  "targets": [
+    { "lang": "python", "name": "person_py" },
+    { "lang": "node",   "name": "person_js" }
+  ],
   "classes": [
-    { "name": "Person", "header": "person.h",
-      "lib": "my_person", "targets": ["python", "node", "rest", "web"] }
+    { "name": "Person", "header": "person.h" }
   ]
 }
 ```
 
-Run the framework tool, build the project-specific tool it emits, run
-that:
+Build the scaffolder once, then from your project folder generate, build,
+and run the project-specific tool it emits:
 
 ```bash
-# (one-time) build the framework scaffolder
-cmake -G Ninja -S tools/rosetta_gen -B tools/rosetta_gen/build
+# (one-time) build the framework scaffolder → <repo>/bin/rosetta_gen
+cmake -S tools/rosetta_gen -B tools/rosetta_gen/build
 cmake --build tools/rosetta_gen/build
 
-# manifest.json → bindings.h + my_person_gen.cpp + CMakeLists.txt
-./tools/rosetta_gen/build/rosetta_gen path/to/manifest.json
+# from the folder holding manifest.json:
+#   write the generator project (bindings.h + <generator_name>.cpp + CMakeLists.txt)
+#   into a folder you name — here `gen/`
+/path/to/rosetta/bin/rosetta_gen manifest.json gen
 
-# build & run the generated tool → per-backend project tree under output/
-cmake -G Ninja -S path/to/generated -B path/to/generated/build
-cmake --build path/to/generated/build
-./path/to/generated/build/my_person_gen --out path/to/output
+# build it — the `generator` binary is dropped into the current folder,
+# not the build tree
+cmake -S gen -B gen/build && cmake --build gen/build
+
+# run it → one combined module per backend under bindings/
+./generator --out bindings
 ```
 
-Result: `output/{python,node,rest,web}/` — each a self-contained CMake
-project. `cd output/python && cmake -B build && cmake --build build`
-and you `import my_person`.
+Result: `bindings/{python,node}/` — each a self-contained CMake project
+exposing **all** your classes in a single module. `cd bindings/python &&
+cmake -B build && cmake --build build`, then `import person_py`.
+
+> `generator_name` and `module_name` are optional manifest fields:
+> `generator_name` (the generated `.cpp` / usage name) defaults to the
+> manifest's folder name, and a bare-string target like `"node"` falls
+> back to `module_name` for its module name.
 
 The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md);
 the manifest schema, the `binding_info<T>` trait, and the layered

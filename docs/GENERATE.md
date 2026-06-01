@@ -4,13 +4,13 @@ End-to-end workflow:
 
 1. The user edits **`manifest.json`** (the only hand-written file).
 2. The framework **`rosetta_gen`** tool reads it and emits
-   `bindings.h`, `<lib>_gen.cpp`, and `CMakeLists.txt`. `<lib>` is the
-   first class's `lib` field — so e.g. `lib: "reflected_person"`
-   produces `reflected_person_gen.cpp` and a `reflected_person_gen`
-   binary.
-3. The generated **`<lib>_gen`** is built — uses C++26 reflection on
-   the listed classes.
-4. Running `<lib>_gen --out <dir>` emits a complete per-backend project
+   `bindings.h`, `<generator_name>.cpp`, and `CMakeLists.txt`.
+   `<generator_name>` is the manifest's `generator_name` field — so
+   e.g. `generator_name: "reflected_person_gen"` produces
+   `reflected_person_gen.cpp` and a `reflected_person_gen` binary.
+3. The generated **`<generator_name>`** is built — uses C++26 reflection
+   on the listed classes.
+4. Running `<generator_name> --out <dir>` emits a complete per-backend project
    tree (source + CMake + package.json + README).
 5. Each generated backend can then be built independently.
 
@@ -26,9 +26,9 @@ examples/
     manifest.json                        # 1. user-edited input
     generated/                           # 2. produced by rosetta_gen ↓
       bindings.h                         #    rosetta::binding_info<T> specializations
-      <lib>_gen.cpp                  #    main() with one generate<T> per class
-      CMakeLists.txt                     #    builds <lib>_gen
-    output/                              # 4. produced by <lib>_gen ↓
+      <generator_name>.cpp               #    main() with one generate<T> per class
+      CMakeLists.txt                     #    builds <generator_name>
+    output/                              # 4. produced by <generator_name> ↓
       python/  node/  rest/  web/        #    per-backend project trees
 tools/
   rosetta_gen/                           #    the framework JSON → C++ tool
@@ -40,8 +40,8 @@ Two tools, two layers:
 
 | Tool | Compiled with | Reads | Writes |
 |---|---|---|---|
-| `rosetta_gen` (framework, ships in repo) | system C++17 | `manifest.json` | `bindings.h`, `<lib>_gen.cpp`, `CMakeLists.txt` |
-| `<lib>_gen` (generated, per project) | clang-p2996 (C++26 reflection) | the user's classes via reflection | per-backend project trees |
+| `rosetta_gen` (framework, ships in repo) | system C++17 | `manifest.json` | `bindings.h`, `<generator_name>.cpp`, `CMakeLists.txt` |
+| `<generator_name>` (generated, per project) | clang-p2996 (C++26 reflection) | the user's classes via reflection | per-backend project trees |
 
 ## 1. `manifest.json`
 
@@ -49,12 +49,12 @@ Two tools, two layers:
 {
   "user_include": "../bindings",
   "rosetta_include": "../../include",
+  "generator_name": "reflected_person_gen",
+  "targets": ["python", "node", "rest", "web"],
   "classes": [
     {
       "name": "Person",
-      "header": "person.h",
-      "lib": "reflected_person",
-      "targets": ["python", "node", "rest", "web"]
+      "header": "person.h"
     }
   ]
 }
@@ -66,19 +66,19 @@ Top-level fields:
 |---|---|
 | `user_include` | path to the directory containing the class headers — relative to `manifest.json`, or absolute. Resolved to an absolute path by `rosetta_gen`. |
 | `rosetta_include` | path to rosetta's `include/` directory — same rules. |
+| `generator_name` | CMake target / binary name of the generated scaffolder — `"reflected_person_gen"` produces a `reflected_person_gen.cpp` and binary. |
+| `targets` | array of `"python"`, `"node"`, `"rest"`, `"web"` — shared by every class. |
 | `classes` | array of per-class entries (below). |
-
-The CMake target / binary name comes from the **first class's `lib`** —
-`lib: "reflected_person"` produces a `reflected_person_gen` binary.
 
 Per-class entry:
 
 | Field | Meaning |
 |---|---|
-| `name` | C++ type name (must be reachable from `bindings.h` after `#include "<header>"`) |
-| `header` | filename written into `#include "..."` |
-| `lib` | library / module name baked into the generated bindings |
-| `targets` | array of `"python"`, `"node"`, `"rest"`, `"web"` |
+| `header` | filename written into `#include "..."` (required) |
+| `name` | C++ type name, must be reachable after `#include "<header>"` (optional — defaults to the header's basename) |
+
+Each class's binding library / module name is derived as
+`reflected_<lowercase name>` and baked into `binding_info<T>::lib`.
 
 ## 2. Build & run `rosetta_gen` (the framework tool)
 
@@ -91,7 +91,7 @@ cmake --build tools/rosetta_gen/build
 ./tools/rosetta_gen/build/rosetta_gen examples/generate/manifest.json
 ```
 
-Output (under `examples/generate/generated/`) for `lib: "reflected_person"`:
+Output (under `examples/generate/generated/`) for `generator_name: "reflected_person_gen"`:
 
 - `bindings.h` — `rosetta::binding_info<T>` specialization per class.
 - `reflected_person_gen.cpp` — `main()` that calls
@@ -100,14 +100,14 @@ Output (under `examples/generate/generated/`) for `lib: "reflected_person"`:
 - `CMakeLists.txt` — builds `reflected_person_gen` with the clang-p2996
   reflection flags and the two include directories.
 
-## 3. Build the generated `<lib>_gen`
+## 3. Build the generated `<generator_name>`
 
 ```bash
 cmake -G Ninja -S examples/generate/generated -B examples/generate/generated/build
 cmake --build examples/generate/generated/build
 ```
 
-## 4. Run `<lib>_gen` — emit the per-backend projects
+## 4. Run `<generator_name>` — emit the per-backend projects
 
 ```bash
 ./examples/generate/generated/build/reflected_person_gen --out examples/generate/output
@@ -138,7 +138,7 @@ Other backends follow their usual conventions (`npm install` +
 
 1. Add an entry to `classes[]` in `manifest.json`.
 2. Re-run `rosetta_gen examples/generate/manifest.json`.
-3. Rebuild `<lib>_gen`, then re-run it.
+3. Rebuild `<generator_name>`, then re-run it.
 
 That's it — no C++ to hand-edit.
 
@@ -146,7 +146,7 @@ That's it — no C++ to hand-edit.
 
 - **`rosetta_gen` (framework)** is plain text templating: read JSON,
   emit strings. No reflection. Uses `nlohmann/json` and `<sstream>`.
-- **`<lib>_gen` (generated)** calls `rosetta::generate<T>(opt)` per
+- **`<generator_name>` (generated)** calls `rosetta::generate<T>(opt)` per
   class. `generate<T>` reads the `binding_info<T>` trait (lib name,
   header, targets) and walks `T` via `rosetta::walk` to produce the
   README body via `docgen::generate_markdown<T>`. The per-backend

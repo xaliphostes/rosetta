@@ -1,0 +1,29 @@
+{
+    "user_include": "./geom",
+    "rosetta_include": "../../include",
+    "targets": [
+        {
+            "lang": "python",
+            "name": "pygeom"
+        },
+        {
+            "lang": "node",
+            "name": "jsgeom"
+        }
+    ],
+    "classes": [
+        {
+            "name": "Model",
+            "header": "Model.h"
+        },
+        {
+            "header": "Point.h"
+        },
+        {
+            "header": "Surface.h"
+        },
+        {
+            "header": "Triangle.h"
+        }
+    ]
+}

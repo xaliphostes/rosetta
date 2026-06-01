@@ -3,10 +3,12 @@
 # From the repo root:
 #   cmake -G Ninja -S tools/rosetta_gen -B tools/rosetta_gen/build
 #   cmake --build tools/rosetta_gen/build
-#   ./tools/rosetta_gen/build/rosetta_gen examples/generate/manifest.json
+#   ./bin/rosetta_gen examples/generate/manifest.json
+#
+# The built binary is placed in <repo>/bin (not the build tree).
 #
 # This tool reads manifest.json and emits a per-project tool source
-# (<project>_gen.cpp + CMakeLists.txt + bindings.h). Uses the system C++
+# (<generator_name>.cpp + CMakeLists.txt + bindings.h). Uses the system C++
 # compiler — no clang-p2996 fork needed (this tool does not use
 # reflection, only JSON parsing and text templating).
 
@@ -25,6 +27,9 @@ FetchContent_Declare(json
     URL      https://github.com/nlohmann/json/releases/download/v3.11.3/include.zip
     URL_HASH SHA256=a22461d13119ac5c78f205d3df1db13403e58ce1bb1794edc9313677313f4a9d)
 FetchContent_MakeAvailable(json)
+
+# Drop the binary in <repo>/bin rather than the build tree.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../bin)
 
 add_executable(rosetta_gen rosetta_gen.cpp)
 target_include_directories(rosetta_gen PRIVATE ${json_SOURCE_DIR}/include)

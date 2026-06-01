@@ -1,32 +1,15 @@
-// SPDX-FileCopyrightText: Copyright (c) fmaerten@gmail.com
-// SPDX-License-Identifier: UNLICENSED
-
-// Emscripten/embind backend: implements the rosetta::walk visitor concept.
-//
-// Provides:
-//   - rosetta::EmscriptenVisitor<T> — three visitor methods emitting
-//     emscripten::class_<T> registration calls
-//   - rosetta::bind_emscripten<T>(class_name) — entry point: builds the
-//     class_ handle, registers a default ctor, runs the walk
-//
-// All lambdas are non-capturing (Fld / Fn are NTTPs of the enclosing
-// template, and per-field annotations live as constexpr locals usable
-// as constant expressions) so embind can take them as function-pointer
-// types via `+[]`.
-
-#pragma once
-
-#include <emscripten/bind.h>
-#include <experimental/meta>
-#include <rosetta/walk.h>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-
 namespace rosetta {
 
     template <typename T> struct EmscriptenVisitor {
         emscripten::class_<T> &cls;
+        bool                   saw_default_ctor = false;
+
+        template <std::meta::info Ctor, auto... /*Anns*/> void constructor() {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
+            if constexpr (params.size() == 0)
+                saw_default_ctor = true;
+            register_ctor<Ctor>(std::make_index_sequence<params.size()>{});
+        }
 
         template <std::meta::info Fld, auto... Anns> void field(const char * name) {
             using F = [:std::meta::type_of(Fld):];
@@ -69,13 +52,23 @@ namespace rosetta {
         template <std::meta::info Fn, auto... /*Anns*/> void method_static(const char *name) {
             cls.class_function(name, &[:Fn:]);
         }
+
+      private:
+        template <std::meta::info Ctor, std::size_t... Is>
+        void register_ctor(std::index_sequence<Is...>) {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
+            cls.template constructor<typename[:std::meta::type_of(params[Is]):]...>();
+        }
     };
 
-    template <typename T> void bind_emscripten(const char *class_name) {
+    template <typename T> void bind_wasm(const char *class_name) {
         emscripten::class_<T> cls(class_name);
-        cls.template constructor<>();
-        EmscriptenVisitor<T> v{cls};
+        EmscriptenVisitor<T>  v{cls};
         walk<T>(v);
+        // The implicitly-declared default ctor may not be enumerated by
+        // reflection; register one so `new Module.T()` keeps working.
+        if (!v.saw_default_ctor && std::is_default_constructible_v<T>)
+            cls.template constructor<>();
     }
 
 } // namespace rosetta

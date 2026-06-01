@@ -1,0 +1,30 @@
+// SPDX-FileCopyrightText: Copyright (c) fmaerten@gmail.com
+// SPDX-License-Identifier: UNLICENSED
+
+// Pybind11 backend: implements the rosetta::walk visitor concept.
+//
+// Provides:
+//   - rosetta::PybindVisitor<T> — visitor methods emitting pybind11 calls
+//     (fields, instance/static methods, and one py::init per constructor)
+//   - rosetta::bind_pybind<T>(module, py_name) — entry point: declares the
+//     class, runs the walk, and registers a default ctor as a fallback
+//
+// The implementation lives in inline/python_visitor.hxx.
+
+#pragma once
+
+#include <experimental/meta>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <rosetta/walk.h>
+#include <string>
+#include <type_traits>
+
+namespace py = pybind11;
+
+namespace rosetta {
+
+    template <typename T> void bind_pybind(py::module_ &, const char *);
+}
+
+#include "inline/python_visitor.hxx"

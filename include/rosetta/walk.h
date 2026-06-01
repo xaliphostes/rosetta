@@ -6,11 +6,17 @@
 // non-type template parameters; the visitor decides which annotations
 // it cares about — there is no per-shape entry-point in the walker.
 //
-// Visitor concept — three `consteval`-template members:
+// Visitor concept — `consteval`-template members:
 //
-//   v.template field          <Fld, Anns...>(name);
-//   v.template method_instance<Fn,  Anns...>(name);
-//   v.template method_static  <Fn,  Anns...>(name);
+//   v.template field          <Fld,  Anns...>(name);
+//   v.template method_instance<Fn,   Anns...>(name);
+//   v.template method_static  <Fn,   Anns...>(name);
+//   v.template constructor    <Ctor, Anns...>();      // optional
+//
+// `constructor` is optional: the walk only calls it when the visitor
+// defines it (detected with `requires`), so backends that don't model
+// construction need not implement it. `Ctor` is the `std::meta::info`
+// of a public, non-copy/move constructor.
 //
 // `Fld` / `Fn` are `std::meta::info` NTTPs. `Anns...` is a pack of
 // annotation values (`auto...`) — each entry can be any structural
@@ -71,6 +77,16 @@ namespace rosetta {
                !std::meta::is_destructor(fn) && !std::meta::is_special_member_function(fn);
     }
 
+    // Expose user-callable constructors: default and parameterized ones, but
+    // not copy/move (those are value-passing, not distinct entry points) nor
+    // constructor templates (their parameters aren't a fixed pack to splice)
+    // nor deleted ones.
+    consteval bool is_exportable_constructor(std::meta::info fn) {
+        return std::meta::is_constructor(fn) && !std::meta::is_copy_constructor(fn) &&
+               !std::meta::is_move_constructor(fn) && !std::meta::is_constructor_template(fn) &&
+               !std::meta::is_deleted(fn);
+    }
+
     /**
      * @brief Walk over reflected members of T and pass them to the visitor.
      */
@@ -102,6 +118,23 @@ namespace rosetta {
                     } else {
                         v.template method_instance<fn, ([:std::meta::constant_of(anns[Is]):])...>(
                             name);
+                    }
+                }(std::make_index_sequence<anns.size()>{});
+            }
+        }
+
+        // -------- constructors (optional visitor entry point) --------
+        template for (constexpr auto ctor :
+                      std::define_static_array(std::meta::members_of(^^T, ctx))) {
+            if constexpr (is_exportable_constructor(ctor)) {
+                constexpr auto anns = std::define_static_array(std::meta::annotations_of(ctor));
+
+                [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                    if constexpr (requires {
+                                      v.template constructor<ctor,
+                                                             ([:std::meta::constant_of(anns[Is]):])...>();
+                                  }) {
+                        v.template constructor<ctor, ([:std::meta::constant_of(anns[Is]):])...>();
                     }
                 }(std::make_index_sequence<anns.size()>{});
             }

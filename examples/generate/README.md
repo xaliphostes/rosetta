@@ -27,12 +27,12 @@ manifest.json ──(rosetta_gen)──▶ generated/  ──(build + run)──
 {
   "user_include": "../bindings",
   "rosetta_include": "../../include",
+  "generator_name": "reflected_person_gen",
+  "targets": ["python", "node", "rest", "web"],
   "classes": [
     {
       "name": "Person",
-      "header": "person.h",
-      "lib": "reflected_person",
-      "targets": ["python", "node", "rest", "web"]
+      "header": "person.h"
     }
   ]
 }
@@ -42,10 +42,12 @@ manifest.json ──(rosetta_gen)──▶ generated/  ──(build + run)──
 | ----------------- | -------------------------------------------------------------- |
 | `user_include`    | Include dir holding your class headers (resolved from the manifest) |
 | `rosetta_include` | Path to the Rosetta `include/` directory                       |
-| `name`            | The C++ class to bind                                          |
-| `header`          | Header that declares it                                        |
-| `lib`             | Base name for the generated scaffolder / library              |
-| `targets`         | Backends to emit: `python`, `node`, `rest`, `web`             |
+| `generator_name`  | Base name for the generated scaffolder program / CMake target  |
+| `targets`         | Backends to emit, shared by every class: `python`, `node`, `rest`, `web` |
+| `classes[].header`| Header that declares the class (required)                      |
+| `classes[].name`  | The C++ class to bind (optional — defaults to the header's basename) |
+
+Each class's binding library / module name is derived as `reflected_<lowercase name>`.
 
 ## What `rosetta_gen` produces
 

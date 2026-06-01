@@ -18,7 +18,7 @@ flowchart TD
 
     R(["rosetta_gen<br/><i>framework tool, ships with rosetta</i>"]):::tool
 
-    R --> G["generated/<br/>bindings.h<br/>&lt;lib&gt;_gen.cpp<br/>CMakeLists.txt"]:::gen
+    R --> G["generated/<br/>bindings.h<br/>&lt;generator_name&gt;.cpp<br/>CMakeLists.txt"]:::gen
 
     G -->|"cmake + build"| L(["&lt;lib&gt;_gen<br/><i>project-specific tool</i>"]):::tool
 
@@ -107,12 +107,12 @@ One file, lives anywhere — paths inside are resolved relative to it.
 {
   "user_include": "../my_lib",
   "rosetta_include": "/path/to/rosetta/include",
+  "generator_name": "my_person_gen",
+  "targets": ["python", "node", "rest", "web"],
   "classes": [
     {
       "name": "Person",
-      "header": "person.h",
-      "lib": "my_person",
-      "targets": ["python", "node", "rest", "web"]
+      "header": "person.h"
     }
   ]
 }
@@ -120,9 +120,11 @@ One file, lives anywhere — paths inside are resolved relative to it.
 
 - `user_include` — where your class headers live.
 - `rosetta_include` — where rosetta's `include/` lives.
-- `lib` — name of the resulting binding library (the Python module,
-  the Node addon, etc.). Drives the generated tool's name too.
-- `targets` — any subset of `python`, `node`, `rest`, `web`.
+- `generator_name` — name of the generated scaffolder tool / CMake target.
+- `targets` — any subset of `python`, `node`, `rest`, `web`; shared by every class.
+- `classes[].header` — required; `classes[].name` is optional and defaults
+  to the header's basename. Each class's binding library is derived as
+  `reflected_<lowercase name>`.
 
 ## 3. Build the framework tool (one time)
 
@@ -137,7 +139,7 @@ cmake --build tools/rosetta_gen/build
 # (a) read manifest → emit project-specific tool source
 ./tools/rosetta_gen/build/rosetta_gen path/to/manifest.json
 
-# (b) build that tool (named <lib>_gen — here my_person_gen)
+# (b) build that tool (named <generator_name> — here my_person_gen)
 cmake -G Ninja -S path/to/manifest_dir/generated \
                 -B path/to/manifest_dir/generated/build
 cmake --build path/to/manifest_dir/generated/build

@@ -1,28 +1,25 @@
-// SPDX-FileCopyrightText: Copyright (c) fmaerten@gmail.com
-// SPDX-License-Identifier: UNLICENSED
-
-// Pybind11 backend: implements the rosetta::walk visitor concept.
-//
-// Provides:
-//   - rosetta::PybindVisitor<T> — three visitor methods emitting pybind11 calls
-//   - rosetta::bind_pybind<T>(module, py_name) — entry point: declares the
-//     class, registers a default ctor, runs the walk
-
-#pragma once
-
-#include <experimental/meta>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <rosetta/walk.h>
-#include <string>
-#include <type_traits>
-
-namespace py = pybind11;
-
 namespace rosetta {
 
     template <typename T> struct PybindVisitor {
         py::class_<T> &cls;
+        bool           saw_default_ctor = false;
+
+        template <std::meta::info Ctor, auto... Anns> void constructor() {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
+            constexpr auto dann   = ann::get_or<doc>(doc{""}, Anns...);
+            if constexpr (params.size() == 0)
+                saw_default_ctor = true;
+            register_init<Ctor>(std::make_index_sequence<params.size()>{}, dann.text);
+        }
+
+      private:
+        template <std::meta::info Ctor, std::size_t... Is>
+        void register_init(std::index_sequence<Is...>, const char *docstr) {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
+            cls.def(py::init<typename[:std::meta::type_of(params[Is]):]...>(), docstr);
+        }
+
+      public:
 
         template <std::meta::info Fld, auto... Anns> void field(const char *name) {
             using F                      = [:std::meta::type_of(Fld):];
@@ -63,11 +60,14 @@ namespace rosetta {
         }
     };
 
-    template <typename T> void bind_pybind(py::module_ &m, const char *py_name) {
-        py::class_<T> cls(m, py_name);
-        cls.def(py::init<>());
+    template <typename T> inline void bind_pybind(py::module_ &m, const char *py_name) {
+        py::class_<T>    cls(m, py_name);
         PybindVisitor<T> v{cls};
         walk<T>(v);
+        // The implicitly-declared default ctor may not be enumerated by
+        // reflection; register one so `T()` keeps working.
+        if (!v.saw_default_ctor && std::is_default_constructible_v<T>)
+            cls.def(py::init<>());
     }
 
 } // namespace rosetta

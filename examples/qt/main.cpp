@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
     Algo     algo;
-    QWidget *inspector = rosetta::build_inspector<Algo>(algo, QStringLiteral("Algo"), true);
+    QWidget *inspector = rosetta::build_inspector<Algo>(algo, QStringLiteral("Algo"), false);
     inspector->resize(300, 300);
     inspector->show();
 
