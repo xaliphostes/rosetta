@@ -25,10 +25,13 @@
 
 #pragma once
 
+#include <cstdio>
 #include <experimental/meta>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <map>
+#include <memory>
 #include <rosetta/annotations.h>
 #include <rosetta/docgen.h>
 #include <rosetta/walk.h>
@@ -74,10 +77,65 @@ namespace rosetta {
     };
 
     /**
+     * @brief One class, reduced to the plain strings a backend needs. The
+     * type pack is erased into these up front by `generate`, so backends do
+     * no reflection — they are pure text templating.
+     */
+    struct GenClass {
+        std::string name;   // reflected C++ identifier
+        std::string header; // binding_info<T>::header — basename for #include
+        std::string doc;    // generate_markdown<T>() — README body fragment
+    };
+
+    /**
+     * @brief Everything a backend needs to emit one target's project tree.
+     */
+    struct GenContext {
+        std::filesystem::path out_dir;         // root of the generated tree
+        std::string           lib;             // this target's module / library name
+        std::vector<GenClass> classes;         // all classes to expose
+        std::string           user_include;    // dir containing the class headers
+        std::string           rosetta_include; // path to rosetta's include/
+    };
+
+    /**
+     * @brief Code-generation backend for one target language. Implement this
+     * and register it (see `register_backend`) to teach `generate` a new
+     * backend — no edit to `generate` itself is required.
+     */
+    struct Backend {
+        virtual ~Backend()                       = default;
+        virtual void emit(const GenContext &) const = 0;
+    };
+
+    /**
+     * @brief The lang → backend map consulted by `generate` at run time.
+     * Seeded with the built-in "python", "node", "rest", "web" backends on
+     * first use.
+     */
+    std::map<std::string, std::shared_ptr<Backend>> &backend_registry();
+
+    /** @brief Register (or override) the backend handling `lang`. */
+    void register_backend(std::string lang, std::shared_ptr<Backend> backend);
+
+    /**
+     * @brief Static-init helper: declare one at namespace scope in a plugin
+     * translation unit linked into the generator to register a backend before
+     * `main` runs. e.g.
+     *   static rosetta::BackendRegistrar lua{"lua", std::make_shared<LuaBackend>()};
+     */
+    struct BackendRegistrar {
+        BackendRegistrar(std::string lang, std::shared_ptr<Backend> backend) {
+            register_backend(std::move(lang), std::move(backend));
+        }
+    };
+
+    /**
      * @brief Scaffold the per-backend binding projects under opt.out_dir for
-     * the whole set of classes `Ts...`. Each backend gets a single module
-     * (named per `opt.targets`) that registers every class. Per-class
-     * headers come from the `rosetta::binding_info<T>` trait.
+     * the whole set of classes `Ts...`. The pack is erased into a
+     * `std::vector<GenClass>` and each target is dispatched through
+     * `backend_registry()`; this function never changes when a backend is
+     * added. Per-class headers come from the `rosetta::binding_info<T>` trait.
      */
     template <typename... Ts> void generate(const GenerateOptions &opt);
 

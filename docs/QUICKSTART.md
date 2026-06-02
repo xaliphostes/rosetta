@@ -22,7 +22,7 @@ flowchart TD
 
     G -->|"cmake + build"| L(["&lt;lib&gt;_gen<br/><i>project-specific tool</i>"]):::tool
 
-    L -->|"--out output/"| O["output/<br/>python/ &nbsp; node/<br/>rest/ &nbsp; web/"]:::gen
+    L -->|"--out output/"| O["output/<br/>python/ &nbsp; node/<br/>rest/ &nbsp; wasm/"]:::gen
 
     O -->|"cmake + build each"| F["per-backend artifacts<br/>.so &nbsp; .node &nbsp; exe &nbsp; .wasm"]:::final
 
@@ -108,7 +108,7 @@ One file, lives anywhere — paths inside are resolved relative to it.
   "user_include": "../my_lib",
   "rosetta_include": "/path/to/rosetta/include",
   "generator_name": "my_person_gen",
-  "targets": ["python", "node", "rest", "web"],
+  "targets": ["python", "node", "rest", "wasm"],
   "classes": [
     {
       "name": "Person",
@@ -121,7 +121,7 @@ One file, lives anywhere — paths inside are resolved relative to it.
 - `user_include` — where your class headers live.
 - `rosetta_include` — where rosetta's `include/` lives.
 - `generator_name` — name of the generated scaffolder tool / CMake target.
-- `targets` — any subset of `python`, `node`, `rest`, `web`; shared by every class.
+- `targets` — any subset of `python`, `node`, `rest`, `wasm`; shared by every class.
 - `classes[].header` — required; `classes[].name` is optional and defaults
   to the header's basename. Each class's binding library is derived as
   `reflected_<lowercase name>`.
@@ -156,7 +156,7 @@ path/to/output/
   python/ auto_pybind.cpp     CMakeLists.txt              README.md
   node/   auto_napi.cpp       CMakeLists.txt  package.json README.md
   rest/   auto_rest.cpp       CMakeLists.txt              README.md
-  web/    auto_emscripten.cpp CMakeLists.txt              README.md
+  wasm/   auto_emscripten.cpp CMakeLists.txt              README.md
 ```
 
 ## 5. Build a backend

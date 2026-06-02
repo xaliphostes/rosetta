@@ -59,6 +59,7 @@ struct Manifest {
     std::string              generator_name;  // driver tool / CMake target name
     std::vector<TargetEntry> targets;         // backends + per-backend module name
     std::vector<ClassEntry>  classes;
+    std::vector<std::string> plugins;         // extra .cpp sources (absolute) for the driver
 
     // CMake target / binary basename.
     std::string target() const { return generator_name; }
@@ -114,6 +115,13 @@ static Manifest load(const fs::path &manifest_path) {
                                     : fs::path(e.header).stem().string();
         m.classes.push_back(std::move(e));
     }
+
+    // `plugins` is optional: extra .cpp sources (e.g. a custom Backend +
+    // BackendRegistrar) compiled into the driver. Resolved to absolute paths.
+    if (j.contains("plugins"))
+        for (const auto &p : j.at("plugins"))
+            m.plugins.push_back(
+                fs::weakly_canonical(base / fs::path(p.get<std::string>())).string());
 
     if (m.generator_name.empty())
         throw std::runtime_error(
@@ -203,9 +211,15 @@ static std::string render_cmakelists(const Manifest &m) {
         << "set(CMAKE_CXX_SCAN_FOR_MODULES OFF)\n\n"
         << "# Place the built binary in the parent folder (where rosetta_gen\n"
         << "# was invoked), not in this generation folder's build tree.\n"
-        << "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)\n\n"
-        << "add_executable(" << target << " " << m.target() << ".cpp)\n\n"
-        << "target_include_directories(" << target << " PRIVATE\n"
+        << "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)\n\n";
+
+    // add_executable with the driver source plus any plugin sources.
+    out << "add_executable(" << target << " " << m.target() << ".cpp";
+    for (const auto &p : m.plugins)
+        out << "\n    " << p;
+    out << ")\n\n";
+
+    out << "target_include_directories(" << target << " PRIVATE\n"
         << "    " << m.user_include.string() << "\n"
         << "    " << m.rosetta_include.string() << ")\n\n"
         << "target_compile_options(" << target << " PRIVATE\n"

@@ -109,7 +109,7 @@ Plus one tiny config:
   "user_include":    "../my_lib",
   "rosetta_include": "/path/to/rosetta/include",
   "generator_name":  "my_person_gen",
-  "targets": ["python","node","rest","web"],
+  "targets": ["python","node","rest","wasm"],
   "classes": [
     { "name":"Person", "header":"person.h" }
   ]
@@ -145,7 +145,7 @@ That's the entire user-authored surface.
                     --out output/
                          │
                          ▼
-       output/      python/   node/   rest/   web/
+       output/      python/   node/   rest/   wasm/
                          │
                   cmake + build (each)
                          │
@@ -173,7 +173,7 @@ template <typename T> void generate(const GenerateOptions& opt) {
         if      (t == "python") emit_python(opt.out_dir, c);
         else if (t == "node")   emit_node  (opt.out_dir, c);
         else if (t == "rest")   emit_rest  (opt.out_dir, c);
-        else if (t == "web")    emit_web   (opt.out_dir, c);
+        else if (t == "wasm")   emit_wasm  (opt.out_dir, c);
     }
 }
 ```
@@ -262,7 +262,7 @@ Every backend is **just a visitor**.
 | `bindings/python`       | pybind11 module                           |
 | `bindings/node`         | N-API native module                       |
 | `bindings/rest`         | HTTP routes (`GET /person/{id}`...)       |
-| `bindings/web`          | Emscripten / WebAssembly module           |
+| `bindings/wasm`         | Emscripten / WebAssembly module           |
 | `mini_moc.h`            | Qt-style signals / slots / properties     |
 
 ---
@@ -289,6 +289,20 @@ Output:
 ### `greet(s: const std::string&) → std::string`
 Greet with the given salutation.
 ```
+
+---
+
+# Person
+## Fields
+| Name | Type        | Description                              |
+|------|-------------|------------------------------------------|
+| name | std::string | display name                             |
+| age  | int         | age in years (range: 0..150)             |
+| id   | std::string | server id _(readonly)_                   |
+
+## Methods
+### `greet(s: const std::string&) → std::string`
+Greet with the given salutation.
 
 ---
 

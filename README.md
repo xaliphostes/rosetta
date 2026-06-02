@@ -39,29 +39,6 @@ No mainline compiler implements enough of these proposals yet.
   -fexperimental-library`. Annotation-using code also needs
   `-fannotation-attributes`.
 
-## Layout
-
-```
-include/rosetta/
-  annotations.h    shared annotation types: doc, range, readonly, ...
-  walk.h           single consteval walk<T>(visitor) over fields + methods,
-                   forwarding each member with its full annotation pack
-  docgen.h         walk visitor that emits a Markdown reference for T
-  generate.h       reflection-driven binding scaffolder: rosetta::generate<T>
-  mini_moc.h       signals / slots / properties on top of reflection;
-                   Qt-style ergonomics, no separate moc tool
-  visitors/        per-backend bind kits (pybind, N-API, REST, emscripten)
-
-tools/
-  rosetta_gen/     framework tool: manifest.json → project-specific scaffolder
-
-tests/             one .cpp per concept; each builds to a runnable demo
-examples/
-  bindings/        hand-written reference backends (python, node, rest, web)
-  generate/        manifest-driven, generated bindings (no class modification)
-  docgen/  qml/  qt/  moc/
-docs/              QUICKSTART, GENERATE, design notes (FREE_FUNCTIONS, ...)
-```
 
 ## Build the test suite
 
@@ -160,12 +137,13 @@ worked example lives in `examples/generate/`.
 
 ## Design notes
 
-- `docs/QUICKSTART.md` — five-step guide to generating bindings for an existing library
-- `docs/GENERATE.md` — full reference for `rosetta::generate`, the manifest schema, and the tool layering
-- `docs/FREE_FUNCTIONS.md` — sketch for reflecting namespace-scope functions
-- `docs/OTHER_ANNOTATIONS.md` — proposed annotation kinds beyond the current three
-- `docs/TODO.md` — what the walker and visitor surface still miss (enums, bases,
-  ctors, statics, parameter metadata, ...)
+- [Quick start](docs/QUICKSTART.md) — five-step guide to generating bindings for an existing library
+- [Extending](docs/EXTENDING_BACKEND.md) — how to extend the rosetta backend
+<br><br>
+- [Generate](docs/GENERATE.md) — full reference for `rosetta::generate`, the manifest schema, and the tool layering
+- [Free functions](docs/FREE_FUNCTIONS.md) — sketch for reflecting namespace-scope functions
+- [Other annotations](docs/OTHER_ANNOTATIONS.md) — proposed annotation kinds beyond the current three
+- [Todo list](docs/TODO.md) — what the walker and visitor surface still miss (enums, bases, ctors, statics, parameter metadata, ...)
 
 ## License
 

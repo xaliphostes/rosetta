@@ -29,7 +29,7 @@ examples/
       <generator_name>.cpp               #    main() with one generate<T> per class
       CMakeLists.txt                     #    builds <generator_name>
     output/                              # 4. produced by <generator_name> ↓
-      python/  node/  rest/  web/        #    per-backend project trees
+      python/  node/  rest/  wasm/       #    per-backend project trees
 tools/
   rosetta_gen/                           #    the framework JSON → C++ tool
     rosetta_gen.cpp
@@ -50,7 +50,7 @@ Two tools, two layers:
   "user_include": "../bindings",
   "rosetta_include": "../../include",
   "generator_name": "reflected_person_gen",
-  "targets": ["python", "node", "rest", "web"],
+  "targets": ["python", "node", "rest", "wasm"],
   "classes": [
     {
       "name": "Person",
@@ -67,7 +67,7 @@ Top-level fields:
 | `user_include` | path to the directory containing the class headers — relative to `manifest.json`, or absolute. Resolved to an absolute path by `rosetta_gen`. |
 | `rosetta_include` | path to rosetta's `include/` directory — same rules. |
 | `generator_name` | CMake target / binary name of the generated scaffolder — `"reflected_person_gen"` produces a `reflected_person_gen.cpp` and binary. |
-| `targets` | array of `"python"`, `"node"`, `"rest"`, `"web"` — shared by every class. |
+| `targets` | array of `"python"`, `"node"`, `"rest"`, `"wasm"` — shared by every class. |
 | `classes` | array of per-class entries (below). |
 
 Per-class entry:
@@ -120,7 +120,7 @@ examples/generate/output/
   python/  auto_pybind.cpp     CMakeLists.txt              README.md
   node/    auto_napi.cpp       CMakeLists.txt  package.json README.md
   rest/    auto_rest.cpp       CMakeLists.txt              README.md
-  web/     auto_emscripten.cpp CMakeLists.txt              README.md
+  wasm/    auto_emscripten.cpp CMakeLists.txt              README.md
 ```
 
 ## 5. Build any one backend
@@ -132,7 +132,7 @@ python test_reflected_person.py    # ship your own test
 ```
 
 Other backends follow their usual conventions (`npm install` +
-`cmake-js` for node, `emcmake cmake …` for web, FetchContent for rest).
+`cmake-js` for node, `emcmake cmake …` for wasm, FetchContent for rest).
 
 ## Adding a class
 
@@ -154,13 +154,16 @@ That's it — no C++ to hand-edit.
 - **The generated backends** are ordinary standalone CMake projects
   that compile the user's class against rosetta's binding kit.
 
+To add a backend of your own (e.g. Lua) without editing `rosetta::generate`,
+see [`EXTENDING_BACKEND.md`](./EXTENDING_BACKEND.md).
+
 ## Known gaps
 
 - Paths in `manifest.json` resolve relative to that file's location.
   Move the manifest and you must re-run `rosetta_gen`.
-- `node` / `web` / `rest` are scaffolded but were not built
+- `node` / `wasm` / `rest` are scaffolded but were not built
   end-to-end during the prototype — only `python` was verified.
   The templates mirror the working hand-written examples.
 - A class missing from `manifest.json` is invisible; a class listed
   but with no member of `targets` matched (`"python"`, `"node"`,
-  `"rest"`, `"web"`) silently emits nothing for that class.
+  `"rest"`, `"wasm"`) silently emits nothing for that class.

@@ -13,7 +13,7 @@ manifest.json ──(rosetta_gen)──▶ generated/  ──(build + run)──
                                   bindings.h                     python/
                                   reflected_person_gen.cpp       node/
                                   CMakeLists.txt                 rest/
-                                                                 web/
+                                                                 wasm/
 ```
 
 1. **`rosetta_gen`** (`tools/rosetta_gen`) reads `manifest.json` and emits, for each declared class, a tiny *project-specific scaffolder*: the contents of `generated/`.
@@ -28,7 +28,7 @@ manifest.json ──(rosetta_gen)──▶ generated/  ──(build + run)──
   "user_include": "../bindings",
   "rosetta_include": "../../include",
   "generator_name": "reflected_person_gen",
-  "targets": ["python", "node", "rest", "web"],
+  "targets": ["python", "node", "rest", "wasm"],
   "classes": [
     {
       "name": "Person",
@@ -43,7 +43,7 @@ manifest.json ──(rosetta_gen)──▶ generated/  ──(build + run)──
 | `user_include`    | Include dir holding your class headers (resolved from the manifest) |
 | `rosetta_include` | Path to the Rosetta `include/` directory                       |
 | `generator_name`  | Base name for the generated scaffolder program / CMake target  |
-| `targets`         | Backends to emit, shared by every class: `python`, `node`, `rest`, `web` |
+| `targets`         | Backends to emit, shared by every class: `python`, `node`, `rest`, `wasm` |
 | `classes[].header`| Header that declares the class (required)                      |
 | `classes[].name`  | The C++ class to bind (optional — defaults to the header's basename) |
 
@@ -69,7 +69,7 @@ cmake --build generated/build
 ./generated/build/reflected_person_gen --out output
 ```
 
-This drops one project per backend (`python/`, `node/`, `rest/`, `web/`) into `output/`, each ready to build the way the hand-written [`examples/bindings`](../bindings) backends are.
+This drops one project per backend (`python/`, `node/`, `rest/`, `wasm/`) into `output/`, each ready to build the way the hand-written [`examples/bindings`](../bindings) backends are.
 
 ## Requirements
 

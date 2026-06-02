@@ -5,7 +5,7 @@
         "python",
         "node",
         "rest",
-        "web"
+        "wasm"
     ],
     "classes": [
         {
