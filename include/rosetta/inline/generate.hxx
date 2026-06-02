@@ -84,6 +84,101 @@ endif()
             return s;
         }
 
+        // -------- reflection IR (for pure-data backends) --------
+
+        template <typename T> struct is_vec : std::false_type {};
+        template <typename U, typename A> struct is_vec<std::vector<U, A>> : std::true_type {};
+
+        template <typename T> struct is_func : std::false_type {};
+        template <typename R, typename... A> struct is_func<std::function<R(A...)>> : std::true_type {};
+
+        // Map a C++ type to the language-neutral GenType descriptor.
+        template <typename T> inline GenType type_descriptor() {
+            using U = std::remove_cvref_t<T>;
+            GenType g;
+            if constexpr (std::is_void_v<U>) {
+                g.kind = "void";
+            } else if constexpr (std::is_same_v<U, bool>) {
+                g.kind = "boolean";
+            } else if constexpr (std::is_same_v<U, std::string>) {
+                g.kind = "string";
+            } else if constexpr (std::is_arithmetic_v<U>) {
+                g.kind = "number";
+            } else if constexpr (is_func<U>::value) {
+                g.kind = "unknown";
+            } else if constexpr (is_vec<U>::value) {
+                g.kind = "vector";
+                g.element.push_back(type_descriptor<typename U::value_type>());
+            } else if constexpr (std::is_class_v<U>) {
+                g.kind   = "object";
+                g.object = class_name<U>();
+            } else {
+                g.kind = "unknown";
+            }
+            return g;
+        }
+
+        template <std::meta::info Fn, std::size_t... Is>
+        inline std::vector<GenParam> params_impl(std::index_sequence<Is...>) {
+            constexpr auto        ps = std::define_static_array(std::meta::parameters_of(Fn));
+            std::vector<GenParam> out;
+            (out.push_back(GenParam{
+                 "arg" + std::to_string(Is),
+                 type_descriptor<std::remove_cvref_t<typename[:std::meta::type_of(ps[Is]):]>>()}),
+             ...);
+            return out;
+        }
+
+        template <std::meta::info Fn> inline std::vector<GenParam> params_of() {
+            constexpr auto n = std::define_static_array(std::meta::parameters_of(Fn)).size();
+            return params_impl<Fn>(std::make_index_sequence<n>{});
+        }
+
+        // Walk visitor that collects member type info into a GenClass.
+        struct IRVisitor {
+            GenClass &out;
+
+            template <std::meta::info Fld, auto... Anns> void field(const char *name) {
+                out.fields.push_back(GenField{
+                    name,
+                    type_descriptor<std::remove_cvref_t<typename[:std::meta::type_of(Fld):]>>(),
+                    ann::has<readonly>(Anns...),
+                    std::string(ann::get_or<doc>(doc{""}, Anns...).text)});
+            }
+
+            template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
+                push_method<Fn>(name, false, ann::get_or<doc>(doc{""}, Anns...).text);
+            }
+
+            template <std::meta::info Fn, auto... Anns> void method_static(const char *name) {
+                push_method<Fn>(name, true, ann::get_or<doc>(doc{""}, Anns...).text);
+            }
+
+            template <std::meta::info Ctor, auto... /*Anns*/> void constructor() {
+                out.ctors.push_back(params_of<Ctor>());
+            }
+
+          private:
+            template <std::meta::info Fn>
+            void push_method(const char *name, bool is_static, const char *docstr) {
+                out.methods.push_back(GenMethod{
+                    name, is_static,
+                    type_descriptor<std::remove_cvref_t<typename[:std::meta::return_type_of(Fn):]>>(),
+                    params_of<Fn>(), std::string(docstr)});
+            }
+        };
+
+        // Erase one class to plain data — the only place reflection runs.
+        template <typename T> inline GenClass describe() {
+            GenClass gc;
+            gc.name   = class_name<T>();
+            gc.header = binding_info<T>::header;
+            gc.doc    = generate_markdown<T>();
+            IRVisitor v{gc};
+            walk<T>(v);
+            return gc;
+        }
+
     } // namespace gen_detail
 
 } // namespace rosetta
@@ -92,9 +187,11 @@ endif()
 // Each defines its templates + a gen_detail::*Backend, using the shared
 // render helpers above. New backends register the same way (see
 // docs/EXTENDING_BACKEND.md) without touching generate().
+#include "markdown_backend.hxx"
 #include "node_backend.hxx"
 #include "python_backend.hxx"
 #include "rest_backend.hxx"
+#include "typescript_backend.hxx"
 #include "wasm_backend.hxx"
 
 namespace rosetta {
@@ -104,10 +201,12 @@ namespace rosetta {
     inline std::map<std::string, std::shared_ptr<Backend>> &backend_registry() {
         static std::map<std::string, std::shared_ptr<Backend>> reg = [] {
             std::map<std::string, std::shared_ptr<Backend>> m;
-            m["python"] = std::make_shared<gen_detail::PythonBackend>();
-            m["node"]   = std::make_shared<gen_detail::NodeBackend>();
-            m["rest"]   = std::make_shared<gen_detail::RestBackend>();
-            m["wasm"]   = std::make_shared<gen_detail::WasmBackend>();
+            m["python"]     = std::make_shared<gen_detail::PythonBackend>();
+            m["node"]       = std::make_shared<gen_detail::NodeBackend>();
+            m["rest"]       = std::make_shared<gen_detail::RestBackend>();
+            m["wasm"]       = std::make_shared<gen_detail::WasmBackend>();
+            m["typescript"] = std::make_shared<gen_detail::TypeScriptBackend>();
+            m["markdown"]   = std::make_shared<gen_detail::MarkdownBackend>();
             return m;
         }();
         return reg;
@@ -120,10 +219,7 @@ namespace rosetta {
     template <typename... Ts> inline void generate(const GenerateOptions &opt) {
         // Erase the type pack into plain data once; backends do no reflection.
         std::vector<GenClass> classes;
-        (classes.push_back(GenClass{gen_detail::class_name<Ts>(),
-                                    std::string(binding_info<Ts>::header),
-                                    generate_markdown<Ts>()}),
-         ...);
+        (classes.push_back(gen_detail::describe<Ts>()), ...);
 
         for (const TargetSpec &t : opt.targets) {
             auto &reg = backend_registry();

@@ -29,6 +29,7 @@
 #include <experimental/meta>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -77,14 +78,53 @@ namespace rosetta {
     };
 
     /**
-     * @brief One class, reduced to the plain strings a backend needs. The
-     * type pack is erased into these up front by `generate`, so backends do
-     * no reflection — they are pure text templating.
+     * @brief A reflected type, reduced to a small language-neutral descriptor
+     * so pure-data backends (TypeScript, JSON Schema, …) can render it without
+     * reflection. `kind` is one of: "number", "boolean", "string", "void",
+     * "vector", "object", "unknown". For "vector", `element` holds one entry
+     * (the element type); for "object", `object` is the class identifier.
+     */
+    struct GenType {
+        std::string          kind = "unknown";
+        std::string          object;  // class identifier when kind == "object"
+        std::vector<GenType> element; // 0 or 1 entry, the element when "vector"
+    };
+
+    struct GenField {
+        std::string name;
+        GenType     type;
+        bool        is_readonly = false;
+        std::string doc; // rosetta::doc annotation text, if any
+    };
+
+    struct GenParam {
+        std::string name; // synthesized "argN" (parameter names aren't reflected)
+        GenType     type;
+    };
+
+    struct GenMethod {
+        std::string            name;
+        bool                   is_static = false;
+        GenType                ret;
+        std::vector<GenParam>  params;
+        std::string            doc; // rosetta::doc annotation text, if any
+    };
+
+    /**
+     * @brief One class, erased to the plain data a backend needs. `generate`
+     * fills this up front (the only place reflection runs), so backends are
+     * pure text templating. Member type info (`fields` / `methods` / `ctors`)
+     * is populated for pure-data backends; backends that emit C++ and defer to
+     * a runtime visitor can ignore it and use just `name` / `header`.
      */
     struct GenClass {
         std::string name;   // reflected C++ identifier
         std::string header; // binding_info<T>::header — basename for #include
         std::string doc;    // generate_markdown<T>() — README body fragment
+
+        std::vector<GenField>              fields;  // public data members
+        std::vector<GenMethod>             methods; // instance + static methods
+        std::vector<std::vector<GenParam>> ctors;   // one param list per constructor
     };
 
     /**

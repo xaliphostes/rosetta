@@ -9,6 +9,12 @@
         {
             "lang": "node",
             "name": "jsgeom"
+        },
+        {
+            "lang": "typescript"
+        },
+        {
+            "lang": "markdown"
         }
     ],
     "classes": [
