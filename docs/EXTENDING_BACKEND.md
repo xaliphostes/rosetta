@@ -230,7 +230,7 @@ Then the usual flow (see [`QUICKSTART.md`](./QUICKSTART.md)):
 ```bash
 ../../bin/rosetta_gen manifest.json gen   # gen/ + your plugin baked into its CMakeLists
 cmake -S gen -B gen/build && cmake --build gen/build
-./generator --out bindings                # emits bindings/python/ AND bindings/lua/
+./generator bindings                # emits bindings/python/ AND bindings/lua/
 ```
 
 `bindings/lua/` now contains `auto_lua.cpp` (one `bind_lua<T>` per class) and a

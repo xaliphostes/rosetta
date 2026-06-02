@@ -30,6 +30,10 @@
         },
         {
             "header": "Triangle.h"
+        },
+        {
+            "name": "Kind",
+            "header": "Kind.h"
         }
     ]
 }

@@ -142,7 +142,7 @@ That's the entire user-authored surface.
            │  <generator_name>          │  ← project-specific tool
            └─────────────┬──────────────┘     (uses C++26 reflection)
                          │
-                    --out output/
+                       output/
                          │
                          ▼
        output/      python/   node/   rest/   wasm/
@@ -431,7 +431,7 @@ cmake -G Ninja -S path/to/generated -B path/to/generated/build
 cmake --build path/to/generated/build
 
 # 4. produce the per-backend binding projects
-./path/to/generated/build/<generator_name> --out path/to/output
+./path/to/generated/build/<generator_name> path/to/output
 
 # 5. build any backend
 cd path/to/output/python && cmake -B build && cmake --build build

@@ -38,7 +38,7 @@ manifest.json ──(rosetta_gen)──▶ gen/         ──(build)──▶ .
    folder you name — `gen/` here.
 2. Building that folder drops the compiled driver — the **`generator`**
    binary — directly into this folder (its parent), not the build tree.
-3. Running `./generator --out bindings` uses C++26 reflection to walk each
+3. Running `./generator bindings` uses C++26 reflection to walk each
    class and emit one **combined module per backend** under `bindings/`. All
    four classes land in a single module — `pygeom` for Python, `jsgeom` for
    Node — per the `targets` entries in the manifest.
@@ -69,7 +69,7 @@ cd ../.. # root of geometry/
 ### Create the bindings
 
 ```bash
-./generator --out bindings
+./generator bindings
 ```
 
 ### Compile for python

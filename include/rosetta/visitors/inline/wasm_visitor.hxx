@@ -71,4 +71,13 @@ namespace rosetta {
             cls.template constructor<>();
     }
 
+    template <typename T> void bind_wasm_enum(const char *enum_name) {
+        emscripten::enum_<T> e(enum_name);
+        template for (constexpr auto en :
+                      std::define_static_array(std::meta::enumerators_of(^^T))) {
+            constexpr const char *nm = std::define_static_string(std::meta::identifier_of(en));
+            e.value(nm, [:en:]);
+        }
+    }
+
 } // namespace rosetta

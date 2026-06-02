@@ -70,4 +70,16 @@ namespace rosetta {
             cls.def(py::init<>());
     }
 
+    template <typename T> inline void bind_pybind_enum(py::module_ &m, const char *py_name) {
+        // No export_values(): enumerators are accessed as `Name.Value`, matching
+        // scoped-enum semantics and avoiding polluting the module namespace
+        // (an enumerator could otherwise collide with a bound class name).
+        py::enum_<T> e(m, py_name);
+        template for (constexpr auto en :
+                      std::define_static_array(std::meta::enumerators_of(^^T))) {
+            constexpr const char *nm = std::define_static_string(std::meta::identifier_of(en));
+            e.value(nm, [:en:]);
+        }
+    }
+
 } // namespace rosetta

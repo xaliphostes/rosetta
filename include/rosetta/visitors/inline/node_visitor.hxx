@@ -21,6 +21,8 @@ namespace rosetta {
             return false;
         } else if constexpr (is_std_vector<U>::value) {
             return napi_supported<typename U::value_type>();
+        } else if constexpr (std::is_enum_v<U>) {
+            return true; // marshalled as its underlying integer
         } else if constexpr (std::is_class_v<U>) {
             return true; // user type → wrapped Napi object
         } else {
@@ -58,6 +60,9 @@ namespace rosetta {
             for (std::size_t i = 0; i < v.size(); ++i)
                 arr.Set(static_cast<uint32_t>(i), to_napi(env, v[i]));
             return arr;
+        } else if constexpr (std::is_enum_v<U>) {
+            return Napi::Number::New(
+                env, static_cast<double>(static_cast<std::underlying_type_t<U>>(v)));
         } else if constexpr (std::is_class_v<U>) {
             // User type: build a fresh wrapped object and copy the value in.
             Napi::Object obj = ctor_ref<U>().New({});
@@ -85,6 +90,9 @@ namespace rosetta {
             for (uint32_t i = 0; i < arr.Length(); ++i)
                 out.push_back(from_napi<Elem>(arr.Get(i)));
             return out;
+        } else if constexpr (std::is_enum_v<T>) {
+            return static_cast<T>(
+                static_cast<std::underlying_type_t<T>>(v.As<Napi::Number>().Int64Value()));
         } else if constexpr (std::is_class_v<T>) {
             // User type: unwrap the wrapped object and copy the value out.
             return Wrap<T>::Unwrap(v.As<Napi::Object>())->inner;
@@ -308,6 +316,19 @@ namespace rosetta {
         ctor_ref<T>() = Napi::Persistent(ctor);
         ctor_ref<T>().SuppressDestruct();
         return ctor;
+    }
+
+    template <typename T> inline Napi::Object bind_napi_enum(Napi::Env env) {
+        Napi::Object obj = Napi::Object::New(env);
+        template for (constexpr auto en :
+                      std::define_static_array(std::meta::enumerators_of(^^T))) {
+            constexpr const char *nm = std::define_static_string(std::meta::identifier_of(en));
+            obj.Set(nm, Napi::Number::New(
+                            env, static_cast<double>(static_cast<std::underlying_type_t<T>>(
+                                     [:en:]))));
+        }
+        obj.Freeze();
+        return obj;
     }
 
 } // namespace rosetta

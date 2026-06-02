@@ -87,6 +87,9 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
         struct NodeBackend : Backend {
             void emit(const GenContext &c) const override {
                 std::string binds;
+                for (const auto &e : c.enums)
+                    binds += "    exports.Set(\"" + e.name + "\", rosetta::bind_napi_enum<" +
+                             e.name + ">(env));\n";
                 for (const auto &k : c.classes)
                     binds += "    exports.Set(\"" + k.name + "\", rosetta::bind_napi<" + k.name +
                              ">(env, \"" + k.name + "\"));\n";

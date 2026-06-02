@@ -51,6 +51,9 @@ set_target_properties({{LIB}} PROPERTIES SUFFIX ".js")
         struct WasmBackend : Backend {
             void emit(const GenContext &c) const override {
                 std::string binds;
+                // Enums first so class fields/methods can resolve them.
+                for (const auto &e : c.enums)
+                    binds += "    rosetta::bind_wasm_enum<" + e.name + ">(\"" + e.name + "\");\n";
                 for (const auto &k : c.classes)
                     binds += "    rosetta::bind_wasm<" + k.name + ">(\"" + k.name + "\");\n";
                 auto dir = c.out_dir / "wasm";

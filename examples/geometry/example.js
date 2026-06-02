@@ -11,12 +11,13 @@ const model = new jsgeom.Model();
 const surface = new jsgeom.Surface([0, 0, 0, 1, 0, 0, 0, 1, 0], [0, 1, 2]);
 model.addSurface(surface);
 
-console.log("vertices:");
-for (const p of surface.getPoints()) {
-    console.log(" ", p.x, p.y, p.z);
-}
-
-console.log("triangles:");
-for (const t of surface.getTriangles()) {
-    console.log(" ", t.a, t.b, t.c);
+for (const s of model.getSurfaces()) {
+    console.log("Model surface points")
+    for (const p of surface.getPoints()) {
+        console.log(" ", p.x, p.y, p.z);
+    }
+    console.log("Model surface triangles")
+    for (const t of surface.getTriangles()) {
+        console.log(" ", t.a, t.b, t.c);
+    }
 }

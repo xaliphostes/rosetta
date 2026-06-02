@@ -22,7 +22,7 @@ flowchart TD
 
     G -->|"cmake + build"| L(["&lt;lib&gt;_gen<br/><i>project-specific tool</i>"]):::tool
 
-    L -->|"--out output/"| O["output/<br/>python/ &nbsp; node/<br/>rest/ &nbsp; wasm/"]:::gen
+    L -->|"output/"| O["output/<br/>python/ &nbsp; node/<br/>rest/ &nbsp; wasm/"]:::gen
 
     O -->|"cmake + build each"| F["per-backend artifacts<br/>.so &nbsp; .node &nbsp; exe &nbsp; .wasm"]:::final
 
@@ -144,9 +144,8 @@ cmake -G Ninja -S path/to/manifest_dir/generated \
                 -B path/to/manifest_dir/generated/build
 cmake --build path/to/manifest_dir/generated/build
 
-# (c) run it → emit a per-backend project tree under --out
-./path/to/manifest_dir/generated/build/my_person_gen \
-    --out path/to/output
+# (c) run it → emit a per-backend project tree
+./path/to/manifest_dir/generated/build/my_person_gen path/to/output
 ```
 
 Result:

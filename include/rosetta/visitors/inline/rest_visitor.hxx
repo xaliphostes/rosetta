@@ -94,6 +94,8 @@ namespace rosetta {
                 return true;
             } else if constexpr (is_vector<U>::value) {
                 return rest_supported<typename U::value_type>();
+            } else if constexpr (std::is_enum_v<U>) {
+                return true; // nlohmann (de)serializes enums as underlying int
             } else {
                 return false;
             }
@@ -252,6 +254,19 @@ namespace rosetta {
 
         RestVisitor<T> v{server, base_path, sp};
         walk<T>(v);
+    }
+
+    template <typename T>
+    inline void bind_rest_enum(httplib::Server &server, const std::string &base) {
+        nlohmann::json j;
+        template for (constexpr auto en :
+                      std::define_static_array(std::meta::enumerators_of(^^T))) {
+            constexpr const char *nm = std::define_static_string(std::meta::identifier_of(en));
+            j[nm] = static_cast<std::underlying_type_t<T>>([:en:]);
+        }
+        server.Get(base, [j](const httplib::Request &, httplib::Response &res) {
+            res.set_content(j.dump(), "application/json");
+        });
     }
 
 } // namespace rosetta

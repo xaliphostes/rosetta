@@ -69,6 +69,9 @@ target_link_options({{LIB}} PRIVATE
                     binds += "    rosetta::Store<" + k.name + "> store_" + k.name +
                              ";\n    rosetta::bind_rest<" + k.name + ">(server, \"/" + k.name +
                              "\", store_" + k.name + ");\n";
+                for (const auto &e : c.enums)
+                    binds += "    rosetta::bind_rest_enum<" + e.name + ">(server, \"/" + e.name +
+                             "\");\n";
                 auto dir = c.out_dir / "rest";
                 write_file(dir / "auto_rest.cpp", render_source(REST_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(REST_CMAKE, c));

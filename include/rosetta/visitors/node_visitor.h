@@ -35,6 +35,10 @@ namespace rosetta {
 
     template <typename T> Napi::Function bind_napi(Napi::Env, const char *);
 
+    // Build a frozen JS object exposing an enum's enumerators as numeric
+    // constants ({ Red: 0, Green: 1, ... }). T must be an enumeration type.
+    template <typename T> Napi::Object bind_napi_enum(Napi::Env);
+
 }
 
 #include "inline/node_visitor.hxx"

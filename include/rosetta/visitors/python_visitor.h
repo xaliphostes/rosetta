@@ -25,6 +25,10 @@ namespace py = pybind11;
 namespace rosetta {
 
     template <typename T> void bind_pybind(py::module_ &, const char *);
+
+    // Register an enum type as a py::enum_ (its enumerators become module-level
+    // constants via export_values). T must be an enumeration type.
+    template <typename T> void bind_pybind_enum(py::module_ &, const char *);
 }
 
 #include "inline/python_visitor.hxx"

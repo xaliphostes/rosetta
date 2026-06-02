@@ -35,6 +35,9 @@ namespace rosetta {
 
     template <typename T> void bind_wasm(const char *);
 
+    // Register an enum type as an emscripten::enum_. T must be an enumeration.
+    template <typename T> void bind_wasm_enum(const char *);
+
 }
 
 #include "inline/wasm_visitor.hxx"

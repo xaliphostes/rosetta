@@ -64,6 +64,10 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
         struct PythonBackend : Backend {
             void emit(const GenContext &c) const override {
                 std::string binds;
+                // Enums first so class fields/methods can resolve them.
+                for (const auto &e : c.enums)
+                    binds += "    rosetta::bind_pybind_enum<" + e.name + ">(m, \"" + e.name +
+                             "\");\n";
                 for (const auto &k : c.classes)
                     binds += "    rosetta::bind_pybind<" + k.name + ">(m, \"" + k.name + "\");\n";
                 auto dir = c.out_dir / "python";

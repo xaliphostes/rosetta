@@ -44,11 +44,22 @@ endif()
 
         // -------- shared render helpers (used by every backend) --------
 
-        // One `#include "..."` line per class — shared by every backend.
-        inline std::string includes_of(const std::vector<GenClass> &classes) {
-            std::string s;
-            for (const auto &c : classes)
-                s += "#include \"" + c.header + "\"\n";
+        // One `#include "..."` line per class / enum — shared by every backend.
+        // Headers are de-duplicated (a class and enum may share a header).
+        // rosetta's annotations are included first so user headers that carry
+        // `[[ = rosetta::doc{...} ]]` annotations parse (they don't include
+        // rosetta themselves).
+        inline std::string includes_of(const GenContext &c) {
+            std::string s = "#include <rosetta/annotations.h>\n";
+            auto        add = [&](const std::string &h) {
+                const std::string line = "#include \"" + h + "\"\n";
+                if (s.find(line) == std::string::npos)
+                    s += line;
+            };
+            for (const auto &k : c.classes)
+                add(k.header);
+            for (const auto &e : c.enums)
+                add(e.header);
             return s;
         }
 
@@ -72,7 +83,7 @@ endif()
         inline std::string render_source(std::string_view tmpl, const GenContext &c,
                                          std::string_view binds) {
             return render(tmpl, {{"LIB", c.lib},
-                                 {"INCLUDES", includes_of(c.classes)},
+                                 {"INCLUDES", includes_of(c)},
                                  {"BINDINGS", binds}});
         }
 
@@ -81,6 +92,8 @@ endif()
             s += backend;
             s += ")\n\nAuto-generated bindings.\n\n";
             s += readme_body_of(c.classes);
+            for (const auto &e : c.enums)
+                s += e.doc + "\n";
             return s;
         }
 
@@ -109,6 +122,9 @@ endif()
             } else if constexpr (is_vec<U>::value) {
                 g.kind = "vector";
                 g.element.push_back(type_descriptor<typename U::value_type>());
+            } else if constexpr (std::is_enum_v<U>) {
+                g.kind   = "enum";
+                g.object = class_name<U>();
             } else if constexpr (std::is_class_v<U>) {
                 g.kind   = "object";
                 g.object = class_name<U>();
@@ -179,6 +195,37 @@ endif()
             return gc;
         }
 
+        // Render an enum's markdown fragment (heading + value table). Used both
+        // as the GenEnum::doc (README body) and by the markdown backend.
+        inline std::string render_enum_markdown(const GenEnum &ge) {
+            std::string s = "# " + ge.name + "\n\n";
+            s += "_enum";
+            if (!ge.underlying.empty())
+                s += " : " + ge.underlying;
+            s += "_\n\n";
+            s += "| Name | Value |\n|------|-------|\n";
+            for (const auto &v : ge.values)
+                s += "| `" + v.name + "` | " + std::to_string(v.value) + " |\n";
+            return s;
+        }
+
+        // Erase one enum to plain data — collects its enumerators via
+        // reflection. The companion to describe() for enum pack elements.
+        template <typename T> inline GenEnum describe_enum() {
+            GenEnum ge;
+            ge.name       = class_name<T>();
+            ge.header     = binding_info<T>::header;
+            ge.underlying = std::define_static_string(
+                std::meta::display_string_of(std::meta::underlying_type(^^T)));
+            template for (constexpr auto e :
+                          std::define_static_array(std::meta::enumerators_of(^^T))) {
+                constexpr const char *en = std::define_static_string(std::meta::identifier_of(e));
+                ge.values.push_back(GenEnumerator{en, static_cast<long long>([:e:])});
+            }
+            ge.doc = render_enum_markdown(ge);
+            return ge;
+        }
+
     } // namespace gen_detail
 
 } // namespace rosetta
@@ -218,8 +265,17 @@ namespace rosetta {
 
     template <typename... Ts> inline void generate(const GenerateOptions &opt) {
         // Erase the type pack into plain data once; backends do no reflection.
+        // Enum pack elements go to `enums`, everything else to `classes`.
         std::vector<GenClass> classes;
-        (classes.push_back(gen_detail::describe<Ts>()), ...);
+        std::vector<GenEnum>  enums;
+        (
+            [&] {
+                if constexpr (std::is_enum_v<Ts>)
+                    enums.push_back(gen_detail::describe_enum<Ts>());
+                else
+                    classes.push_back(gen_detail::describe<Ts>());
+            }(),
+            ...);
 
         for (const TargetSpec &t : opt.targets) {
             auto &reg = backend_registry();
@@ -231,7 +287,7 @@ namespace rosetta {
                     t.lang.c_str());
                 continue;
             }
-            it->second->emit(GenContext{opt.out_dir, t.name, classes,
+            it->second->emit(GenContext{opt.out_dir, t.name, classes, enums,
                                         opt.user_include.string(),
                                         opt.rosetta_include.string()});
         }

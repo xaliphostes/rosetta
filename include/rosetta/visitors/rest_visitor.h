@@ -39,6 +39,10 @@ namespace rosetta {
     template <typename T> class Store; // defined in inline/rest_visitor.hxx
     template <typename T> void bind_rest(httplib::Server &, const std::string &, Store<T> &);
 
+    // Register GET /<base> returning an enum's enumerators as a JSON object
+    // ({ "Red": 0, ... }). T must be an enumeration type.
+    template <typename T> void bind_rest_enum(httplib::Server &, const std::string &);
+
 }
 
 #include "inline/rest_visitor.hxx"

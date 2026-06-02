@@ -81,12 +81,13 @@ namespace rosetta {
      * @brief A reflected type, reduced to a small language-neutral descriptor
      * so pure-data backends (TypeScript, JSON Schema, …) can render it without
      * reflection. `kind` is one of: "number", "boolean", "string", "void",
-     * "vector", "object", "unknown". For "vector", `element` holds one entry
-     * (the element type); for "object", `object` is the class identifier.
+     * "vector", "object", "enum", "unknown". For "vector", `element` holds one
+     * entry (the element type); for "object" and "enum", `object` is the
+     * class / enumeration identifier.
      */
     struct GenType {
         std::string          kind = "unknown";
-        std::string          object;  // class identifier when kind == "object"
+        std::string          object;  // class / enum identifier ("object" / "enum")
         std::vector<GenType> element; // 0 or 1 entry, the element when "vector"
     };
 
@@ -127,6 +128,25 @@ namespace rosetta {
         std::vector<std::vector<GenParam>> ctors;   // one param list per constructor
     };
 
+    /** @brief One enumerator: its name and its value as a signed integer. */
+    struct GenEnumerator {
+        std::string name;
+        long long   value = 0;
+    };
+
+    /**
+     * @brief One enumeration, erased to plain data. Filled by `generate` (the
+     * only place reflection runs) when a pack element is an enum type, so
+     * backends render enums as pure text — no reflection.
+     */
+    struct GenEnum {
+        std::string                name;       // reflected C++ identifier
+        std::string                header;     // binding_info<T>::header
+        std::string                doc;        // markdown fragment for READMEs
+        std::string                underlying; // underlying integer type spelling
+        std::vector<GenEnumerator> values;     // enumerators in declaration order
+    };
+
     /**
      * @brief Everything a backend needs to emit one target's project tree.
      */
@@ -134,6 +154,7 @@ namespace rosetta {
         std::filesystem::path out_dir;         // root of the generated tree
         std::string           lib;             // this target's module / library name
         std::vector<GenClass> classes;         // all classes to expose
+        std::vector<GenEnum>  enums;           // all enumerations to expose
         std::string           user_include;    // dir containing the class headers
         std::string           rosetta_include; // path to rosetta's include/
     };

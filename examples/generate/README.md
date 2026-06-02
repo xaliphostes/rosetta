@@ -54,7 +54,7 @@ Each class's binding library / module name is derived as `reflected_<lowercase n
 Running `rosetta_gen` on the manifest writes the `generated/` directory (already committed here so you can read it without a compiler):
 
 - **`bindings.h`** — a `rosetta::binding_info<Person>` specialization carrying the `targets`, `lib`, and `header` from the manifest.
-- **`reflected_person_gen.cpp`** — a `main()` that parses `--out <dir>` and calls
+- **`reflected_person_gen.cpp`** — a `main()` that parses `<dir>` and calls
   `rosetta::generate<Person>()`.
 - **`CMakeLists.txt`** — builds that program with the clang-p2996 reflection flags (`-freflection -freflection-latest -fexperimental-library -fannotation-attributes`).
 
@@ -66,7 +66,7 @@ cmake -G Ninja -S generated -B generated/build
 cmake --build generated/build
 
 # 2. run it → per-backend binding projects under output/
-./generated/build/reflected_person_gen --out output
+./generated/build/reflected_person_gen output
 ```
 
 This drops one project per backend (`python/`, `node/`, `rest/`, `wasm/`) into `output/`, each ready to build the way the hand-written [`examples/bindings`](../bindings) backends are.

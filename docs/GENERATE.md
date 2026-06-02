@@ -10,7 +10,7 @@ End-to-end workflow:
    `reflected_person_gen.cpp` and a `reflected_person_gen` binary.
 3. The generated **`<generator_name>`** is built — uses C++26 reflection
    on the listed classes.
-4. Running `<generator_name> --out <dir>` emits a complete per-backend project
+4. Running `<generator_name> <dir>` emits a complete per-backend project
    tree (source + CMake + package.json + README).
 5. Each generated backend can then be built independently.
 

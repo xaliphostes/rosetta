@@ -105,7 +105,7 @@ cmake --build tools/rosetta_gen/build
 cmake -S gen -B gen/build && cmake --build gen/build
 
 # run it → one combined module per backend under bindings/
-./generator --out bindings
+./generator bindings
 ```
 
 Result: `bindings/{python,node}/` — each a self-contained CMake project

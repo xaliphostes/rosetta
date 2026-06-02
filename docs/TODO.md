@@ -1,7 +1,5 @@
 # Entities not visited at all
 
-- Enums. There's no walk_enum<E> and no enum branch in walk<T>. You can't iterate enumerators_of(^^E) to emit IntEnum / TS
-unions / REST enum: [...].
 - Base classes. nonstatic_data_members_of(^^T, ctx) returns only members declared in T. Inherited fields/methods are silently
 dropped — fine for POD-like records, broken for any polymorphic hierarchy. You need bases_of(^^T) plus either a recursive walk  
 or a walk_inherited entrypoint.  
