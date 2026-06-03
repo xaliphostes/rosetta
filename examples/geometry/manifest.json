@@ -8,6 +8,10 @@
             "name": "pygeom"
         },
         {
+            "doc": "Automatique REST binding",
+            "lang": "rest"
+        },
+        {
             "doc": "Automatique node (JavaScript) binding",
             "lang": "node",
             "name": "jsgeom"
@@ -19,6 +23,10 @@
         {
             "doc": "Will generate API doc in markdown",
             "lang": "markdown"
+        },
+        {
+            "doc": "Will generate nlohmann::json to_json/from_json adapters",
+            "lang": "json"
         }
     ],
     "classes": [

@@ -19,6 +19,41 @@ either way.
 
 [![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta2/)
 
+## Features
+
+Everything below is discovered by **reflection** from your unmodified headers — you declare *what* to bind in `manifest.json`, never *how*.
+
+**What rosetta can bind**
+
+- **Public fields** — exposed as read/write properties, with per-backend getters/setters.
+- **Public methods** — both instance and `static` members.
+- **Multiple constructors** — default *and* parameterized; each overload is bound.
+- **Enums** — `enum` / `enum class`, with enumerators surfaced as named constants.
+- **Free (non-member) functions** — declared in the manifest, no edit to your headers ([details](docs/FREE_FUNCTIONS.md)).
+- **Nested user types & `std::vector`** — `Surface` returning `Point`/`Triangle`, vector members, etc. are marshalled across the language boundary.
+- Members a backend can't marshal (e.g. `std::function` params) are **skipped**, not fatal.
+
+**Opt-in annotations** (enrich without intruding — see [annotations](docs/OTHER_ANNOTATIONS.md))
+
+- `doc{"..."}` — docstrings / generated reference text.
+- `readonly` — read-only property (write is rejected per backend).
+- `range{lo, hi}` — value-range validation on assignment.
+- `combobox{{...}}` — enumerated choices (UI hint).
+
+**Backends** (one combined module per target, from a single generator)
+
+| Target | Output |
+|---|---|
+| **Python** | pybind11 extension module |
+| **Node** | N-API native addon |
+| **WebAssembly** | Emscripten/embind module |
+| **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client |
+| **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code |
+| **TypeScript** | ambient `.d.ts` type declarations |
+| **Markdown** | API reference document |
+
+New backends register without touching the generator — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
+
 ## Status
 
 Prototype. Tracks the in-flight C++26 reflection papers:
@@ -108,19 +143,14 @@ cmake -S gen -B gen/build && cmake --build gen/build
 ./generator bindings
 ```
 
-Result: `bindings/{python,node}/` — each a self-contained CMake project
-exposing **all** your classes in a single module. `cd bindings/python &&
-cmake -B build && cmake --build build`, then `import person_py`.
+Result: `bindings/{python,node}/` — each a self-contained CMake project exposing **all** your classes in a single module. `cd bindings/python && cmake -B build && cmake --build build`, then `import person_py`.
 
 > `generator_name` and `module_name` are optional manifest fields:
 > `generator_name` (the generated `.cpp` / usage name) defaults to the
 > manifest's folder name, and a bare-string target like `"node"` falls
 > back to `module_name` for its module name.
 
-The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md);
-the manifest schema, the `binding_info<T>` trait, and the layered
-tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The
-worked example lives in `examples/generate/`.
+The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the manifest schema, the `binding_info<T>` trait, and the layered tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The worked example lives in `examples/generate/`.
 
 ## Examples
 

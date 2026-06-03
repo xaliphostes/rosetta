@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: UNLICENSED
 
 // REST (cpp-httplib) generation backend. Included by inline/generate.hxx,
-// which provides the shared render helpers this file relies on.
+// which provides the shared render helpers this file relies on. Besides the
+// server source, this backend emits a generated `index.html` browser client
+// (driven by the reflected IR) so the REST server is usable without curl.
 
 #pragma once
 
@@ -22,6 +24,14 @@ int main(int argc, char **argv) {
     if (argc > 2) port = std::atoi(argv[2]);
 
     httplib::Server server;
+    // Permissive CORS so the generated index.html (even opened via file://)
+    // can reach the API from the browser.
+    server.set_default_headers({{"Access-Control-Allow-Origin", "*"},
+                                {"Access-Control-Allow-Headers", "Content-Type"},
+                                {"Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"}});
+    server.Options(R"(.*)", [](const httplib::Request &, httplib::Response &res) {
+        res.status = 204;
+    });
 {{BINDINGS}}
     std::fprintf(stderr, "serving on http://%s:%d\n", host, port);
     server.listen(host, port);
@@ -38,6 +48,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 include(FetchContent)
+# No TLS needed for the local demo server. Disabling OpenSSL also avoids
+# httplib pulling in CoreFoundation/Security on macOS — those drag in
+# MacTypes.h, whose legacy `Point`/`Rect` structs collide with user classes
+# of the same (very common) name.
+set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(httplib
     GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
     GIT_TAG        v0.18.1)
@@ -62,9 +78,232 @@ target_link_options({{LIB}} PRIVATE
     -lc++ -lc++abi)
 )CMK";
 
+        // The browser client: a static renderer that builds the UI from a
+        // {{SPEC}} descriptor (emitted from the reflected IR). {{LIB}} is the
+        // page title. The renderer talks to the server selected in the Server
+        // box (defaults to the listen address baked by auto_rest.cpp's main).
+        constexpr std::string_view REST_HTML = R"HTML(<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{LIB}} — REST client</title>
+<style>
+ body{font-family:system-ui,sans-serif;margin:2rem;max-width:920px;color:#e6e6e6;background:#121212}
+ h1{margin:0 0 1rem;color:#fff}
+ .card{border:1px solid #333;border-radius:8px;padding:1rem;margin:1rem 0;background:#1c1c1c}
+ .card h2{margin:0 0 .6rem;font-size:1.1rem;color:#fff}
+ .row{display:flex;gap:.5rem;align-items:center;margin:.3rem 0;flex-wrap:wrap}
+ label.k{min-width:8rem;font-family:ui-monospace,monospace;color:#c8c8c8}
+ input{padding:.3rem .5rem;font-size:.95rem;background:#2a2a2a;color:#e6e6e6;border:1px solid #444;border-radius:4px}
+ button{cursor:pointer;border:1px solid #555;border-radius:5px;background:#2a2a2a;color:#e6e6e6;padding:.3rem .5rem;font-size:.95rem}
+ button:hover{background:#383838}
+ .out{font-family:ui-monospace,monospace;background:#000;color:#9cdcfe;padding:.2rem .45rem;border-radius:4px;white-space:pre-wrap}
+ .muted{color:#888;font-size:.85rem}
+ #base{width:18rem}
+</style>
+</head>
+<body>
+<h1>{{LIB}} — REST client</h1>
+<div class="row"><label class="k">Server</label>
+ <input id="base" value="http://127.0.0.1:8080">
+ <span class="muted">start the server, then Create an instance and poke its fields/methods</span></div>
+<div id="app"></div>
+<script>
+const SPEC = {{SPEC}};
+// When served by the REST server itself, target that same origin.
+if (location.origin && location.origin.startsWith('http'))
+  document.getElementById('base').value = location.origin;
+const base = () => document.getElementById('base').value.replace(/\/+$/,'');
+async function call(method, path, body){
+  const opt = {method, headers:{}};
+  if(body!==undefined){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body); }
+  try{
+    const r = await fetch(base()+path, opt);
+    const t = await r.text();
+    let v; try{ v=JSON.parse(t); }catch(e){ v=t; }
+    return {status:r.status, body:v};
+  }catch(e){ return {status:0, body:String(e)}; }
+}
+function show(node, res){
+  node.textContent = res.status+'  '+(typeof res.body==='string'?res.body:JSON.stringify(res.body));
+}
+function readVal(el, type){
+  if(type==='boolean') return el.checked;
+  if(type==='number'||type==='enum') return Number(el.value);
+  if(type.endsWith('[]')) return JSON.parse(el.value||'[]');
+  return el.value;
+}
+function inputFor(type){
+  const i=document.createElement('input');
+  if(type==='boolean') i.type='checkbox';
+  else if(type==='number'||type==='enum') i.type='number';
+  else { i.type='text'; if(type.endsWith('[]')) i.placeholder='[ ... ]'; }
+  return i;
+}
+function el(tag,cls,txt){ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; }
+const app=document.getElementById('app');
+
+for(const k of SPEC.classes){
+  const card=el('div','card'); card.appendChild(el('h2',null,k.name));
+  const idRow=el('div','row');
+  idRow.appendChild(el('label','k','instance id'));
+  const idIn=el('input'); idIn.type='number'; idIn.style.width='5rem'; idRow.appendChild(idIn);
+  const mk=el('button',null,'Create'); const del=el('button',null,'Delete');
+  const idOut=el('span','out',''); idRow.append(mk,del,idOut);
+  mk.onclick=async()=>{ const r=await call('POST','/'+k.name); if(r.body&&r.body.id!=null) idIn.value=r.body.id; show(idOut,r); };
+  del.onclick=async()=>{ show(idOut, await call('DELETE','/'+k.name+'/'+idIn.value)); };
+  card.appendChild(idRow);
+  for(const f of k.fields){
+    const row=el('div','row');
+    row.appendChild(el('label','k',f.name+(f.ro?' (ro)':'')));
+    const inp=inputFor(f.type); row.appendChild(inp);
+    const get=el('button',null,'Get'); const set=el('button',null,'Set');
+    const out=el('span','out',''); row.append(get,set,out);
+    get.onclick=async()=>{ const r=await call('GET','/'+k.name+'/'+idIn.value+'/'+f.name); if(r.status===200&&typeof r.body!=='object') inp.value=r.body; show(out,r); };
+    set.onclick=async()=>{ show(out, await call('PUT','/'+k.name+'/'+idIn.value+'/'+f.name, readVal(inp,f.type))); };
+    card.appendChild(row);
+  }
+  for(const m of k.methods){
+    const row=el('div','row');
+    row.appendChild(el('label','k',(m.static?'static ':'')+m.name));
+    const ins=m.params.map(p=>{ const i=inputFor(p.type); i.placeholder=p.name+': '+p.type; i.style.width='9rem'; row.appendChild(i); return [i,p]; });
+    const btn=el('button',null,'Call'); const out=el('span','out',''); row.append(btn,out);
+    btn.onclick=async()=>{
+      const args=ins.map(([i,p])=>readVal(i,p.type));
+      const path=m.static?'/'+k.name+'/'+m.name:'/'+k.name+'/'+idIn.value+'/'+m.name;
+      show(out, await call('POST', path, args));
+    };
+    card.appendChild(row);
+  }
+  app.appendChild(card);
+}
+for(const e of SPEC.enums){
+  const card=el('div','card'); card.appendChild(el('h2',null,e.name+' (enum)'));
+  const row=el('div','row'); const btn=el('button',null,'Load'); const out=el('span','out','');
+  row.append(btn,out); card.appendChild(row);
+  btn.onclick=async()=>{ show(out, await call('GET','/'+e.name)); };
+  app.appendChild(card);
+}
+if(SPEC.functions.length){
+  const card=el('div','card'); card.appendChild(el('h2',null,'Free functions'));
+  for(const fn of SPEC.functions){
+    const row=el('div','row'); row.appendChild(el('label','k',fn.name));
+    const ins=fn.params.map(p=>{ const i=inputFor(p.type); i.placeholder=p.name+': '+p.type; i.style.width='9rem'; row.appendChild(i); return [i,p]; });
+    const btn=el('button',null,'Call'); const out=el('span','out',''); row.append(btn,out);
+    btn.onclick=async()=>{ const args=ins.map(([i,p])=>readVal(i,p.type)); show(out, await call('POST','/'+fn.name, args)); };
+    card.appendChild(row);
+  }
+  app.appendChild(card);
+}
+</script>
+</body>
+</html>
+)HTML";
+
+        // Can a value of this type cross the REST (JSON) boundary? Mirrors
+        // rest_visitor's rest_supported, but over the neutral GenType.
+        inline bool rest_type_ok(const GenType &t) {
+            if (t.kind == "number" || t.kind == "boolean" || t.kind == "string" ||
+                t.kind == "enum")
+                return true;
+            if (t.kind == "vector")
+                return !t.element.empty() && rest_type_ok(t.element.front());
+            return false; // object / void / unknown
+        }
+
+        // A widget hint for the client: number / boolean / string / enum, or an
+        // "X[]" array thereof.
+        inline std::string rest_js_type(const GenType &t) {
+            if (t.kind == "vector")
+                return (t.element.empty() ? std::string("any") : rest_js_type(t.element.front())) +
+                       "[]";
+            if (t.kind == "enum")
+                return "enum";
+            return t.kind; // number / boolean / string
+        }
+
+        inline bool rest_method_ok(const GenMethod &m) {
+            if (!(m.ret.kind == "void" || rest_type_ok(m.ret)))
+                return false;
+            for (const auto &p : m.params)
+                if (!rest_type_ok(p.type))
+                    return false;
+            return true;
+        }
+
+        // Build the SPEC descriptor (a JSON literal) the client renders from.
+        // Only members the server actually exposes (rest-supported) are listed.
+        inline std::string rest_client_spec(const GenContext &c) {
+            auto params = [](const std::vector<GenParam> &ps) {
+                std::string s = "[";
+                for (std::size_t i = 0; i < ps.size(); ++i)
+                    s += (i ? "," : "") + std::string("{\"name\":\"") + ps[i].name +
+                         "\",\"type\":\"" + rest_js_type(ps[i].type) + "\"}";
+                return s + "]";
+            };
+
+            std::string s = "{\"lib\":\"" + c.lib + "\",\"classes\":[";
+            for (std::size_t ci = 0; ci < c.classes.size(); ++ci) {
+                const auto &k = c.classes[ci];
+                s += (ci ? "," : "") + std::string("{\"name\":\"") + k.name + "\",\"fields\":[";
+                bool first = true;
+                for (const auto &f : k.fields) {
+                    if (!rest_type_ok(f.type))
+                        continue;
+                    s += (first ? "" : ",");
+                    first = false;
+                    s += "{\"name\":\"" + f.name + "\",\"type\":\"" + rest_js_type(f.type) +
+                         "\",\"ro\":" + (f.is_readonly ? "true" : "false") + "}";
+                }
+                s += "],\"methods\":[";
+                first = true;
+                for (const auto &m : k.methods) {
+                    if (!rest_method_ok(m))
+                        continue;
+                    s += (first ? "" : ",");
+                    first = false;
+                    s += "{\"name\":\"" + m.name + "\",\"static\":" +
+                         (m.is_static ? "true" : "false") + ",\"params\":" + params(m.params) + "}";
+                }
+                s += "]}";
+            }
+            s += "],\"enums\":[";
+            for (std::size_t ei = 0; ei < c.enums.size(); ++ei)
+                s += (ei ? "," : "") + std::string("{\"name\":\"") + c.enums[ei].name + "\"}";
+            s += "],\"functions\":[";
+            bool ffirst = true;
+            for (const auto &f : c.functions) {
+                if (!(f.ret.kind == "void" || rest_type_ok(f.ret)))
+                    continue;
+                bool ok = true;
+                for (const auto &p : f.params)
+                    ok = ok && rest_type_ok(p.type);
+                if (!ok)
+                    continue;
+                s += (ffirst ? "" : ",");
+                ffirst = false;
+                s += "{\"name\":\"" + f.name + "\",\"params\":" + params(f.params) + "}";
+            }
+            s += "]}";
+            return s;
+        }
+
         struct RestBackend : Backend {
             void emit(const GenContext &c) const override {
+                const std::string html =
+                    render(REST_HTML, {{"LIB", c.lib}, {"SPEC", rest_client_spec(c)}});
+
                 std::string binds;
+                // Serve the browser client at the server root, so visiting
+                // http://host:port/ in a browser shows the UI (same-origin, no
+                // file:// or CORS needed). The page is baked into the binary.
+                binds += "    static const char INDEX_HTML[] = R\"ROSETTA_HTML(" + html +
+                         ")ROSETTA_HTML\";\n";
+                binds += "    server.Get(\"/\", [](const httplib::Request &, httplib::Response "
+                         "&res) {\n";
+                binds += "        res.set_content(INDEX_HTML, \"text/html; charset=utf-8\");\n";
+                binds += "    });\n";
+
                 for (const auto &k : c.classes)
                     binds += "    rosetta::Store<" + k.name + "> store_" + k.name +
                              ";\n    rosetta::bind_rest<" + k.name + ">(server, \"/" + k.name +
@@ -78,6 +317,7 @@ target_link_options({{LIB}} PRIVATE
                 auto dir = c.out_dir / "rest";
                 write_file(dir / "auto_rest.cpp", render_source(REST_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(REST_CMAKE, c));
+                write_file(dir / "index.html", html);
                 write_file(dir / "README.md", readme("rest", c));
             }
         };

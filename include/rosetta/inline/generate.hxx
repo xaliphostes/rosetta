@@ -246,6 +246,7 @@ endif()
 // Each defines its templates + a gen_detail::*Backend, using the shared
 // render helpers above. New backends register the same way (see
 // docs/EXTENDING_BACKEND.md) without touching generate().
+#include "json_backend.hxx"
 #include "markdown_backend.hxx"
 #include "node_backend.hxx"
 #include "python_backend.hxx"
@@ -266,6 +267,7 @@ namespace rosetta {
             m["wasm"]       = std::make_shared<gen_detail::WasmBackend>();
             m["typescript"] = std::make_shared<gen_detail::TypeScriptBackend>();
             m["markdown"]   = std::make_shared<gen_detail::MarkdownBackend>();
+            m["json"]       = std::make_shared<gen_detail::JsonBackend>();
             return m;
         }();
         return reg;
