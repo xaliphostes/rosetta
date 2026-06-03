@@ -21,3 +21,9 @@ for (const s of model.getSurfaces()) {
         console.log(" ", t.a, t.b, t.c);
     }
 }
+
+// `transform` is a free (non-member) function bound from common.h. It takes a
+// Point and returns a new Point swizzled to (x*2, z*3, y*4).
+const p = new jsgeom.Point(1, 2, 3);
+const q = jsgeom.transform(p);
+console.log("transform(1, 2, 3) =>", q.x, q.y, q.z);

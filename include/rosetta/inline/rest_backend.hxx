@@ -72,6 +72,9 @@ target_link_options({{LIB}} PRIVATE
                 for (const auto &e : c.enums)
                     binds += "    rosetta::bind_rest_enum<" + e.name + ">(server, \"/" + e.name +
                              "\");\n";
+                for (const auto &f : c.functions)
+                    binds += "    rosetta::bind_rest_function<^^" + f.qualified + ">(server, \"/" +
+                             f.name + "\");\n";
                 auto dir = c.out_dir / "rest";
                 write_file(dir / "auto_rest.cpp", render_source(REST_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(REST_CMAKE, c));

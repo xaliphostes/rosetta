@@ -39,6 +39,10 @@ namespace rosetta {
     // constants ({ Red: 0, Green: 1, ... }). T must be an enumeration type.
     template <typename T> Napi::Object bind_napi_enum(Napi::Env);
 
+    // Wrap a free function (named by its reflection F) as a JS function that
+    // marshals arguments and the return value through to_napi/from_napi.
+    template <std::meta::info F> Napi::Function bind_napi_function(Napi::Env, const char *);
+
 }
 
 #include "inline/node_visitor.hxx"

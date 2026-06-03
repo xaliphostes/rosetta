@@ -110,7 +110,7 @@ cmake --build examples/generate/generated/build
 ## 4. Run `<generator_name>` — emit the per-backend projects
 
 ```bash
-./examples/generate/generated/build/reflected_person_gen --out examples/generate/output
+./examples/generate/generated/build/reflected_person_gen examples/generate/output
 ```
 
 Result:

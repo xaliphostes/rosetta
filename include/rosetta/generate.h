@@ -70,13 +70,6 @@ namespace rosetta {
         std::string name; // module / library name for this backend
     };
 
-    struct GenerateOptions {
-        std::filesystem::path   out_dir;         // root of the generated tree
-        std::filesystem::path   user_include;    // dir containing the class headers
-        std::filesystem::path   rosetta_include; // path to rosetta's include/
-        std::vector<TargetSpec> targets;         // backends + per-backend module name
-    };
-
     /**
      * @brief A reflected type, reduced to a small language-neutral descriptor
      * so pure-data backends (TypeScript, JSON Schema, …) can render it without
@@ -109,6 +102,22 @@ namespace rosetta {
         GenType                ret;
         std::vector<GenParam>  params;
         std::string            doc; // rosetta::doc annotation text, if any
+    };
+
+    /**
+     * @brief One free (non-member) function, erased to plain data. Declared in
+     * the manifest (header + name + optional doc) rather than reflected from a
+     * type, so the user's headers stay pristine. `qualified` is the C++ spelling
+     * a backend emits for the function pointer (e.g. `api::add`); `name` is the
+     * unqualified identifier used as the exposed binding name.
+     */
+    struct GenFunction {
+        std::string           name;      // exposed (unqualified) identifier
+        std::string           qualified; // fully-qualified C++ spelling for &fn
+        std::string           header;    // basename for #include
+        GenType               ret;
+        std::vector<GenParam> params;
+        std::string           doc; // from the manifest, if any
     };
 
     /**
@@ -147,16 +156,25 @@ namespace rosetta {
         std::vector<GenEnumerator> values;     // enumerators in declaration order
     };
 
+    struct GenerateOptions {
+        std::filesystem::path    out_dir;         // root of the generated tree
+        std::filesystem::path    user_include;    // dir containing the class headers
+        std::filesystem::path    rosetta_include; // path to rosetta's include/
+        std::vector<TargetSpec>  targets;         // backends + per-backend module name
+        std::vector<GenFunction> functions;       // free functions to expose
+    };
+
     /**
      * @brief Everything a backend needs to emit one target's project tree.
      */
     struct GenContext {
-        std::filesystem::path out_dir;         // root of the generated tree
-        std::string           lib;             // this target's module / library name
-        std::vector<GenClass> classes;         // all classes to expose
-        std::vector<GenEnum>  enums;           // all enumerations to expose
-        std::string           user_include;    // dir containing the class headers
-        std::string           rosetta_include; // path to rosetta's include/
+        std::filesystem::path    out_dir;         // root of the generated tree
+        std::string              lib;             // this target's module / library name
+        std::vector<GenClass>    classes;         // all classes to expose
+        std::vector<GenEnum>     enums;           // all enumerations to expose
+        std::vector<GenFunction> functions;       // all free functions to expose
+        std::string              user_include;    // dir containing the class headers
+        std::string              rosetta_include; // path to rosetta's include/
     };
 
     /**
@@ -199,6 +217,17 @@ namespace rosetta {
      * added. Per-class headers come from the `rosetta::binding_info<T>` trait.
      */
     template <typename... Ts> void generate(const GenerateOptions &opt);
+
+    /**
+     * @brief Describe one free function (identified by its reflection `F`) as
+     * plain data for `GenerateOptions::functions`. The generated driver calls
+     * this with `^^name` for each function listed in the manifest; `qualified`
+     * is the C++ spelling backends emit for the function pointer and `header`
+     * its include basename. Free functions are declared in the manifest, never
+     * by editing the user's headers.
+     */
+    template <std::meta::info F>
+    GenFunction make_function(const char *qualified, const char *header, const char *doc);
 
 } // namespace rosetta
 

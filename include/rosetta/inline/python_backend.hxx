@@ -70,6 +70,9 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
                              "\");\n";
                 for (const auto &k : c.classes)
                     binds += "    rosetta::bind_pybind<" + k.name + ">(m, \"" + k.name + "\");\n";
+                for (const auto &f : c.functions)
+                    binds += "    m.def(\"" + f.name + "\", &" + f.qualified +
+                             (f.doc.empty() ? "" : ", \"" + f.doc + "\"") + ");\n";
                 auto dir = c.out_dir / "python";
                 write_file(dir / "auto_pybind.cpp", render_source(PY_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(PY_CMAKE, c));

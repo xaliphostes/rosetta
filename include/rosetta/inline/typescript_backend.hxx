@@ -74,6 +74,13 @@ namespace rosetta {
                     out += "    }\n";
                 }
 
+                for (const auto &f : c.functions) {
+                    if (!f.doc.empty())
+                        out += "    /** " + f.doc + " */\n";
+                    out += "    export function " + f.name + "(" + ts_params(f.params) +
+                           "): " + ts_type(f.ret) + ";\n";
+                }
+
                 out += "}\n";
                 write_file(c.out_dir / "typescript" / (c.lib + ".d.ts"), out);
             }

@@ -60,6 +60,8 @@ endif()
                 add(k.header);
             for (const auto &e : c.enums)
                 add(e.header);
+            for (const auto &f : c.functions)
+                add(f.header);
             return s;
         }
 
@@ -94,6 +96,16 @@ endif()
             s += readme_body_of(c.classes);
             for (const auto &e : c.enums)
                 s += e.doc + "\n";
+            if (!c.functions.empty()) {
+                s += "# Functions\n\n";
+                for (const auto &f : c.functions) {
+                    s += "- `" + f.name + "`";
+                    if (!f.doc.empty())
+                        s += " — " + f.doc;
+                    s += "\n";
+                }
+                s += "\n";
+            }
             return s;
         }
 
@@ -263,6 +275,25 @@ namespace rosetta {
         backend_registry()[std::move(lang)] = std::move(backend);
     }
 
+    // Erase one free function (named by its reflection F) to plain data. Called
+    // from the generated driver, which splices `^^name` for each manifest-listed
+    // function. `qualified` is the C++ spelling backends emit for `&fn`; `doc`
+    // comes from the manifest (free functions carry no in-source annotation, so
+    // user headers stay untouched).
+    template <std::meta::info F>
+    inline GenFunction make_function(const char *qualified, const char *header,
+                                     const char *doc) {
+        GenFunction gf;
+        gf.name      = std::define_static_string(std::meta::identifier_of(F));
+        gf.qualified = qualified;
+        gf.header    = header;
+        gf.ret       = gen_detail::type_descriptor<
+            std::remove_cvref_t<typename[:std::meta::return_type_of(F):]>>();
+        gf.params = gen_detail::params_of<F>();
+        gf.doc    = doc;
+        return gf;
+    }
+
     template <typename... Ts> inline void generate(const GenerateOptions &opt) {
         // Erase the type pack into plain data once; backends do no reflection.
         // Enum pack elements go to `enums`, everything else to `classes`.
@@ -288,7 +319,7 @@ namespace rosetta {
                 continue;
             }
             it->second->emit(GenContext{opt.out_dir, t.name, classes, enums,
-                                        opt.user_include.string(),
+                                        opt.functions, opt.user_include.string(),
                                         opt.rosetta_include.string()});
         }
     }

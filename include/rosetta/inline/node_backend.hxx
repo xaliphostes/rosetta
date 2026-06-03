@@ -93,6 +93,9 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
                 for (const auto &k : c.classes)
                     binds += "    exports.Set(\"" + k.name + "\", rosetta::bind_napi<" + k.name +
                              ">(env, \"" + k.name + "\"));\n";
+                for (const auto &f : c.functions)
+                    binds += "    exports.Set(\"" + f.name + "\", rosetta::bind_napi_function<^^" +
+                             f.qualified + ">(env, \"" + f.name + "\"));\n";
                 auto dir = c.out_dir / "node";
                 write_file(dir / "auto_napi.cpp", render_source(NODE_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(NODE_CMAKE, c));

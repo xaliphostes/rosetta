@@ -331,4 +331,31 @@ namespace rosetta {
         return obj;
     }
 
+    // ---- Free function support ----
+
+    template <std::meta::info F, std::size_t... Is>
+    inline Napi::Value napi_free_call(const Napi::CallbackInfo &info, std::index_sequence<Is...>) {
+        using R               = [:std::meta::return_type_of(F):];
+        constexpr auto params = std::define_static_array(std::meta::parameters_of(F));
+        if constexpr (std::is_void_v<R>) {
+            ([:F:])(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
+                info[Is])...);
+            return info.Env().Undefined();
+        } else {
+            R r = ([:F:])(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
+                info[Is])...);
+            return to_napi(info.Env(), r);
+        }
+    }
+
+    template <std::meta::info F> inline Napi::Value napi_free_entry(const Napi::CallbackInfo &info) {
+        constexpr auto arity = std::define_static_array(std::meta::parameters_of(F)).size();
+        return napi_free_call<F>(info, std::make_index_sequence<arity>{});
+    }
+
+    template <std::meta::info F>
+    inline Napi::Function bind_napi_function(Napi::Env env, const char *name) {
+        return Napi::Function::New(env, &napi_free_entry<F>, name);
+    }
+
 } // namespace rosetta

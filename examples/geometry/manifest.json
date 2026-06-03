@@ -3,22 +3,27 @@
     "rosetta_include": "../../include",
     "targets": [
         {
+            "doc": "Automatique Python binding",
             "lang": "python",
             "name": "pygeom"
         },
         {
+            "doc": "Automatique node (JavaScript) binding",
             "lang": "node",
             "name": "jsgeom"
         },
         {
+            "doc": "Will generate TypeScript interfaces",
             "lang": "typescript"
         },
         {
+            "doc": "Will generate API doc in markdown",
             "lang": "markdown"
         }
     ],
     "classes": [
         {
+            "doc": "Just to show that we can define a new name given a header",
             "name": "Model",
             "header": "Model.h"
         },
@@ -32,8 +37,14 @@
             "header": "Triangle.h"
         },
         {
-            "name": "Kind",
             "header": "Kind.h"
+        }
+    ],
+    "functions": [
+        {
+            "doc": "Scale and swizzle a point into (x*2, z*3, y*4)",
+            "header": "common.h",
+            "name": "transform"
         }
     ]
 }

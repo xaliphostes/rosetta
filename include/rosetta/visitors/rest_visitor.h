@@ -43,6 +43,12 @@ namespace rosetta {
     // ({ "Red": 0, ... }). T must be an enumeration type.
     template <typename T> void bind_rest_enum(httplib::Server &, const std::string &);
 
+    // Register POST /<base> invoking a free function (named by its reflection F):
+    // a JSON array body supplies the arguments, the return value is the JSON
+    // response. Skipped (no route) if any parameter/return type isn't JSON
+    // (de)serializable.
+    template <std::meta::info F> void bind_rest_function(httplib::Server &, const std::string &);
+
 }
 
 #include "inline/rest_visitor.hxx"

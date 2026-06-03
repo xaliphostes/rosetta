@@ -68,3 +68,40 @@ constexpr meta::info inst = meta::substitute(tpl, {^^int});// my_template<int>
 - Auto-generating RPC/CLI dispatch tables from a namespace's contents
 - Building test runners that find every test_* function
 - Producing serializers/bindings without macros
+
+## How rosetta exposes free functions
+
+Free functions are declared in the **manifest** — never by editing the user's headers, and with no third-party dependency beyond P2996 reflection:
+
+```json
+"functions": [
+  { "name": "transform", "header": "common.h", "doc": "Scale a point" }
+]
+```
+
+`name` may be qualified (`api::add`). For each entry `rosetta_gen` emits, into
+the generated driver:
+
+```cpp
+opt.functions = {
+    rosetta::make_function<^^transform>("transform", "common.h", "Scale a point"),
+};
+```
+
+`make_function<^^fn>` reflects the function once (return type, parameters) into a language-neutral `GenFunction`; `name` becomes the exposed binding name and the qualified spelling is what each backend emits for the function pointer. Every backend then renders it:
+
+| Backend    | Output                                            |
+|------------|---------------------------------------------------|
+| pybind     | `m.def("transform", &transform, "doc")`           |
+| embind     | `emscripten::function("transform", &transform)`   |
+| N-API      | `rosetta::bind_napi_function<^^transform>(env, …)` |
+| REST       | `POST /transform` (JSON-array args → JSON result) |
+| TypeScript | `export function transform(arg0: Point): Point;`  |
+| Markdown   | a `## Functions` section                          |
+
+Caveats inherited from the reflection model:
+- **Overloads**: an overloaded `name` makes `^^name` ill-formed; bind a specific signature, or skip. N-API/REST dispatch is arity-only anyway.
+- **Function templates** can't be bound without instantiation arguments.
+- **REST** skips a function whose parameter/return types aren't JSON-(de)serializable (e.g. user class types), mirroring how it skips such methods.
+- **doc** comes from the manifest, since the user's headers carry no annotations.
+- 

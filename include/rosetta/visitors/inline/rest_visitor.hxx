@@ -269,4 +269,25 @@ namespace rosetta {
         });
     }
 
+    template <std::meta::info F>
+    inline void bind_rest_function(httplib::Server &server, const std::string &base) {
+        using json = nlohmann::json;
+        if constexpr (detail::method_supported<F>()) {
+            server.Post(base, [](const httplib::Request &req, httplib::Response &res) {
+                try {
+                    json           args = req.body.empty() ? json::array() : json::parse(req.body);
+                    constexpr auto arity =
+                        std::define_static_array(std::meta::parameters_of(F)).size();
+                    json result =
+                        detail::invoke_static_impl<F>(args, std::make_index_sequence<arity>{});
+                    res.set_content(result.dump(), "application/json");
+                } catch (const std::exception &e) {
+                    res.status = 500;
+                    res.set_content(json{{"error", e.what()}}.dump(), "application/json");
+                }
+            });
+        }
+        // else: a parameter/return type isn't JSON-serializable — no route.
+    }
+
 } // namespace rosetta
