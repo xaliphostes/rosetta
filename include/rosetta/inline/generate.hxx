@@ -89,6 +89,40 @@ endif()
                                  {"BINDINGS", binds}});
         }
 
+        // Can a value of this type cross a JSON boundary (REST / OpenAPI)?
+        // Scalars, bools, strings, enums (as their underlying int), and vectors
+        // of those qualify; user object types and std::function do not. Shared
+        // by the REST and OpenAPI backends so they describe the same surface.
+        inline bool jsonable_type(const GenType &t) {
+            if (t.kind == "number" || t.kind == "boolean" || t.kind == "string" ||
+                t.kind == "enum")
+                return true;
+            if (t.kind == "vector")
+                return !t.element.empty() && jsonable_type(t.element.front());
+            return false; // object / void / unknown
+        }
+
+        // A method is exposable over JSON only if its return and every parameter
+        // type can cross the boundary.
+        inline bool jsonable_method(const GenMethod &m) {
+            if (!(m.ret.kind == "void" || jsonable_type(m.ret)))
+                return false;
+            for (const auto &p : m.params)
+                if (!jsonable_type(p.type))
+                    return false;
+            return true;
+        }
+
+        // A free function is exposable over JSON under the same rule.
+        inline bool jsonable_function(const GenFunction &f) {
+            if (!(f.ret.kind == "void" || jsonable_type(f.ret)))
+                return false;
+            for (const auto &p : f.params)
+                if (!jsonable_type(p.type))
+                    return false;
+            return true;
+        }
+
         inline std::string readme(std::string_view backend, const GenContext &c) {
             std::string s = "# `" + c.lib + "` (";
             s += backend;
@@ -128,7 +162,8 @@ endif()
             } else if constexpr (std::is_same_v<U, std::string>) {
                 g.kind = "string";
             } else if constexpr (std::is_arithmetic_v<U>) {
-                g.kind = "number";
+                g.kind    = "number";
+                g.integer = std::is_integral_v<U>;
             } else if constexpr (is_func<U>::value) {
                 g.kind = "unknown";
             } else if constexpr (is_vec<U>::value) {
@@ -167,11 +202,21 @@ endif()
             GenClass &out;
 
             template <std::meta::info Fld, auto... Anns> void field(const char *name) {
-                out.fields.push_back(GenField{
-                    name,
-                    type_descriptor<std::remove_cvref_t<typename[:std::meta::type_of(Fld):]>>(),
-                    ann::has<readonly>(Anns...),
-                    std::string(ann::get_or<doc>(doc{""}, Anns...).text)});
+                GenField gf;
+                gf.name = name;
+                gf.type = type_descriptor<std::remove_cvref_t<typename[:std::meta::type_of(Fld):]>>();
+                gf.is_readonly = ann::has<readonly>(Anns...);
+                gf.doc         = ann::get_or<doc>(doc{""}, Anns...).text;
+                if constexpr (ann::has<range>(Anns...)) {
+                    constexpr auto r = ann::get_or<range>(range{0, 0}, Anns...);
+                    gf.range         = GenRange{true, r.min, r.max};
+                }
+                if constexpr (ann::has<combobox>(Anns...)) {
+                    constexpr auto cb = ann::get_or<combobox>(combobox{}, Anns...);
+                    for (std::size_t i = 0; i < cb.count; ++i)
+                        gf.choices.push_back(cb.choices[i]);
+                }
+                out.fields.push_back(std::move(gf));
             }
 
             template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
@@ -249,6 +294,7 @@ endif()
 #include "json_backend.hxx"
 #include "markdown_backend.hxx"
 #include "node_backend.hxx"
+#include "openapi_backend.hxx"
 #include "python_backend.hxx"
 #include "rest_backend.hxx"
 #include "typescript_backend.hxx"
@@ -268,6 +314,7 @@ namespace rosetta {
             m["typescript"] = std::make_shared<gen_detail::TypeScriptBackend>();
             m["markdown"]   = std::make_shared<gen_detail::MarkdownBackend>();
             m["json"]       = std::make_shared<gen_detail::JsonBackend>();
+            m["openapi"]    = std::make_shared<gen_detail::OpenApiBackend>();
             return m;
         }();
         return reg;

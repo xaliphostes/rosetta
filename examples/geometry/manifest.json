@@ -27,6 +27,10 @@
         {
             "doc": "Will generate nlohmann::json to_json/from_json adapters",
             "lang": "json"
+        },
+        {
+            "doc": "Will generate an OpenAPI 3.1 spec for the REST server",
+            "lang": "openapi"
         }
     ],
     "classes": [

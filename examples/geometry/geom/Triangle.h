@@ -2,7 +2,12 @@
 #include "Kind.h"
 
 struct Triangle {
-    int a, b, c;
+    [[ = rosetta::doc{"First vertex index"}, = rosetta::range{0, 1000000} ]]
+    int a;
+    [[ = rosetta::doc{"Second vertex index"}, = rosetta::range{0, 1000000} ]]
+    int b;
+    [[ = rosetta::doc{"Third vertex index"}, = rosetta::range{0, 1000000} ]]
+    int c;
 
     [[ = rosetta::doc{"What kind of primitive this triangle represents"} ]]
     Kind kind = Kind::Surface;

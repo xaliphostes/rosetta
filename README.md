@@ -47,7 +47,8 @@ Everything below is discovered by **reflection** from your unmodified headers �
 | **Python** | pybind11 extension module |
 | **Node** | N-API native addon |
 | **WebAssembly** | Emscripten/embind module |
-| **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client |
+| **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client, with `/openapi.json` and Swagger UI at `/docs` |
+| **OpenAPI** | OpenAPI 3.1 spec describing the REST surface — annotations become schema constraints (`range`→min/max, `readonly`→readOnly, `combobox`→enum) |
 | **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code |
 | **TypeScript** | ambient `.d.ts` type declarations |
 | **Markdown** | API reference document |

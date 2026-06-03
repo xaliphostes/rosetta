@@ -79,16 +79,26 @@ namespace rosetta {
      * class / enumeration identifier.
      */
     struct GenType {
-        std::string          kind = "unknown";
+        std::string          kind    = "unknown";
         std::string          object;  // class / enum identifier ("object" / "enum")
         std::vector<GenType> element; // 0 or 1 entry, the element when "vector"
+        bool                 integer = false; // kind == "number" and integral (vs floating)
+    };
+
+    /** @brief A numeric range constraint (rosetta::range annotation). */
+    struct GenRange {
+        bool   has = false;
+        double min = 0;
+        double max = 0;
     };
 
     struct GenField {
         std::string name;
         GenType     type;
         bool        is_readonly = false;
-        std::string doc; // rosetta::doc annotation text, if any
+        std::string doc;     // rosetta::doc annotation text, if any
+        GenRange    range;   // rosetta::range, if any
+        std::vector<std::string> choices; // rosetta::combobox choices, if any
     };
 
     struct GenParam {

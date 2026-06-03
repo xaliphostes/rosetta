@@ -99,6 +99,7 @@ target_link_options({{LIB}} PRIVATE
  button:hover{background:#383838}
  .out{font-family:ui-monospace,monospace;background:#000;color:#9cdcfe;padding:.2rem .45rem;border-radius:4px;white-space:pre-wrap}
  .muted{color:#888;font-size:.85rem}
+ a{color:#4ea1ff}
  #base{width:18rem}
 </style>
 </head>
@@ -107,6 +108,8 @@ target_link_options({{LIB}} PRIVATE
 <div class="row"><label class="k">Server</label>
  <input id="base" value="http://127.0.0.1:8080">
  <span class="muted">start the server, then Create an instance and poke its fields/methods</span></div>
+<div class="row"><label class="k">Docs</label>
+ <a href="docs">Swagger UI</a> <span class="muted">·</span> <a href="openapi.json">openapi.json</a></div>
 <div id="app"></div>
 <script>
 const SPEC = {{SPEC}};
@@ -200,17 +203,6 @@ if(SPEC.functions.length){
 </html>
 )HTML";
 
-        // Can a value of this type cross the REST (JSON) boundary? Mirrors
-        // rest_visitor's rest_supported, but over the neutral GenType.
-        inline bool rest_type_ok(const GenType &t) {
-            if (t.kind == "number" || t.kind == "boolean" || t.kind == "string" ||
-                t.kind == "enum")
-                return true;
-            if (t.kind == "vector")
-                return !t.element.empty() && rest_type_ok(t.element.front());
-            return false; // object / void / unknown
-        }
-
         // A widget hint for the client: number / boolean / string / enum, or an
         // "X[]" array thereof.
         inline std::string rest_js_type(const GenType &t) {
@@ -220,15 +212,6 @@ if(SPEC.functions.length){
             if (t.kind == "enum")
                 return "enum";
             return t.kind; // number / boolean / string
-        }
-
-        inline bool rest_method_ok(const GenMethod &m) {
-            if (!(m.ret.kind == "void" || rest_type_ok(m.ret)))
-                return false;
-            for (const auto &p : m.params)
-                if (!rest_type_ok(p.type))
-                    return false;
-            return true;
         }
 
         // Build the SPEC descriptor (a JSON literal) the client renders from.
@@ -248,7 +231,7 @@ if(SPEC.functions.length){
                 s += (ci ? "," : "") + std::string("{\"name\":\"") + k.name + "\",\"fields\":[";
                 bool first = true;
                 for (const auto &f : k.fields) {
-                    if (!rest_type_ok(f.type))
+                    if (!jsonable_type(f.type))
                         continue;
                     s += (first ? "" : ",");
                     first = false;
@@ -258,7 +241,7 @@ if(SPEC.functions.length){
                 s += "],\"methods\":[";
                 first = true;
                 for (const auto &m : k.methods) {
-                    if (!rest_method_ok(m))
+                    if (!jsonable_method(m))
                         continue;
                     s += (first ? "" : ",");
                     first = false;
@@ -273,12 +256,7 @@ if(SPEC.functions.length){
             s += "],\"functions\":[";
             bool ffirst = true;
             for (const auto &f : c.functions) {
-                if (!(f.ret.kind == "void" || rest_type_ok(f.ret)))
-                    continue;
-                bool ok = true;
-                for (const auto &p : f.params)
-                    ok = ok && rest_type_ok(p.type);
-                if (!ok)
+                if (!jsonable_function(f))
                     continue;
                 s += (ffirst ? "" : ",");
                 ffirst = false;
@@ -302,6 +280,28 @@ if(SPEC.functions.length){
                 binds += "    server.Get(\"/\", [](const httplib::Request &, httplib::Response "
                          "&res) {\n";
                 binds += "        res.set_content(INDEX_HTML, \"text/html; charset=utf-8\");\n";
+                binds += "    });\n";
+
+                // The OpenAPI 3.1 spec at /openapi.json, and Swagger UI at /docs.
+                binds += "    static const char OPENAPI_JSON[] = R\"ROSETTA_OAS(" + openapi_doc(c) +
+                         ")ROSETTA_OAS\";\n";
+                binds += "    server.Get(\"/openapi.json\", [](const httplib::Request &, "
+                         "httplib::Response &res) {\n";
+                binds += "        res.set_content(OPENAPI_JSON, \"application/json\");\n";
+                binds += "    });\n";
+                const std::string swagger =
+                    "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                    "<title>" + c.lib + " — API docs</title>"
+                    "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@5/"
+                    "swagger-ui.css\"></head><body><div id=\"swagger-ui\"></div>"
+                    "<script src=\"https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js\" "
+                    "crossorigin></script><script>window.onload=()=>{SwaggerUIBundle("
+                    "{url:'openapi.json',dom_id:'#swagger-ui'});};</script></body></html>";
+                binds += "    static const char SWAGGER_HTML[] = R\"ROSETTA_SWG(" + swagger +
+                         ")ROSETTA_SWG\";\n";
+                binds += "    server.Get(\"/docs\", [](const httplib::Request &, httplib::Response "
+                         "&res) {\n";
+                binds += "        res.set_content(SWAGGER_HTML, \"text/html; charset=utf-8\");\n";
                 binds += "    });\n";
 
                 for (const auto &k : c.classes)
