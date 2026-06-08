@@ -4,7 +4,7 @@
 // Generic inspector. Every field/method row is rendered from the
 // metadata produced by rosetta::QmlVisitor — no per-Person markup.
 //
-// Field row layout:    label  [editor]  GET  PUT     (PUT may be read-only)
+// Field row layout:    label  [editor]              (commits on edit)
 // Method row layout:   label  [args...]  Call   <result>
 //
 // There are no GET / PUT buttons — each editor commits on its natural

@@ -5,20 +5,27 @@ namespace rosetta::moc {
     // -------------------------------------------------------------------------
     namespace detail {
 
-        template <class Tag, class T>
-        consteval std::meta::info find_tagged(std::string_view name) {
+        template <class Tag, class T> consteval std::meta::info find_tagged(std::string_view name) {
             constexpr auto ctx = std::meta::access_context::unchecked();
             for (auto m : std::meta::members_of(^^T, ctx)) {
-                if (std::meta::annotation_of_type<Tag>(m).has_value() && std::meta::identifier_of(m) == name) {
+                if (std::meta::annotation_of_type<Tag>(m).has_value() &&
+                    std::meta::identifier_of(m) == name) {
                     return m;
                 }
             }
             return {};
         }
 
-        template <class T>
-        consteval std::meta::info find_property_field(std::string_view name) {
+        template <class T> consteval std::meta::info find_property_field(std::string_view name) {
+            /**
+             * This assumes that the property annotation is on the field itself, not on the
+             * getter/setter. We could support either, but this is simpler and more consistent with
+             * the idea of a "property" as a field with some extra metadata. If we wanted to support
+             * annotations on getters/setters, we'd need to look at member functions as well and
+             * figure out which one is the "main" one for the property.
+             */
             constexpr auto ctx = std::meta::access_context::unchecked();
+            
             for (auto m : std::meta::nonstatic_data_members_of(^^T, ctx)) {
                 auto pa = std::meta::annotation_of_type<property>(m);
                 if (pa.has_value() && std::string_view{pa->name} == name) {
@@ -40,8 +47,10 @@ namespace rosetta::moc {
     inline void connect(S &sender, R &receiver) {
         constexpr auto sig_r  = detail::find_tagged<signal_tag, S>(Sig.view());
         constexpr auto slot_r = detail::find_tagged<slot_tag, R>(Slot.view());
-        static_assert(sig_r != std::meta::info{}, "no [[=signal]]-tagged member with that name on sender");
-        static_assert(slot_r != std::meta::info{}, "no [[=slot]]-tagged member with that name on receiver");
+        static_assert(sig_r != std::meta::info{},
+                      "no [[=signal]]-tagged member with that name on sender");
+        static_assert(slot_r != std::meta::info{},
+                      "no [[=slot]]-tagged member with that name on receiver");
 
         (sender.[:sig_r:]).connect([&receiver](auto &&...args) {
             (receiver.[:slot_r:])(std::forward<decltype(args)>(args)...);
@@ -61,8 +70,7 @@ namespace rosetta::moc {
     // set<"prop">(obj, value): write access. Equality-gated; if the property
     // declares a NOTIFY signal, fires it after a successful change.
     // -------------------------------------------------------------------------
-    template <fixed_string Name, class T, class V>
-    inline void set(T &obj, V &&value) {
+    template <fixed_string Name, class T, class V> inline void set(T &obj, V &&value) {
         constexpr auto field_r = detail::find_property_field<T>(Name.view());
         static_assert(field_r != std::meta::info{}, "no [[=property]] with that handle on T");
 
@@ -73,11 +81,12 @@ namespace rosetta::moc {
         }
         obj.[:field_r:] = std::move(v);
 
-        constexpr auto pa = std::meta::annotation_of_type<property>(field_r).value();
+        constexpr auto pa          = std::meta::annotation_of_type<property>(field_r).value();
         constexpr auto notify_name = std::string_view{pa.notify};
         if constexpr (!notify_name.empty()) {
             constexpr auto sig_r = detail::find_tagged<signal_tag, T>(notify_name);
-            static_assert(sig_r != std::meta::info{}, "NOTIFY signal named by property is not declared");
+            static_assert(sig_r != std::meta::info{},
+                          "NOTIFY signal named by property is not declared");
             (obj.[:sig_r:])(obj.[:field_r:]);
         }
     }

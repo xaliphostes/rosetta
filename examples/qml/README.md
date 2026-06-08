@@ -11,9 +11,9 @@ there is no hand-written, per-`Person` markup in `Main.qml`.
 │ Person — generated from one C++26 reflection walk    │
 ├──────────────────────────────────────────────────────┤
 │ FIELDS                                               │
-│   name              [Alice           ]  GET   PUT    │
-│   age [0..150]      [42 ▲▼           ]  GET   PUT    │
-│   id                [s-123           ]  GET   ro     │
+│   name              [Alice           ]               │
+│   age [0..150]      [42 ▲▼           ]               │
+│   id [ro]           [s-123           ]               │
 ├──────────────────────────────────────────────────────┤
 │ METHODS                                              │
 │   greet(1)          [Hello   ]            Call       │

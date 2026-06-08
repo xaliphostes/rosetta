@@ -11,12 +11,13 @@
 //   ./build/auto_docgen              # prints to stdout
 //   ./build/auto_docgen > Person.md  # capture to a file
 
-#include "../bindings/person.h"
+// #include "../bindings/person.h"
+#include "Algo.h"
 #include <cstdio>
 #include <rosetta/docgen.h>
 
 int main() {
-    const auto md = rosetta::generate_markdown<Person>();
+    const auto md = rosetta::generate_markdown<Algo>();
     std::fputs(md.c_str(), stdout);
     return 0;
 }
