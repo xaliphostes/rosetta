@@ -9,7 +9,7 @@
 // Build flags: -freflection -freflection-latest -fannotation-attributes
 // See CMakeLists.txt in this folder.
 
-#include "../bindings/person.h"
+#include "../Algo.h"
 #include <rosetta/visitors/qml_visitor.h>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -18,10 +18,10 @@
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
-    Person                   person;
+    Algo                   algo;
     rosetta::ReflectedObject reflected;
-    reflected.setTypeName(QStringLiteral("Person"));
-    rosetta::bind_qml<Person>(&reflected, person);
+    reflected.setTypeName(QStringLiteral("Algo"));
+    rosetta::bind_qml<Algo>(&reflected, algo);
     reflected.emitReady();
 
     QQmlApplicationEngine engine;

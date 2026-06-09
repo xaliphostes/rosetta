@@ -12,7 +12,7 @@
 //   ./build/auto_docgen > Person.md  # capture to a file
 
 // #include "../bindings/person.h"
-#include "Algo.h"
+#include "../Algo.h"
 #include <cstdio>
 #include <rosetta/docgen.h>
 

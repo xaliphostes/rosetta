@@ -8,7 +8,7 @@
 // Build flags: -freflection -freflection-latest -fannotation-attributes
 // See CMakeLists.txt in this folder.
 
-#include "../person.h"
+#include "../../person.h"
 #include <rosetta/visitors/node_visitor.h>
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {

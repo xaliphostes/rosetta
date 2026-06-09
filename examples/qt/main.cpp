@@ -9,7 +9,7 @@
 // Build flags: -freflection -freflection-latest -fannotation-attributes
 // See CMakeLists.txt in this folder.
 
-#include "algo.h"
+#include "../Algo.h"
 #include <rosetta/visitors/qt_visitor.h>
 #include <QApplication>
 

@@ -8,7 +8,7 @@
 // Build flags: -freflection -freflection-latest -fannotation-attributes
 // (see CMakeLists.txt in this directory).
 
-#include "../person.h"
+#include "../../person.h"
 #include <rosetta/visitors/python_visitor.h>
 
 PYBIND11_MODULE(reflected_person, m) {
