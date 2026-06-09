@@ -46,11 +46,11 @@ ApplicationWindow {
         anchors.margins: 16
         spacing: 12
 
-        Label {
-            text: inspector.typeName + " — generated from one C++26 reflection walk"
-            color: "#888"
-            font.pixelSize: 13
-        }
+        // Label {
+        //     text: inspector.typeName + " — generated from one C++26 reflection walk"
+        //     color: "#888"
+        //     font.pixelSize: 13
+        // }
 
         // -------- Fields --------
         Rectangle {

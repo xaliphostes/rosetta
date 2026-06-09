@@ -10,7 +10,7 @@
 // See CMakeLists.txt in this folder.
 
 #include "algo.h"
-#include "widget_visitor.h"
+#include <rosetta/visitors/qt_visitor.h>
 #include <QApplication>
 
 int main(int argc, char *argv[]) {

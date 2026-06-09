@@ -4,7 +4,8 @@ A Qt Quick inspector window driven by **one** `rosetta::walk` over the
 annotated `Person` struct from `../bindings/person.h`. The C++ side
 emits metadata for each field and method into a generic
 `ReflectedObject`; the QML side renders the UI from that metadata —
-there is no hand-written, per-`Person` markup in `Main.qml`.
+there is no hand-written, per-`Person` markup in the generic
+`Inspector.qml` (now shipped from `rosetta/visitors/qml/`).
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -58,13 +59,21 @@ Override either with `-D<name>=...` on the cmake line.
 
 ## What's where
 
-| File                  | Role                                                          |
-|-----------------------|---------------------------------------------------------------|
-| `qml_visitor.h`       | `rosetta::QmlVisitor<T>` + `bind_qml<T>` entry point          |
-| `reflected_object.h`  | The `Q_OBJECT` adapter exposed to QML (no template parameter) |
-| `main.cpp`            | Walks `Person`, registers the wrapper, launches QML           |
-| `Main.qml`            | Generic inspector — one `Repeater` over fields / methods      |
-| `CMakeLists.txt`      | Qt6 + clang-p2996 wiring                                      |
+The generic backend now lives in the rosetta include tree, so a new QML
+example only needs its own `main.cpp` + `CMakeLists.txt`:
+
+| File                                          | Role                                                          |
+|-----------------------------------------------|---------------------------------------------------------------|
+| `rosetta/visitors/qml_visitor.h` (+ inline)   | `rosetta::QmlVisitor<T>` + `bind_qml<T>` entry point          |
+| `rosetta/visitors/qml_reflected_object.h`     | The `Q_OBJECT` adapter exposed to QML (no template parameter) |
+| `rosetta/visitors/qml/Inspector.qml`          | Generic inspector — one `Repeater` over fields / methods      |
+| `main.cpp`                                    | Walks `Person`, registers the wrapper, launches QML           |
+| `CMakeLists.txt`                              | Qt6 + clang-p2996 wiring                                      |
+
+Two Qt-imposed wiring steps remain in each example's `CMakeLists.txt`
+(they can't move into a header): list `qml_reflected_object.h` in
+`qt_add_executable(...)` so AUTOMOC mocs it, and add `Inspector.qml` to
+`qt_add_qml_module(QML_FILES ...)`. See this folder's `CMakeLists.txt`.
 
 ## Notes on the build
 
