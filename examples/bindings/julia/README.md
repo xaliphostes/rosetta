@@ -1,0 +1,54 @@
+# Julia binding
+
+Binds the shared `Person` struct to Julia through
+[CxxWrap.jl](https://github.com/JuliaInterop/CxxWrap.jl) — whose C++ side,
+`jlcxx`, plays the same role pybind11 does for Python and N-API for Node.
+The binding kit is `<rosetta/visitors/julia_visitor.h>`; this example only
+registers the type (see `auto_jlcxx.cpp`).
+
+## Prerequisites
+
+On the Julia side:
+
+```julia
+using Pkg; Pkg.add("CxxWrap")
+```
+
+This pulls in `libcxxwrap-julia`, which ships the `JlCxx` CMake package the
+build below looks for.
+
+## Build
+
+```bash
+cmake -G Ninja -B build
+cmake --build build
+```
+
+If CMake can't find `JlCxx`, hint it explicitly:
+
+```bash
+PREFIX=$(julia -e 'using CxxWrap; print(CxxWrap.prefix_path())')
+cmake -G Ninja -B build -DCMAKE_PREFIX_PATH="$PREFIX"
+```
+
+## Run
+
+```bash
+julia test_reflected_person.jl
+```
+
+## How the annotations map
+
+| C++ side                         | Julia side                                  |
+|----------------------------------|---------------------------------------------|
+| public field `name`              | getter `name(p)` + setter `name!(p, v)`     |
+| `[[ = rosetta::readonly{} ]]`    | getter only — no `name!` setter             |
+| `[[ = rosetta::range{lo, hi} ]]` | `name!` throws on out-of-range assignment   |
+| instance method `greet`          | `greet(p, args...)`                         |
+| `static` method                  | module-level function                       |
+| each constructor                 | `Person(args...)`                           |
+
+> Caveat: the prebuilt `libcxxwrap-julia` is compiled against its own C++
+> runtime. Mixing it with the clang-p2996 fork's libc++ can surface ABI
+> mismatches — rebuild `libcxxwrap-julia` with the fork if you hit one.
+> (Same spirit as the emsdk requirement for the WebAssembly example.)

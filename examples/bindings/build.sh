@@ -6,7 +6,8 @@
 #   ./build.sh python rest        # explicit list
 #   ./build.sh node               # adds N-API via npm + cmake-js
 #   ./build.sh web                # adds emscripten/embind (needs emsdk activated)
-#   ./build.sh all                # python rest node web
+#   ./build.sh julia              # adds CxxWrap/jlcxx (needs CxxWrap.jl)
+#   ./build.sh all                # python rest node web julia
 #   ./build.sh clean              # rm -rf each backend's build dir
 #
 # Env knobs:
@@ -64,12 +65,25 @@ build_web() {
     cmake --build "$SCRIPT_DIR/web/build" -j "$JOBS"
 }
 
+build_julia() {
+    step "julia (CxxWrap / jlcxx)"
+    if ! command -v julia >/dev/null 2>&1; then
+        echo "error: julia not on PATH. Install Julia and CxxWrap.jl first:" >&2
+        echo "       julia -e 'using Pkg; Pkg.add(\"CxxWrap\")'" >&2
+        exit 1
+    fi
+    cmake -G "$GENERATOR" -S "$SCRIPT_DIR/julia" -B "$SCRIPT_DIR/julia/build" \
+          "${CMAKE_EXTRA[@]}"
+    cmake --build "$SCRIPT_DIR/julia/build" -j "$JOBS"
+}
+
 do_clean() {
     step "clean"
     rm -rf "$SCRIPT_DIR/python/build" \
            "$SCRIPT_DIR/rest/build"   \
            "$SCRIPT_DIR/node/build"   \
-           "$SCRIPT_DIR/web/build"
+           "$SCRIPT_DIR/web/build"    \
+           "$SCRIPT_DIR/julia/build"
     echo "removed all build dirs"
 }
 
@@ -78,7 +92,7 @@ backends=("$@")
 if [[ ${#backends[@]} -eq 0 ]]; then
     backends=(python rest)
 elif [[ ${#backends[@]} -eq 1 && "${backends[0]}" == "all" ]]; then
-    backends=(python rest node web)
+    backends=(python rest node web julia)
 elif [[ ${#backends[@]} -eq 1 && "${backends[0]}" == "clean" ]]; then
     do_clean
     exit 0
@@ -90,7 +104,8 @@ for b in "${backends[@]}"; do
         rest)   build_rest ;;
         node)   build_node ;;
         web)    build_web ;;
-        *)      echo "error: unknown backend '$b' (valid: python rest node web all clean)" >&2
+        julia)  build_julia ;;
+        *)      echo "error: unknown backend '$b' (valid: python rest node web julia all clean)" >&2
                 exit 1 ;;
     esac
 done

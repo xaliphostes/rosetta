@@ -19,6 +19,10 @@ In `example/python` and read the [README](python/README.md)
 
 In `example/node` and read the [README](node/README.md)
 
+### Julia binding example
+
+In `example/julia` and read the [README](julia/README.md)
+
 ### REST binding example
 
 In `example/rest` and read the [README](rest/README.md)

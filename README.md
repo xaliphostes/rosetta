@@ -151,6 +151,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 | `examples/qml`             | Exposing a reflected C++ object to QML              |
 | `examples/bindings/python` | Hand-written pybind11 backend (reference)           |
 | `examples/bindings/node`   | Hand-written N-API backend (reference)              |
+| `examples/bindings/julia`  | Hand-written CxxWrap/jlcxx backend (reference, requires CxxWrap.jl) |
 | `examples/bindings/rest`   | Hand-written HTTP/REST backend (reference)          |
 | `examples/bindings/web`    | Hand-written WebAssembly backend (requires reflection-aware emsdk) |
 
