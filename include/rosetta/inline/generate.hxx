@@ -310,6 +310,7 @@ endif()
 // render helpers above. New backends register the same way (see
 // docs/EXTENDING_BACKEND.md) without touching generate().
 #include "json_backend.hxx"
+#include "julia_backend.hxx"
 #include "markdown_backend.hxx"
 #include "node_backend.hxx"
 #include "openapi_backend.hxx"
@@ -327,6 +328,7 @@ namespace rosetta {
             std::map<std::string, std::shared_ptr<Backend>> m;
             m["python"]     = std::make_shared<gen_detail::PythonBackend>();
             m["node"]       = std::make_shared<gen_detail::NodeBackend>();
+            m["julia"]      = std::make_shared<gen_detail::JuliaBackend>();
             m["rest"]       = std::make_shared<gen_detail::RestBackend>();
             m["wasm"]       = std::make_shared<gen_detail::WasmBackend>();
             m["typescript"] = std::make_shared<gen_detail::TypeScriptBackend>();

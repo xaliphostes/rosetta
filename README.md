@@ -36,16 +36,17 @@ Everything below is discovered by **reflection** from your unmodified headers �
 
 **Backends** (one combined module per target, from a single generator)
 
-| Target | Output |
-|---|---|
-| **Python** | pybind11 extension module |
-| **Node** | N-API native addon |
-| **WebAssembly** | Emscripten/embind module |
-| **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client, with `/openapi.json` and Swagger UI at `/docs` |
-| **OpenAPI** | OpenAPI 3.1 spec describing the REST surface — annotations become schema constraints (`range`→min/max, `readonly`→readOnly, `combobox`→enum) |
-| **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code |
-| **TypeScript** | ambient `.d.ts` type declarations |
-| **Markdown** | API reference document |
+| Target | Output | C++26 status |
+|---|---|---|
+| **Python** | pybind11 extension module | ✅ Working |
+| **Node** | N-API native addon | ✅ Working |
+| **Julia** | CxxWrap.jl / jlcxx shared module | ✅ Builds & runs <br> ⚠️ `std::vector` skipped (fork libc++ gap) |
+| **WebAssembly** | Emscripten/embind module | ⚠️ Needs reflection-aware emsdk |
+| **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client, with `/openapi.json` and Swagger UI at `/docs` | ✅ Working |
+| **OpenAPI** | OpenAPI 3.1 spec describing the REST surface — annotations become schema constraints (`range`→min/max, `readonly`→readOnly, `combobox`→enum) | ✅ Working |
+| **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code | ✅ Working |
+| **TypeScript** | ambient `.d.ts` type declarations | ✅ Working |
+| **Markdown** | API reference document | ✅ Working |
 
 New backends register without touching the generator — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
 
