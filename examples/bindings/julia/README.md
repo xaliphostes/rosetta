@@ -1,10 +1,7 @@
 # Julia binding
 
-Binds the shared `Person` struct to Julia through
-[CxxWrap.jl](https://github.com/JuliaInterop/CxxWrap.jl) — whose C++ side,
-`jlcxx`, plays the same role pybind11 does for Python and N-API for Node.
-The binding kit is `<rosetta/visitors/julia_visitor.h>`; this example only
-registers the type (see `auto_jlcxx.cpp`).
+Binds the shared `Person` struct to Julia through [CxxWrap.jl](https://github.com/JuliaInterop/CxxWrap.jl) — whose C++ side,
+`jlcxx`, plays the same role pybind11 does for Python and N-API for Node. The binding kit is `<rosetta/visitors/julia_visitor.h>`; this example only registers the type (see `auto_jlcxx.cpp`).
 
 ## Prerequisites
 
@@ -14,8 +11,7 @@ On the Julia side:
 using Pkg; Pkg.add("CxxWrap")
 ```
 
-This pulls in `libcxxwrap-julia`, which ships the `JlCxx` CMake package the
-build below looks for.
+This pulls in `libcxxwrap-julia`, which ships the `JlCxx` CMake package the build below looks for.
 
 ## Build
 
@@ -48,7 +44,4 @@ julia test_reflected_person.jl
 | `static` method                  | module-level function                       |
 | each constructor                 | `Person(args...)`                           |
 
-> Caveat: the prebuilt `libcxxwrap-julia` is compiled against its own C++
-> runtime. Mixing it with the clang-p2996 fork's libc++ can surface ABI
-> mismatches — rebuild `libcxxwrap-julia` with the fork if you hit one.
-> (Same spirit as the emsdk requirement for the WebAssembly example.)
+> Caveat: the prebuilt `libcxxwrap-julia` is compiled against its own C++ runtime. Mixing it with the clang-p2996 fork's libc++ can surface ABI mismatches — rebuild `libcxxwrap-julia` with the fork if you hit one. (Same spirit as the emsdk requirement for the WebAssembly example.)
