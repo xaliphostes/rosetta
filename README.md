@@ -11,7 +11,7 @@ Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a 
 [QUICKSTART](docs/QUICKSTART.md)
 
 
-[![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta2/)
+[![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta/#1)
 
 ## Features
 
