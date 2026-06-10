@@ -4,7 +4,7 @@
 // Smoke test for the markdown doc generator in <rosetta/docgen.h>.
 // Walks Person and prints its docs to stdout.
 
-#include "../examples/bindings/person.h"
+#include "../examples/person.h"
 #include <cstdio>
 #include <rosetta/docgen.h>
 

@@ -52,13 +52,16 @@ set_target_properties({{LIB}} PROPERTIES SUFFIX ".js")
             void emit(const GenContext &c) const override {
                 std::string binds;
                 // Enums first so class fields/methods can resolve them.
-                for (const auto &e : c.enums)
+                for (const auto &e : c.enums) {
                     binds += "    rosetta::bind_wasm_enum<" + e.name + ">(\"" + e.name + "\");\n";
-                for (const auto &k : c.classes)
+                }
+                for (const auto &k : c.classes) {
                     binds += "    rosetta::bind_wasm<" + k.name + ">(\"" + k.name + "\");\n";
-                for (const auto &f : c.functions)
+                }
+                for (const auto &f : c.functions) {
                     binds += "    emscripten::function(\"" + f.name + "\", &" + f.qualified +
                              ");\n";
+                }
                 auto dir = c.out_dir / "wasm";
                 write_file(dir / "auto_emscripten.cpp", render_source(WASM_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(WASM_CMAKE, c));

@@ -4,15 +4,9 @@
 
 # Rosetta (v2)
 
-A C++26 reflection playground that generates Python, Node, REST, and
-WebAssembly bindings for **your existing classes — without modifying
-them**. Point rosetta at a header via a small `manifest.json`, run one
-tool, get per-language binding projects out.
+A C++26 reflection playground that generates Python, Node, REST, and WebAssembly bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
-Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment,
-not a requirement: add them where you want docstrings, validation, or
-UI hints; leave the rest of the class alone. Reflection does the work
-either way.
+Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a requirement: add them where you want docstrings, validation, or UI hints; leave the rest of the class alone. Reflection does the work either way.
 
 [QUICKSTART](docs/QUICKSTART.md)
 
@@ -68,12 +62,9 @@ No mainline compiler implements enough of these proposals yet.
 
 ## Requirements
 
-- A clang-p2996 build at `$HOME/devs/c++/clang-p2996/build` (or override
-  `CLANG_P2996_ROOT` when invoking cmake).
+- A clang-p2996 build at `$HOME/devs/c++/clang-p2996/build` (or override `CLANG_P2996_ROOT` when invoking cmake).
 - CMake 3.28+, Ninja or Make.
-- C++26 mode with the fork's flags: `-freflection -freflection-latest
-  -fexperimental-library`. Annotation-using code also needs
-  `-fannotation-attributes`.
+- C++26 mode with the fork's flags: `-freflection -freflection-latest -fexperimental-library`. Annotation-using code also needs `-fannotation-attributes`.
 
 
 ## Build the test suite
@@ -106,8 +97,7 @@ struct Person {
 };
 ```
 
-Write a small `manifest.json` next to it. Each `targets` entry names the
-module/library produced for that backend; list every class you want bound:
+Write a small `manifest.json` next to it. Each `targets` entry names the module/library produced for that backend; list every class you want bound:
 
 ```json
 {
@@ -123,8 +113,7 @@ module/library produced for that backend; list every class you want bound:
 }
 ```
 
-Build the scaffolder once, then from your project folder generate, build,
-and run the project-specific tool it emits:
+Build the scaffolder once, then from your project folder generate, build, and run the project-specific tool it emits:
 
 ```bash
 # (one-time) build the framework scaffolder → <repo>/bin/rosetta_gen
@@ -146,18 +135,17 @@ cmake -S gen -B gen/build && cmake --build gen/build
 
 Result: `bindings/{python,node}/` — each a self-contained CMake project exposing **all** your classes in a single module. `cd bindings/python && cmake -B build && cmake --build build`, then `import person_py`.
 
-> `generator_name` and `module_name` are optional manifest fields:
-> `generator_name` (the generated `.cpp` / usage name) defaults to the
-> manifest's folder name, and a bare-string target like `"node"` falls
-> back to `module_name` for its module name.
+> `generator_name` and `module_name` are optional manifest fields: `generator_name` (the generated `.cpp` / usage name) defaults to the manifest's folder name, and a bare-string target like `"node"` falls back to `module_name` for its module name.
 
-The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the manifest schema, the `binding_info<T>` trait, and the layered tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The worked example lives in `examples/generate/`.
+The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the manifest schema, the `binding_info<T>` trait, and the layered tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The worked examples live in `examples/manifest/` and `examples/geom-lib/`.
 
 ## Examples
 
 | Path                       | What it shows                                       |
 |----------------------------|-----------------------------------------------------|
-| `examples/generate`        | Manifest-driven generation (no class modification)  |
+| `examples/manifest`        | Manifest-driven generation for `Person` (no class modification) |
+| `examples/geom-lib`        | Manifest-driven bindings for a small geometry library (nested types, vectors) |
+| `examples/moc`             | Qt-flavoured meta-object demo on `mini_moc.h` (properties + signals) |
 | `examples/docgen`          | Reflection-driven Markdown reference generator      |
 | `examples/qt`              | Building a Qt widget form from a reflected struct   |
 | `examples/qml`             | Exposing a reflected C++ object to QML              |

@@ -137,8 +137,9 @@ namespace rosetta {
 
             server.Get(url, [sp](const httplib::Request &req, httplib::Response &res) {
                 T *p = detail::resolve_id(sp, req, res);
-                if (!p)
+                if (!p) {
                     return;
+                }
                 res.set_content(json(p->[:Fld:]).dump(), "application/json");
             });
 
@@ -152,8 +153,9 @@ namespace rosetta {
                 constexpr auto r = ann::get_or<range>(range{0, 0}, Anns...);
                 server.Put(url, [sp, name](const httplib::Request &req, httplib::Response &res) {
                     T *p = detail::resolve_id(sp, req, res);
-                    if (!p)
+                    if (!p) {
                         return;
+                    }
                     try {
                         F      val = json::parse(req.body).template get<F>();
                         double d   = static_cast<double>(val);
@@ -174,8 +176,9 @@ namespace rosetta {
             } else {
                 server.Put(url, [sp](const httplib::Request &req, httplib::Response &res) {
                     T *p = detail::resolve_id(sp, req, res);
-                    if (!p)
+                    if (!p) {
                         return;
+                    }
                     try {
                         p->[:Fld:] = json::parse(req.body).template get<F>();
                         res.status = 204;
@@ -195,8 +198,9 @@ namespace rosetta {
 
             server.Post(url, [sp](const httplib::Request &req, httplib::Response &res) {
                 T *p = detail::resolve_id(sp, req, res);
-                if (!p)
+                if (!p) {
                     return;
+                }
                 try {
                     json           args = req.body.empty() ? json::array() : json::parse(req.body);
                     constexpr auto arity =

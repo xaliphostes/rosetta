@@ -54,23 +54,27 @@ target_link_options({{LIB}}_demo PRIVATE
             d += "#include <iostream>\n\n";
             d += "int main() {\n";
             d += "    std::cout << \"-- serialize default instances --\\n\";\n";
-            for (const auto &k : c.classes)
+            for (const auto &k : c.classes) {
                 d += "    std::cout << \"" + k.name + ": \" << rosetta::to_json(" + k.name +
                      "{}).dump() << \"\\n\";\n";
+            }
 
             const GenClass *rt = nullptr;
-            for (const auto &k : c.classes)
+            for (const auto &k : c.classes) {
                 if (!k.fields.empty()) {
                     rt = &k;
                     break;
                 }
+            }
             if (rt) {
                 d += "\n    std::cout << \"\\n-- round-trip " + rt->name + " --\\n\";\n";
                 d += "    " + rt->name + " a{};\n";
                 int n = 0;
-                for (const auto &f : rt->fields)
-                    if (f.type.kind == "number")
+                for (const auto &f : rt->fields) {
+                    if (f.type.kind == "number") {
                         d += "    a." + f.name + " = " + std::to_string(++n) + ";\n";
+                    }
+                }
                 d += "    nlohmann::json j = rosetta::to_json(a);\n";
                 d += "    std::cout << \"to_json:   \" << j.dump() << \"\\n\";\n";
                 d += "    " + rt->name + " b = rosetta::from_json<" + rt->name + ">(j);\n";

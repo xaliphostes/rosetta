@@ -57,8 +57,9 @@ namespace rosetta {
             return Napi::Number::New(env, static_cast<double>(v));
         } else if constexpr (is_std_vector<U>::value) {
             Napi::Array arr = Napi::Array::New(env, v.size());
-            for (std::size_t i = 0; i < v.size(); ++i)
+            for (std::size_t i = 0; i < v.size(); ++i) {
                 arr.Set(static_cast<uint32_t>(i), to_napi(env, v[i]));
+            }
             return arr;
         } else if constexpr (std::is_enum_v<U>) {
             return Napi::Number::New(
@@ -87,8 +88,9 @@ namespace rosetta {
             Napi::Array arr = v.As<Napi::Array>();
             T           out;
             out.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); ++i)
+            for (uint32_t i = 0; i < arr.Length(); ++i) {
                 out.push_back(from_napi<Elem>(arr.Get(i)));
+            }
             return out;
         } else if constexpr (std::is_enum_v<T>) {
             return static_cast<T>(
@@ -112,12 +114,13 @@ namespace rosetta {
             // registered constructor, rebuild it from the JS arguments.
             auto &tbl = ctor_table<T>();
             auto  it  = tbl.find(info.Length());
-            if (it != tbl.end())
+            if (it != tbl.end()) {
                 inner = it->second(info);
-            else if (info.Length() > 0)
+            } else if (info.Length() > 0) {
                 throw Napi::TypeError::New(info.Env(),
                                            "no matching constructor for " +
                                                std::to_string(info.Length()) + " argument(s)");
+            }
         }
 
         template <std::meta::info Fld>

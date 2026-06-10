@@ -66,8 +66,9 @@ namespace rosetta {
 
         template <std::size_t N> consteval combobox(const char *const (&arr)[N]) : count(N) {
             static_assert(N <= MAX, "rosetta::combobox: too many choices (max 16)");
-            for (std::size_t i = 0; i < N; ++i)
+            for (std::size_t i = 0; i < N; ++i) {
                 choices[i] = std::define_static_string(arr[i]);
+            }
         }
 
         bool operator==(const combobox &) const = default;

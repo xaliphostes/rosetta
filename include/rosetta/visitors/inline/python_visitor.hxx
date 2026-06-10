@@ -66,8 +66,9 @@ namespace rosetta {
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
         // reflection; register one so `T()` keeps working.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<T>)
+        if (!v.saw_default_ctor && std::is_default_constructible_v<T>) {
             cls.def(py::init<>());
+        }
     }
 
     template <typename T> inline void bind_pybind_enum(py::module_ &m, const char *py_name) {

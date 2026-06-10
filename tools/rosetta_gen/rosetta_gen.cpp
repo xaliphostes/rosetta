@@ -78,8 +78,9 @@ struct Manifest {
 
 static Manifest load(const fs::path &manifest_path) {
     std::ifstream in(manifest_path);
-    if (!in)
+    if (!in) {
         throw std::runtime_error("cannot open " + manifest_path.string());
+    }
     // Tolerate // and /* */ comments in the manifest.
     json j = json::parse(in, /*cb=*/nullptr, /*allow_exceptions=*/true,
                          /*ignore_comments=*/true);
@@ -131,7 +132,7 @@ static Manifest load(const fs::path &manifest_path) {
     // gives the (optionally qualified) function name and its declaring header;
     // `doc` is an optional description (free functions carry no in-source
     // annotation, keeping the user's headers untouched).
-    if (j.contains("functions"))
+    if (j.contains("functions")) {
         for (const auto &f : j.at("functions")) {
             FunctionEntry e;
             e.name   = f.at("name").get<std::string>();
@@ -139,21 +140,27 @@ static Manifest load(const fs::path &manifest_path) {
             e.doc    = f.contains("doc") ? f.at("doc").get<std::string>() : std::string{};
             m.functions.push_back(std::move(e));
         }
+    }
 
     // `plugins` is optional: extra .cpp sources (e.g. a custom Backend +
     // BackendRegistrar) compiled into the driver. Resolved to absolute paths.
-    if (j.contains("plugins"))
-        for (const auto &p : j.at("plugins"))
+    if (j.contains("plugins")) {
+        for (const auto &p : j.at("plugins")) {
             m.plugins.push_back(
                 fs::weakly_canonical(base / fs::path(p.get<std::string>())).string());
+        }
+    }
 
-    if (m.generator_name.empty())
+    if (m.generator_name.empty()) {
         throw std::runtime_error(
             "cannot derive generator_name (set it explicitly in the manifest)");
-    if (m.targets.empty())
+    }
+    if (m.targets.empty()) {
         throw std::runtime_error("manifest has no targets");
-    if (m.classes.empty())
+    }
+    if (m.classes.empty()) {
         throw std::runtime_error("manifest has no class entries");
+    }
 
     return m;
 }
@@ -175,10 +182,12 @@ static std::string render_bindings_h(const Manifest &m) {
             out << "#include \"" << h << "\"\n";
         }
     };
-    for (const auto &c : m.classes)
+    for (const auto &c : m.classes) {
         include_once(c.header);
-    for (const auto &f : m.functions)
+    }
+    for (const auto &f : m.functions) {
         include_once(f.header);
+    }
     out << "\n";
     for (const auto &c : m.classes) {
         out << "template <> struct rosetta::binding_info<" << c.name << "> {\n"
@@ -204,20 +213,23 @@ static std::string render_project_gen_cpp(const Manifest &m) {
         << "    opt.user_include    = \"" << m.user_include.string() << "\";\n"
         << "    opt.rosetta_include = \"" << m.rosetta_include.string() << "\";\n"
         << "    opt.targets         = {\n";
-    for (const auto &t : m.targets)
+    for (const auto &t : m.targets) {
         out << "        {\"" << t.lang << "\", \"" << t.name << "\"},\n";
+    }
     out << "    };\n";
     if (!m.functions.empty()) {
         out << "    opt.functions       = {\n";
-        for (const auto &f : m.functions)
+        for (const auto &f : m.functions) {
             out << "        rosetta::make_function<^^" << f.name << ">(\"" << f.name << "\", \""
                 << f.header << "\", \"" << f.doc << "\"),\n";
+        }
         out << "    };\n";
     }
     out << "\n";
     out << "    rosetta::generate<";
-    for (std::size_t i = 0; i < m.classes.size(); ++i)
+    for (std::size_t i = 0; i < m.classes.size(); ++i) {
         out << (i ? ", " : "") << m.classes[i].name;
+    }
     out << ">(opt);\n";
     out << "\n    std::fprintf(stderr, \"wrote scaffolding to %s\\n\",\n"
         << "                 opt.out_dir.string().c_str());\n"
@@ -248,8 +260,9 @@ static std::string render_cmakelists(const Manifest &m) {
 
     // add_executable with the driver source plus any plugin sources.
     out << "add_executable(" << target << " " << m.target() << ".cpp";
-    for (const auto &p : m.plugins)
+    for (const auto &p : m.plugins) {
         out << "\n    " << p;
+    }
     out << ")\n\n";
 
     out << "target_include_directories(" << target << " PRIVATE\n"

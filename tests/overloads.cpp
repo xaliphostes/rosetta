@@ -42,8 +42,9 @@ namespace rosetta {
         std::string signature() const {
             std::string s = name + "(";
             for (size_t i = 0; i < param_type_names.size(); ++i) {
-                if (i)
+                if (i) {
                     s += ", ";
+                }
                 s += param_type_names[i];
             }
             s += ") -> " + return_type;
@@ -59,11 +60,13 @@ namespace rosetta {
         // Resolve overload by matching arg type_indexes against each candidate.
         const MethodMeta *resolve(std::string_view mname, std::span<const Any> args) const {
             auto it = methods.find(std::string(mname));
-            if (it == methods.end())
+            if (it == methods.end()) {
                 return nullptr;
+            }
             for (const auto &m : it->second) {
-                if (m.param_types.size() != args.size())
+                if (m.param_types.size() != args.size()) {
                     continue;
+                }
                 bool ok = true;
                 for (size_t i = 0; i < args.size(); ++i) {
                     if (std::type_index(args[i].type()) != m.param_types[i]) {
@@ -71,8 +74,9 @@ namespace rosetta {
                         break;
                     }
                 }
-                if (ok)
+                if (ok) {
                     return &m;
+                }
             }
             return nullptr;
         }
@@ -85,8 +89,9 @@ namespace rosetta {
             msg += mname;
             msg += "' matches the given argument types: (";
             for (size_t i = 0; i < args.size(); ++i) {
-                if (i)
+                if (i) {
                     msg += ", ";
+                }
                 msg += args[i].type().name();
             }
             msg += ")";

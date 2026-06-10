@@ -33,68 +33,81 @@ namespace rosetta {
 
         // Compact number: integral values without a trailing ".000000".
         inline std::string oa_num(double d) {
-            if (d == static_cast<double>(static_cast<long long>(d)))
+            if (d == static_cast<double>(static_cast<long long>(d))) {
                 return std::to_string(static_cast<long long>(d));
+            }
             std::string s = std::to_string(d);
             s.erase(s.find_last_not_of('0') + 1);
-            if (!s.empty() && s.back() == '.')
+            if (!s.empty() && s.back() == '.') {
                 s.pop_back();
+            }
             return s;
         }
 
         inline std::string oa_join(const std::vector<std::string> &items) {
             std::string s;
-            for (std::size_t i = 0; i < items.size(); ++i)
+            for (std::size_t i = 0; i < items.size(); ++i) {
                 s += (i ? "," : "") + items[i];
+            }
             return s;
         }
 
         // The bare type schema (no description/constraints). Object & enum types
         // become $refs into components/schemas.
         inline std::string oa_schema(const GenType &t) {
-            if (t.kind == "object" || t.kind == "enum")
+            if (t.kind == "object" || t.kind == "enum") {
                 return t.object.empty()
                            ? "{}"
                            : "{\"$ref\":\"#/components/schemas/" + t.object + "\"}";
-            if (t.kind == "vector")
+            }
+            if (t.kind == "vector") {
                 return "{\"type\":\"array\",\"items\":" +
                        (t.element.empty() ? std::string("{}") : oa_schema(t.element.front())) + "}";
-            if (t.kind == "number")
+            }
+            if (t.kind == "number") {
                 return t.integer ? "{\"type\":\"integer\"}" : "{\"type\":\"number\"}";
-            if (t.kind == "boolean")
+            }
+            if (t.kind == "boolean") {
                 return "{\"type\":\"boolean\"}";
-            if (t.kind == "string")
+            }
+            if (t.kind == "string") {
                 return "{\"type\":\"string\"}";
+            }
             return "{}"; // void / unknown
         }
 
         // Add sibling keys to a schema object (legal in 3.1, even next to $ref).
         inline std::string oa_inject(const std::string &base,
                                      const std::vector<std::string> &extra) {
-            if (extra.empty())
+            if (extra.empty()) {
                 return base;
+            }
             std::string inner       = base.substr(0, base.size() - 1); // drop trailing }
             const bool  has_content = inner.size() > 1;                // more than just "{"
-            for (std::size_t i = 0; i < extra.size(); ++i)
+            for (std::size_t i = 0; i < extra.size(); ++i) {
                 inner += ((i || has_content) ? "," : "") + extra[i];
+            }
             return inner + "}";
         }
 
         // Field schema with annotation-derived constraints.
         inline std::string oa_field_schema(const GenField &f) {
             std::vector<std::string> extra;
-            if (!f.doc.empty())
+            if (!f.doc.empty()) {
                 extra.push_back("\"description\":\"" + oa_esc(f.doc) + "\"");
-            if (f.is_readonly)
+            }
+            if (f.is_readonly) {
                 extra.push_back("\"readOnly\":true");
+            }
             if (f.range.has) {
                 extra.push_back("\"minimum\":" + oa_num(f.range.min));
                 extra.push_back("\"maximum\":" + oa_num(f.range.max));
             }
             if (!f.choices.empty()) {
                 std::string e = "\"enum\":[";
-                for (std::size_t i = 0; i < f.choices.size(); ++i)
+                for (std::size_t i = 0; i < f.choices.size(); ++i) {
                     e += (i ? "," : "") + ("\"" + oa_esc(f.choices[i]) + "\"");
+                }
                 e += "]";
                 extra.push_back(e);
             }
@@ -109,15 +122,17 @@ namespace rosetta {
         }
         // A method/function return: 204 for void, else 200 with the schema.
         inline std::string oa_return_responses(const GenType &ret) {
-            if (ret.kind == "void")
+            if (ret.kind == "void") {
                 return "\"204\":{\"description\":\"No Content\"}";
+            }
             return oa_ok(oa_schema(ret));
         }
         // Positional args as a JSON array (3.1 tuple via prefixItems).
         inline std::string oa_args_request(const std::vector<GenParam> &ps) {
             std::string items = "[";
-            for (std::size_t i = 0; i < ps.size(); ++i)
+            for (std::size_t i = 0; i < ps.size(); ++i) {
                 items += (i ? "," : "") + oa_schema(ps[i].type);
+            }
             items += "]";
             const std::string n = std::to_string(ps.size());
             return "\"requestBody\":{\"required\":true,\"content\":" +
@@ -154,16 +169,19 @@ namespace rosetta {
 
                 // GET/PUT /Class/{id}/<field>
                 for (const auto &f : k.fields) {
-                    if (!jsonable_type(f.type))
+                    if (!jsonable_type(f.type)) {
                         continue;
+                    }
                     std::string get_op = "\"get\":{\"summary\":\"Get " + f.name + "\"," + tag +
                                          ",\"parameters\":[" + id_param + "],\"responses\":{" +
                                          oa_ok(oa_field_schema(f)) + "," + std::string(OA_404) + "}}";
                     std::string put_resps = "\"204\":{\"description\":\"No Content\"}";
-                    if (f.range.has)
+                    if (f.range.has) {
                         put_resps += ",\"400\":{\"description\":\"Out of range\"}";
-                    if (f.is_readonly)
+                    }
+                    if (f.is_readonly) {
                         put_resps += ",\"403\":{\"description\":\"Read-only\"}";
+                    }
                     put_resps += "," + std::string(OA_404);
                     std::string put_op =
                         "\"put\":{\"summary\":\"Set " + f.name + "\"," + tag + ",\"parameters\":[" +
@@ -175,15 +193,17 @@ namespace rosetta {
 
                 // POST /Class/{id}/<method>  (or /Class/<method> for statics)
                 for (const auto &m : k.methods) {
-                    if (!jsonable_method(m))
+                    if (!jsonable_method(m)) {
                         continue;
+                    }
                     const std::string path = m.is_static ? ("/" + k.name + "/" + m.name)
                                                           : ("/" + k.name + "/{id}/" + m.name);
                     std::string       params_arr =
                         m.is_static ? "" : ("\"parameters\":[" + id_param + "],");
                     std::string resps = oa_return_responses(m.ret);
-                    if (!m.is_static)
+                    if (!m.is_static) {
                         resps += "," + std::string(OA_404);
+                    }
                     paths.push_back("\"" + path + "\":{\"post\":{\"summary\":\"" + m.name + "\"," +
                                     tag + "," + params_arr + oa_args_request(m.params) +
                                     ",\"responses\":{" + resps + "}}}");
@@ -191,9 +211,10 @@ namespace rosetta {
 
                 // schema for the class
                 std::string props;
-                for (std::size_t i = 0; i < k.fields.size(); ++i)
+                for (std::size_t i = 0; i < k.fields.size(); ++i) {
                     props += (i ? "," : "") + ("\"" + k.fields[i].name + "\":" +
                                                oa_field_schema(k.fields[i]));
+                }
                 schemas.push_back("\"" + k.name + "\":{\"type\":\"object\",\"properties\":{" + props +
                                   "}}");
             }
@@ -217,8 +238,9 @@ namespace rosetta {
 
             // POST /<free function>
             for (const auto &f : c.functions) {
-                if (!jsonable_function(f))
+                if (!jsonable_function(f)) {
                     continue;
+                }
                 paths.push_back("\"/" + f.name + "\":{\"post\":{\"summary\":\"" + f.name +
                                 "\",\"tags\":[\"functions\"]," +
                                 (f.doc.empty() ? "" : "\"description\":\"" + oa_esc(f.doc) + "\",") +

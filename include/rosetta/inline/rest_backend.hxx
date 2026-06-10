@@ -206,11 +206,13 @@ if(SPEC.functions.length){
         // A widget hint for the client: number / boolean / string / enum, or an
         // "X[]" array thereof.
         inline std::string rest_js_type(const GenType &t) {
-            if (t.kind == "vector")
+            if (t.kind == "vector") {
                 return (t.element.empty() ? std::string("any") : rest_js_type(t.element.front())) +
                        "[]";
-            if (t.kind == "enum")
+            }
+            if (t.kind == "enum") {
                 return "enum";
+            }
             return t.kind; // number / boolean / string
         }
 
@@ -219,9 +221,10 @@ if(SPEC.functions.length){
         inline std::string rest_client_spec(const GenContext &c) {
             auto params = [](const std::vector<GenParam> &ps) {
                 std::string s = "[";
-                for (std::size_t i = 0; i < ps.size(); ++i)
+                for (std::size_t i = 0; i < ps.size(); ++i) {
                     s += (i ? "," : "") + std::string("{\"name\":\"") + ps[i].name +
                          "\",\"type\":\"" + rest_js_type(ps[i].type) + "\"}";
+                }
                 return s + "]";
             };
 
@@ -231,8 +234,9 @@ if(SPEC.functions.length){
                 s += (ci ? "," : "") + std::string("{\"name\":\"") + k.name + "\",\"fields\":[";
                 bool first = true;
                 for (const auto &f : k.fields) {
-                    if (!jsonable_type(f.type))
+                    if (!jsonable_type(f.type)) {
                         continue;
+                    }
                     s += (first ? "" : ",");
                     first = false;
                     s += "{\"name\":\"" + f.name + "\",\"type\":\"" + rest_js_type(f.type) +
@@ -241,8 +245,9 @@ if(SPEC.functions.length){
                 s += "],\"methods\":[";
                 first = true;
                 for (const auto &m : k.methods) {
-                    if (!jsonable_method(m))
+                    if (!jsonable_method(m)) {
                         continue;
+                    }
                     s += (first ? "" : ",");
                     first = false;
                     s += "{\"name\":\"" + m.name + "\",\"static\":" +
@@ -251,13 +256,15 @@ if(SPEC.functions.length){
                 s += "]}";
             }
             s += "],\"enums\":[";
-            for (std::size_t ei = 0; ei < c.enums.size(); ++ei)
+            for (std::size_t ei = 0; ei < c.enums.size(); ++ei) {
                 s += (ei ? "," : "") + std::string("{\"name\":\"") + c.enums[ei].name + "\"}";
+            }
             s += "],\"functions\":[";
             bool ffirst = true;
             for (const auto &f : c.functions) {
-                if (!jsonable_function(f))
+                if (!jsonable_function(f)) {
                     continue;
+                }
                 s += (ffirst ? "" : ",");
                 ffirst = false;
                 s += "{\"name\":\"" + f.name + "\",\"params\":" + params(f.params) + "}";
@@ -304,16 +311,19 @@ if(SPEC.functions.length){
                 binds += "        res.set_content(SWAGGER_HTML, \"text/html; charset=utf-8\");\n";
                 binds += "    });\n";
 
-                for (const auto &k : c.classes)
+                for (const auto &k : c.classes) {
                     binds += "    rosetta::Store<" + k.name + "> store_" + k.name +
                              ";\n    rosetta::bind_rest<" + k.name + ">(server, \"/" + k.name +
                              "\", store_" + k.name + ");\n";
-                for (const auto &e : c.enums)
+                }
+                for (const auto &e : c.enums) {
                     binds += "    rosetta::bind_rest_enum<" + e.name + ">(server, \"/" + e.name +
                              "\");\n";
-                for (const auto &f : c.functions)
+                }
+                for (const auto &f : c.functions) {
                     binds += "    rosetta::bind_rest_function<^^" + f.qualified + ">(server, \"/" +
                              f.name + "\");\n";
+                }
                 auto dir = c.out_dir / "rest";
                 write_file(dir / "auto_rest.cpp", render_source(REST_CPP, c, binds));
                 write_file(dir / "CMakeLists.txt", render_meta(REST_CMAKE, c));

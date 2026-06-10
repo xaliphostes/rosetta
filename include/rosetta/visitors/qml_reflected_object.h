@@ -64,18 +64,21 @@ namespace rosetta {
         // on success so QML can refresh dependent bindings.
         Q_INVOKABLE QString setField(const QString &name, const QVariant &v) {
             auto it = setters_.find(name);
-            if (it == setters_.end())
+            if (it == setters_.end()) {
                 return QStringLiteral("no field: ") + name;
+            }
             QString err = it.value()(v);
-            if (err.isEmpty())
+            if (err.isEmpty()) {
                 emit fieldChanged(name);
+            }
             return err;
         }
 
         Q_INVOKABLE QVariant callMethod(const QString &name, const QVariantList &args) {
             auto it = invokers_.find(name);
-            if (it == invokers_.end())
+            if (it == invokers_.end()) {
                 return QVariant(QStringLiteral("no method: ") + name);
+            }
             QVariant r = it.value()(args);
             emit methodCalled(name);
             return r;

@@ -46,8 +46,9 @@ int main() {
             bool first = true;
             template for (constexpr auto param :
                           std::define_static_array(std::meta::parameters_of(fn))) {
-                if (!first)
+                if (!first) {
                     std::print(", ");
+                }
                 first = false;
                 std::print("{}", std::meta::display_string_of(std::meta::type_of(param)));
             }

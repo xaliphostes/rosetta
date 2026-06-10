@@ -10,8 +10,9 @@ namespace rosetta {
             std::string out;
             template for (constexpr auto e :
                           std::define_static_array(std::meta::enumerators_of(^^E))) {
-                if (v == [:e:])
+                if (v == [:e:]) {
                     out = std::define_static_string(std::meta::identifier_of(e));
+                }
             }
             return out;
         }
@@ -21,8 +22,9 @@ namespace rosetta {
             template for (constexpr auto e :
                           std::define_static_array(std::meta::enumerators_of(^^E))) {
                 constexpr const char *nm = std::define_static_string(std::meta::identifier_of(e));
-                if (name == nm)
+                if (name == nm) {
                     out = [:e:];
+                }
             }
             return out;
         }
@@ -38,8 +40,9 @@ namespace rosetta {
                 return v;
             } else if constexpr (is_vector<U>::value) {
                 nlohmann::json a = nlohmann::json::array();
-                for (const auto &e : v)
+                for (const auto &e : v) {
                     a.push_back(encode(e));
+                }
                 return a;
             } else if constexpr (std::is_class_v<U>) {
                 return rosetta::to_json(v); // nested reflected class
@@ -56,8 +59,9 @@ namespace rosetta {
             } else if constexpr (is_vector<U>::value) {
                 U out;
                 out.reserve(j.size());
-                for (const auto &e : j)
+                for (const auto &e : j) {
                     out.push_back(decode<typename U::value_type>(e));
+                }
                 return out;
             } else if constexpr (std::is_class_v<U>) {
                 return rosetta::from_json<U>(j); // nested reflected class
@@ -88,8 +92,9 @@ namespace rosetta {
         template <std::meta::info Fld, auto... Anns> void field(const char *name) {
             using Raw = [:std::meta::type_of(Fld):];
             using F   = std::remove_cvref_t<Raw>;
-            if (j.contains(name))
+            if (j.contains(name)) {
                 obj.[:Fld:] = json_detail::decode<F>(j.at(name));
+            }
         }
         template <std::meta::info, auto...> void method_instance(const char *) {}
         template <std::meta::info, auto...> void method_static(const char *) {}

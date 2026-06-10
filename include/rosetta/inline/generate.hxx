@@ -53,23 +53,28 @@ endif()
             std::string s = "#include <rosetta/annotations.h>\n";
             auto        add = [&](const std::string &h) {
                 const std::string line = "#include \"" + h + "\"\n";
-                if (s.find(line) == std::string::npos)
+                if (s.find(line) == std::string::npos) {
                     s += line;
+                }
             };
-            for (const auto &k : c.classes)
+            for (const auto &k : c.classes) {
                 add(k.header);
-            for (const auto &e : c.enums)
+            }
+            for (const auto &e : c.enums) {
                 add(e.header);
-            for (const auto &f : c.functions)
+            }
+            for (const auto &f : c.functions) {
                 add(f.header);
+            }
             return s;
         }
 
         // The per-class reference docs, concatenated into the README body.
         inline std::string readme_body_of(const std::vector<GenClass> &classes) {
             std::string s;
-            for (const auto &c : classes)
+            for (const auto &c : classes) {
                 s += c.doc + "\n";
+            }
             return s;
         }
 
@@ -95,31 +100,39 @@ endif()
         // by the REST and OpenAPI backends so they describe the same surface.
         inline bool jsonable_type(const GenType &t) {
             if (t.kind == "number" || t.kind == "boolean" || t.kind == "string" ||
-                t.kind == "enum")
+                t.kind == "enum") {
                 return true;
-            if (t.kind == "vector")
+            }
+            if (t.kind == "vector") {
                 return !t.element.empty() && jsonable_type(t.element.front());
+            }
             return false; // object / void / unknown
         }
 
         // A method is exposable over JSON only if its return and every parameter
         // type can cross the boundary.
         inline bool jsonable_method(const GenMethod &m) {
-            if (!(m.ret.kind == "void" || jsonable_type(m.ret)))
+            if (!(m.ret.kind == "void" || jsonable_type(m.ret))) {
                 return false;
-            for (const auto &p : m.params)
-                if (!jsonable_type(p.type))
+            }
+            for (const auto &p : m.params) {
+                if (!jsonable_type(p.type)) {
                     return false;
+                }
+            }
             return true;
         }
 
         // A free function is exposable over JSON under the same rule.
         inline bool jsonable_function(const GenFunction &f) {
-            if (!(f.ret.kind == "void" || jsonable_type(f.ret)))
+            if (!(f.ret.kind == "void" || jsonable_type(f.ret))) {
                 return false;
-            for (const auto &p : f.params)
-                if (!jsonable_type(p.type))
+            }
+            for (const auto &p : f.params) {
+                if (!jsonable_type(p.type)) {
                     return false;
+                }
+            }
             return true;
         }
 
@@ -128,14 +141,16 @@ endif()
             s += backend;
             s += ")\n\nAuto-generated bindings.\n\n";
             s += readme_body_of(c.classes);
-            for (const auto &e : c.enums)
+            for (const auto &e : c.enums) {
                 s += e.doc + "\n";
+            }
             if (!c.functions.empty()) {
                 s += "# Functions\n\n";
                 for (const auto &f : c.functions) {
                     s += "- `" + f.name + "`";
-                    if (!f.doc.empty())
+                    if (!f.doc.empty()) {
                         s += " — " + f.doc;
+                    }
                     s += "\n";
                 }
                 s += "\n";
@@ -213,8 +228,9 @@ endif()
                 }
                 if constexpr (ann::has<combobox>(Anns...)) {
                     constexpr auto cb = ann::get_or<combobox>(combobox{}, Anns...);
-                    for (std::size_t i = 0; i < cb.count; ++i)
+                    for (std::size_t i = 0; i < cb.count; ++i) {
                         gf.choices.push_back(cb.choices[i]);
+                    }
                 }
                 out.fields.push_back(std::move(gf));
             }
@@ -257,12 +273,14 @@ endif()
         inline std::string render_enum_markdown(const GenEnum &ge) {
             std::string s = "# " + ge.name + "\n\n";
             s += "_enum";
-            if (!ge.underlying.empty())
+            if (!ge.underlying.empty()) {
                 s += " : " + ge.underlying;
+            }
             s += "_\n\n";
             s += "| Name | Value |\n|------|-------|\n";
-            for (const auto &v : ge.values)
+            for (const auto &v : ge.values) {
                 s += "| `" + v.name + "` | " + std::to_string(v.value) + " |\n";
+            }
             return s;
         }
 
@@ -352,8 +370,9 @@ namespace rosetta {
             [&] {
                 if constexpr (std::is_enum_v<Ts>)
                     enums.push_back(gen_detail::describe_enum<Ts>());
-                else
+                else {
                     classes.push_back(gen_detail::describe<Ts>());
+                }
             }(),
             ...);
 

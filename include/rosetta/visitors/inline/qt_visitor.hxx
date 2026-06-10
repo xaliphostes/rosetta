@@ -35,15 +35,17 @@ namespace rosetta {
         template <typename F> QVariant to_variant(const F &v) {
             if constexpr (std::is_same_v<F, std::string>)
                 return QString::fromStdString(v);
-            else
+            else {
                 return QVariant::fromValue(v);
+            }
         }
 
         template <typename F> F from_variant(const QVariant &v) {
             if constexpr (std::is_same_v<F, std::string>)
                 return v.toString().toStdString();
-            else
+            else {
                 return v.value<F>();
+            }
         }
 
         template <std::meta::info Fn, typename T, std::size_t... Is>
@@ -84,8 +86,9 @@ namespace rosetta {
         // handlers capture `log` directly instead of `this`. `log == nullptr`
         // disables logging (build_inspector with with_log = false).
         inline void log_line(QTextEdit *log, const QString &msg, bool ok) {
-            if (!log)
+            if (!log) {
                 return;
+            }
             const QString ts    = QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
             const QString color = ok ? QStringLiteral("#4cb050") : QStringLiteral("#e57373");
             log->append(QStringLiteral("<span style=\"color:#555\">") + ts +
@@ -126,8 +129,9 @@ namespace rosetta {
 
         if constexpr (has_cb && std::is_same_v<F, std::string>) {
             auto *box = new QComboBox();
-            for (std::size_t i = 0; i < cb.count; ++i)
+            for (std::size_t i = 0; i < cb.count; ++i) {
                 box->addItem(QString::fromUtf8(cb.choices[i]));
+            }
             const QString current = QString::fromStdString(tgt->[:Fld:]);
             const int     idx     = box->findText(current);
             box->setCurrentIndex(idx < 0 ? 0 : idx);
@@ -212,8 +216,9 @@ namespace rosetta {
             auto *sb = new QSpinBox();
             if constexpr (has_rng)
                 sb->setRange(static_cast<int>(rng.min), static_cast<int>(rng.max));
-            else
+            else {
                 sb->setRange(INT_MIN, INT_MAX);
+            }
             sb->setValue(static_cast<int>(tgt->[:Fld:]));
             sb->setReadOnly(ro);
             editor      = sb;
@@ -228,8 +233,9 @@ namespace rosetta {
             auto *sb = new QDoubleSpinBox();
             if constexpr (has_rng)
                 sb->setRange(rng.min, rng.max);
-            else
+            else {
                 sb->setRange(-1e12, 1e12);
+            }
             sb->setDecimals(6);
             sb->setValue(static_cast<double>(tgt->[:Fld:]));
             sb->setReadOnly(ro);
@@ -279,8 +285,9 @@ namespace rosetta {
         // if constexpr (ro)
         //     label_text += QStringLiteral(" [ro]");
         auto *label = new QLabel(label_text);
-        if (dann.text[0] != '\0')
+        if (dann.text[0] != '\0') {
             label->setToolTip(QString::fromUtf8(dann.text));
+        }
 
         fields_layout->addRow(label, editor);
     }
@@ -309,20 +316,23 @@ namespace rosetta {
             inputs.push_back(le);
         }
         const bool has_btn_label = (btn.label[0] != '\0');
-        if (!has_btn_label)
+        if (!has_btn_label) {
             hbox->addStretch(1);
+        }
 
         QTextEdit    *log_ptr = log;
         const QString btn_text =
             has_btn_label ? QString::fromUtf8(btn.label) : QStringLiteral("Call");
         auto *call_btn = new QPushButton(btn_text);
         hbox->addWidget(call_btn);
-        if (has_btn_label)
+        if (has_btn_label) {
             hbox->addStretch(1);
+        }
         QObject::connect(call_btn, &QPushButton::clicked, row, [log_ptr, tgt, inputs, qname] {
             QVariantList args;
-            for (auto *le : inputs)
+            for (auto *le : inputs) {
                 args.append(QVariant(le->text()));
+            }
             QVariant result = widget_detail::invoke_method_impl<Fn>(
                 *tgt, args, std::make_index_sequence<arity>{});
             widget_detail::log_line(
@@ -334,8 +344,9 @@ namespace rosetta {
             methods_layout->addRow(row);
         } else {
             auto *label = new QLabel(qdisplay);
-            if (dann.text[0] != '\0')
+            if (dann.text[0] != '\0') {
                 label->setToolTip(QString::fromUtf8(dann.text));
+            }
             methods_layout->addRow(label, row);
         }
     }
@@ -363,20 +374,23 @@ namespace rosetta {
             inputs.push_back(le);
         }
         const bool has_btn_label = (btn.label[0] != '\0');
-        if (!has_btn_label)
+        if (!has_btn_label) {
             hbox->addStretch(1);
+        }
 
         QTextEdit    *log_ptr = log;
         const QString btn_text =
             has_btn_label ? QString::fromUtf8(btn.label) : QStringLiteral("Call");
         auto *call_btn = new QPushButton(btn_text);
         hbox->addWidget(call_btn);
-        if (has_btn_label)
+        if (has_btn_label) {
             hbox->addStretch(1);
+        }
         QObject::connect(call_btn, &QPushButton::clicked, row, [log_ptr, inputs, qname] {
             QVariantList args;
-            for (auto *le : inputs)
+            for (auto *le : inputs) {
                 args.append(QVariant(le->text()));
+            }
             QVariant result =
                 widget_detail::invoke_static_impl<Fn>(args, std::make_index_sequence<arity>{});
             widget_detail::log_line(
@@ -389,8 +403,9 @@ namespace rosetta {
         } else {
             auto *label = new QLabel(qdisplay + QStringLiteral("(") + QString::number(arity) +
                                      QStringLiteral(") [static]"));
-            if (dann.text[0] != '\0')
+            if (dann.text[0] != '\0') {
                 label->setToolTip(QString::fromUtf8(dann.text));
+            }
             methods_layout->addRow(label, row);
         }
     }

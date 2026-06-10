@@ -14,26 +14,33 @@ namespace rosetta {
 
         // Render a neutral GenType as a TypeScript type expression.
         inline std::string ts_type(const GenType &t) {
-            if (t.kind == "number")
+            if (t.kind == "number") {
                 return "number";
-            if (t.kind == "boolean")
+            }
+            if (t.kind == "boolean") {
                 return "boolean";
-            if (t.kind == "string")
+            }
+            if (t.kind == "string") {
                 return "string";
-            if (t.kind == "void")
+            }
+            if (t.kind == "void") {
                 return "void";
-            if (t.kind == "object" || t.kind == "enum")
+            }
+            if (t.kind == "object" || t.kind == "enum") {
                 return t.object.empty() ? "any" : t.object;
-            if (t.kind == "vector")
+            }
+            if (t.kind == "vector") {
                 return (t.element.empty() ? std::string("any") : ts_type(t.element.front())) + "[]";
+            }
             return "any"; // unknown (e.g. std::function, unsupported types)
         }
 
         inline std::string ts_params(const std::vector<GenParam> &ps) {
             std::string s;
             for (std::size_t i = 0; i < ps.size(); ++i) {
-                if (i)
+                if (i) {
                     s += ", ";
+                }
                 s += ps[i].name + ": " + ts_type(ps[i].type);
             }
             return s;
@@ -46,27 +53,31 @@ namespace rosetta {
 
                 for (const auto &e : c.enums) {
                     out += "    export enum " + e.name + " {\n";
-                    for (const auto &v : e.values)
+                    for (const auto &v : e.values) {
                         out += "        " + v.name + " = " + std::to_string(v.value) + ",\n";
+                    }
                     out += "    }\n";
                 }
 
                 for (const auto &k : c.classes) {
                     out += "    export class " + k.name + " {\n";
 
-                    for (const auto &ct : k.ctors)
+                    for (const auto &ct : k.ctors) {
                         out += "        constructor(" + ts_params(ct) + ");\n";
+                    }
 
                     for (const auto &f : k.fields) {
-                        if (!f.doc.empty())
+                        if (!f.doc.empty()) {
                             out += "        /** " + f.doc + " */\n";
+                        }
                         out += "        " + std::string(f.is_readonly ? "readonly " : "") + f.name +
                                ": " + ts_type(f.type) + ";\n";
                     }
 
                     for (const auto &m : k.methods) {
-                        if (!m.doc.empty())
+                        if (!m.doc.empty()) {
                             out += "        /** " + m.doc + " */\n";
+                        }
                         out += "        " + std::string(m.is_static ? "static " : "") + m.name + "(" +
                                ts_params(m.params) + "): " + ts_type(m.ret) + ";\n";
                     }
@@ -75,8 +86,9 @@ namespace rosetta {
                 }
 
                 for (const auto &f : c.functions) {
-                    if (!f.doc.empty())
+                    if (!f.doc.empty()) {
                         out += "    /** " + f.doc + " */\n";
+                    }
                     out += "    export function " + f.name + "(" + ts_params(f.params) +
                            "): " + ts_type(f.ret) + ";\n";
                 }

@@ -77,8 +77,9 @@ namespace rosetta {
         std::string signature() const {
             std::string s = (is_static ? "static " : "") + name + "(";
             for (size_t i = 0; i < param_type_names.size(); ++i) {
-                if (i)
+                if (i) {
                     s += ", ";
+                }
                 s += param_type_names[i];
             }
             s += ") -> " + return_type;
@@ -95,11 +96,13 @@ namespace rosetta {
         // Resolve overload by matching arg type_indexes against each candidate.
         const MethodMeta *resolve(std::string_view mname, std::span<const Any> args) const {
             auto it = methods.find(std::string(mname));
-            if (it == methods.end())
+            if (it == methods.end()) {
                 return nullptr;
+            }
             for (const auto &m : it->second) {
-                if (m.param_types.size() != args.size())
+                if (m.param_types.size() != args.size()) {
                     continue;
+                }
                 bool ok = true;
                 for (size_t i = 0; i < args.size(); ++i) {
                     if (std::type_index(args[i].type()) != m.param_types[i]) {
@@ -107,8 +110,9 @@ namespace rosetta {
                         break;
                     }
                 }
-                if (ok)
+                if (ok) {
                     return &m;
+                }
             }
             return nullptr;
         }
@@ -121,8 +125,9 @@ namespace rosetta {
             msg += mname;
             msg += "' matches the given argument types: (";
             for (size_t i = 0; i < args.size(); ++i) {
-                if (i)
+                if (i) {
                     msg += ", ";
+                }
                 msg += args[i].type().name();
             }
             msg += ")";
@@ -402,29 +407,31 @@ void dump(const rosetta::ClassMeta *cls) {
     std::println("=== {} ===", cls->name);
     if (!cls->bases.empty()) {
         std::print("bases:");
-        for (auto const &b : cls->bases) std::print(" {}", b);
+        for (auto const &b : cls->bases) { std::print(" {}", b); }
         std::println("");
     }
     std::println("fields:");
     for (auto const &[_, f] : cls->fields) {
         std::print("  {} : {}", f.name, f.type_name);
-        if (f.is_readonly) std::print(" [readonly]");
-        if (f.range)
+        if (f.is_readonly) { std::print(" [readonly]"); }
+        if (f.range) {
             std::print(" [range: {}..{}]", f.range->first, f.range->second);
+        }
         std::println("");
-        if (!f.doc.empty()) std::println("      doc: {}", f.doc);
+        if (!f.doc.empty()) { std::println("      doc: {}", f.doc); }
     }
     std::println("methods:");
     for (auto const &[name, overloads] : cls->methods) {
         if (overloads.size() == 1) {
             std::println("  {}", overloads[0].signature());
-            if (!overloads[0].doc.empty())
+            if (!overloads[0].doc.empty()) {
                 std::println("      doc: {}", overloads[0].doc);
+            }
         } else {
             std::println("  {} ({} overloads):", name, overloads.size());
             for (auto const &m : overloads) {
                 std::println("    {}", m.signature());
-                if (!m.doc.empty()) std::println("        doc: {}", m.doc);
+                if (!m.doc.empty()) { std::println("        doc: {}", m.doc); }
             }
         }
     }

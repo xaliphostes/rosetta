@@ -16,10 +16,12 @@ namespace rosetta {
 
         // Render a neutral GenType as a readable type name for docs.
         inline std::string md_type(const GenType &t) {
-            if (t.kind == "object" || t.kind == "enum")
+            if (t.kind == "object" || t.kind == "enum") {
                 return t.object.empty() ? "any" : t.object;
-            if (t.kind == "vector")
+            }
+            if (t.kind == "vector") {
                 return (t.element.empty() ? std::string("any") : md_type(t.element.front())) + "[]";
+            }
             return t.kind; // number / boolean / string / void / unknown
         }
 
@@ -31,41 +33,50 @@ namespace rosetta {
                 // Table of contents — one bullet per class then per enum,
                 // linking to its section. GitHub anchors lowercase the heading.
                 out += "## Contents\n\n";
-                for (const auto &k : c.classes)
+                for (const auto &k : c.classes) {
                     out += "- [" + k.name + "](#" + k.name + ")\n";
-                for (const auto &e : c.enums)
+                }
+                for (const auto &e : c.enums) {
                     out += "- [" + e.name + "](#" + e.name + ") _(enum)_\n";
-                if (!c.functions.empty())
+                }
+                if (!c.functions.empty()) {
                     out += "- [Functions](#Functions)\n";
+                }
                 out += "\n";
 
                 // Each class's, then each enum's, per-entity markdown fragment
                 // (a `# <Name>` heading plus its body), separated by rules.
                 bool first = true;
                 auto section = [&](const std::string &doc) {
-                    if (!first)
+                    if (!first) {
                         out += "\n---\n\n";
+                    }
                     first = false;
                     out += doc;
-                    if (!out.empty() && out.back() != '\n')
+                    if (!out.empty() && out.back() != '\n') {
                         out += "\n";
+                    }
                 };
-                for (const auto &k : c.classes)
+                for (const auto &k : c.classes) {
                     section(k.doc);
-                for (const auto &e : c.enums)
+                }
+                for (const auto &e : c.enums) {
                     section(e.doc);
+                }
 
                 // Free functions, gathered under one section.
                 if (!c.functions.empty()) {
                     std::string fdoc = "# Functions\n\n";
                     for (const auto &f : c.functions) {
                         fdoc += "### `" + f.name + "(";
-                        for (std::size_t i = 0; i < f.params.size(); ++i)
+                        for (std::size_t i = 0; i < f.params.size(); ++i) {
                             fdoc += (i ? ", " : "") + f.params[i].name + ": " +
                                     md_type(f.params[i].type);
+                        }
                         fdoc += ") → " + md_type(f.ret) + "`\n\n";
-                        if (!f.doc.empty())
+                        if (!f.doc.empty()) {
                             fdoc += f.doc + "\n\n";
+                        }
                     }
                     section(fdoc);
                 }

@@ -33,8 +33,9 @@ namespace rosetta {
     } // namespace docgen_detail
 
     inline void MarkdownDoc::ensure_fields_header() {
-        if (fields_header_emitted)
+        if (fields_header_emitted) {
             return;
+        }
         out << "## Fields\n\n"
             << "| Name | Type | Description |\n"
             << "|------|------|-------------|\n";
@@ -42,8 +43,9 @@ namespace rosetta {
     }
 
     inline void MarkdownDoc::ensure_methods_header() {
-        if (methods_header_emitted)
+        if (methods_header_emitted) {
             return;
+        }
         out << (fields_header_emitted ? "\n" : "") << "## Methods\n\n";
         methods_header_emitted = true;
     }
@@ -64,26 +66,30 @@ namespace rosetta {
         if constexpr (has_rng) {
             std::ostringstream tag;
             tag << "(range: " << rng.min << ".." << rng.max << ")";
-            if (!desc.empty())
+            if (!desc.empty()) {
                 desc += " ";
+            }
             desc += tag.str();
         }
         if constexpr (has_cb) {
             std::ostringstream tag;
             tag << "(choices: ";
             for (std::size_t i = 0; i < cb.count; ++i) {
-                if (i)
+                if (i) {
                     tag << ", ";
+                }
                 tag << cb.choices[i];
             }
             tag << ")";
-            if (!desc.empty())
+            if (!desc.empty()) {
                 desc += " ";
+            }
             desc += tag.str();
         }
         if constexpr (ro) {
-            if (!desc.empty())
+            if (!desc.empty()) {
                 desc += " ";
+            }
             desc += "_(readonly)_";
         }
 
@@ -111,8 +117,9 @@ namespace rosetta {
         ensure_methods_header();
 
         out << "### `";
-        if (is_static)
+        if (is_static) {
             out << "static ";
+        }
         out << name << "(";
 
         bool first = true;
@@ -120,11 +127,13 @@ namespace rosetta {
             constexpr const char *pname = std::define_static_string(std::meta::identifier_of(p));
             constexpr const char *ptype =
                 std::define_static_string(std::meta::display_string_of(std::meta::type_of(p)));
-            if (!first)
+            if (!first) {
                 out << ", ";
+            }
             first = false;
-            if (pname[0] != '\0')
+            if (pname[0] != '\0') {
                 out << pname << ": ";
+            }
             out << docgen_detail::prettify(ptype);
         }
         out << ") → " << docgen_detail::prettify(ret_str) << "`\n\n";

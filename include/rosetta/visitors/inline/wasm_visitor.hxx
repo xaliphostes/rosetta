@@ -67,8 +67,9 @@ namespace rosetta {
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
         // reflection; register one so `new Module.T()` keeps working.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<T>)
+        if (!v.saw_default_ctor && std::is_default_constructible_v<T>) {
             cls.template constructor<>();
+        }
     }
 
     template <typename T> void bind_wasm_enum(const char *enum_name) {

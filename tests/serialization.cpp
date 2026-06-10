@@ -34,10 +34,11 @@ namespace rosetta::ser {
             case '\t': out += "\\t";  break;
             case '\r': out += "\\r";  break;
             default:
-                if (static_cast<unsigned char>(c) < 0x20)
+                if (static_cast<unsigned char>(c) < 0x20) {
                     out += std::format("\\u{:04x}", static_cast<unsigned>(c));
-                else
+                } else {
                     out += c;
+                }
             }
         }
         out += '"';
@@ -56,8 +57,9 @@ namespace rosetta::ser {
     constexpr std::string_view enum_name(E v) {
         template for (constexpr auto e :
                       std::define_static_array(std::meta::enumerators_of(^^E))) {
-            if (v == [:e:])
+            if (v == [:e:]) {
                 return std::meta::identifier_of(e);
+            }
         }
         return {};
     }
@@ -70,7 +72,7 @@ namespace rosetta::ser {
         bool first = true;
         template for (constexpr auto m : std::define_static_array(
                           std::meta::nonstatic_data_members_of(^^C, ctx))) {
-            if (!first) out += ',';
+            if (!first) { out += ','; }
             first = false;
             emit_string(std::meta::identifier_of(m), out);
             out += ':';
@@ -90,10 +92,11 @@ namespace rosetta::ser {
         }
         else if constexpr (std::is_enum_v<U>) {
             auto name = enum_name(v);
-            if (!name.empty())
+            if (!name.empty()) {
                 emit_string(name, out);
-            else
+            } else {
                 out += std::format("{}", static_cast<std::underlying_type_t<U>>(v));
+            }
         }
         else if constexpr (string_like<U>) {
             emit_string(std::string_view{v}, out);
@@ -102,7 +105,7 @@ namespace rosetta::ser {
             out += '[';
             bool first = true;
             for (auto const &elem : v) {
-                if (!first) out += ',';
+                if (!first) { out += ','; }
                 first = false;
                 serialize_value(elem, out);
             }

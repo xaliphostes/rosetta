@@ -42,8 +42,9 @@ namespace rosetta {
                 return QStringLiteral("int");
             else if constexpr (std::is_floating_point_v<F>)
                 return QStringLiteral("double");
-            else
+            else {
                 return QStringLiteral("other");
+            }
         }
 
         template <std::meta::info Fn, typename T, std::size_t... Is>
@@ -128,8 +129,9 @@ namespace rosetta {
         if constexpr (ann::has<combobox>(Anns...)) {
             constexpr auto cb = ann::get_or<combobox>(combobox{}, Anns...);
             QVariantList   choices;
-            for (std::size_t i = 0; i < cb.count; ++i)
+            for (std::size_t i = 0; i < cb.count; ++i) {
                 choices.append(QString::fromUtf8(cb.choices[i]));
+            }
             info[QStringLiteral("choices")] = choices;
         } else {
             info[QStringLiteral("choices")] = QVariantList{};
@@ -157,8 +159,9 @@ namespace rosetta {
                         break;
                     }
                 }
-                if (!ok)
+                if (!ok) {
                     return qname + QStringLiteral(" not in allowed choices");
+                }
                 tgt->[:Fld:] = qml_detail::from_variant<F>(v);
                 return {};
             });
