@@ -2,9 +2,9 @@
   <img src="media/logo-rosetta.png" alt="rosetta" width="400">
 </p>
 
-# Rosetta (v2)
+# Rosetta
 
-A C++26 reflection playground that generates Python, Node, REST, and WebAssembly bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a requirement: add them where you want docstrings, validation, or UI hints; leave the rest of the class alone. Reflection does the work either way.
 
