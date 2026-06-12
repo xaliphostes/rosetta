@@ -25,20 +25,16 @@ namespace moc = rosetta::moc;
 
 class Person {
 public:
-    [[= moc::signal]]
-    moc::Signal<std::string const &> nameChanged;
+    [[= moc::signal]] moc::Signal<std::string const &> nameChanged;
 
-    [[= moc::signal]]
-    moc::Signal<int> ageChanged;
+    [[= moc::signal]] moc::Signal<int> ageChanged;
 
-    [[= moc::property{"name", "nameChanged"}]]
-    std::string m_name;
+    [[= moc::property{"name", "nameChanged"}]] std::string m_name;
 
-    [[= moc::property{"age", "ageChanged"}]]
-    int m_age = 0;
+    [[= moc::property{"age", "ageChanged"}]] int m_age = 0;
 
     [[= moc::property{"id"}]] // no NOTIFY
-    int m_id = 0;
+        int m_id = 0;
 };
 
 // ----------------------------------------------------------
@@ -48,11 +44,9 @@ struct Logger {
     int         name_calls = 0;
     std::string last_name;
 
-    [[= moc::slot]]
-    void onAge(int v) { total += v; }
+    [[= moc::slot]] void onAge(int v) { total += v; }
 
-    [[= moc::slot]]
-    void onName(std::string const &s) {
+    [[= moc::slot]] void onName(std::string const &s) {
         ++name_calls;
         last_name = s;
     }
