@@ -29,19 +29,27 @@ add_link_options(
     -lc++abi
 )
 
-add_executable(hello hello.cpp)
-add_executable(reflected reflected.cpp)
-add_executable(overloads overloads.cpp)
-add_executable(inheritance inheritance.cpp)
-add_executable(annotations annotations.cpp)
-target_compile_options(annotations PRIVATE -fannotation-attributes)
+# GoogleTest is built from source (FetchContent) AFTER the options above so it
+# shares this toolchain's libc++ / -fexperimental-library ABI. A prebuilt gtest
+# (e.g. from Homebrew) is compiled against a different libc++ and would not link.
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.15.2
+)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+include(GoogleTest)
 
 add_executable(docgen docgen.cpp)
 target_include_directories(docgen PRIVATE ${CMAKE_SOURCE_DIR}/../include)
 target_compile_options(docgen PRIVATE -fannotation-attributes)
 
-add_executable(reflection serialization.cpp)
-
 add_executable(moc moc.cpp)
 target_include_directories(moc PRIVATE ${CMAKE_SOURCE_DIR}/../include)
 target_compile_options(moc PRIVATE -fannotation-attributes)
+target_link_libraries(moc PRIVATE GTest::gtest_main)
+gtest_discover_tests(moc)

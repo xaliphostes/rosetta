@@ -1,86 +1,214 @@
 // SPDX-FileCopyrightText: Copyright (c) fmaerten@gmail.com
 // SPDX-License-Identifier: UNLICENSED
 
-// Prototype v8: Qt-moc-style signals / slots / properties built on top of
-// C++26 reflection (P2996) + annotations (P3394). No external moc tool.
+// Google Test suite for the moc-less signals / slots / properties built on top
+// of C++26 reflection (P2996) + annotations (P3394).
 //
-// What this exercises:
+// Covers:
 //   - [[= signal]]-tagged Signal<...> data members
 //   - [[= slot]]-tagged methods
 //   - [[= property{"name", "notifySig"}]]-tagged data members
-//   - rosetta::moc::connect<"sig","slot">(sender, receiver) — checked at
-//     compile time (typo'd name -> static_assert)
-//   - rosetta::moc::get<"name">(obj) / set<"name">(obj, v) — set is
-//     equality-gated and fires the NOTIFY signal on a real change
+//   - connect<"sig","slot">(sender, receiver) and equality-gated set<> + NOTIFY
+//   - Signal connect / disconnect / disconnect_all, re-entrancy
+//   - ScopedConnection RAII (scope-exit, reset, release, move)
 //
 // Requires: -freflection -freflection-latest -fannotation-attributes
 
-#include <print>
+#include <gtest/gtest.h>
 #include <rosetta/mini_moc.h>
 #include <string>
+#include <utility>
+
+namespace moc = rosetta::moc;
 
 // ----------------------------------------------------------
 
 class Person {
 public:
-    [[= rosetta::moc::signal]]
-    rosetta::moc::Signal<std::string const &> nameChanged;
+    [[= moc::signal]]
+    moc::Signal<std::string const &> nameChanged;
 
-    [[= rosetta::moc::signal]]
-    rosetta::moc::Signal<int> ageChanged;
+    [[= moc::signal]]
+    moc::Signal<int> ageChanged;
 
-    [[= rosetta::moc::property{"name", "nameChanged"}]]
+    [[= moc::property{"name", "nameChanged"}]]
     std::string m_name;
 
-    [[= rosetta::moc::property{"age", "ageChanged"}]]
+    [[= moc::property{"age", "ageChanged"}]]
     int m_age = 0;
 
-    [[= rosetta::moc::property{"id"}]] // no NOTIFY
+    [[= moc::property{"id"}]] // no NOTIFY
     int m_id = 0;
 };
 
 // ----------------------------------------------------------
 
 struct Logger {
-    int total = 0;
+    int         total      = 0;
+    int         name_calls = 0;
+    std::string last_name;
 
-    [[= rosetta::moc::slot]]
-    void onAge(int v) {
-        total += v;
-        std::println("  [slot] onAge({}) -> total={}", v, total);
-    }
+    [[= moc::slot]]
+    void onAge(int v) { total += v; }
 
-    [[= rosetta::moc::slot]]
+    [[= moc::slot]]
     void onName(std::string const &s) {
-        std::println("  [slot] onName({})", s);
+        ++name_calls;
+        last_name = s;
     }
 };
 
 // ----------------------------------------------------------
+// Properties
+// ----------------------------------------------------------
 
-int main() {
+TEST(Property, GetReflectsSet) {
+    Person p;
+    moc::set<"name">(p, std::string{"Ada"});
+    moc::set<"age">(p, 30);
+    EXPECT_EQ(moc::get<"name">(p), "Ada");
+    EXPECT_EQ(moc::get<"age">(p), 30);
+}
+
+TEST(Property, NotifyFiresOnChange) {
     Person p;
     Logger l;
+    moc::connect<"ageChanged", "onAge">(p, l);
+    moc::set<"age">(p, 30);
+    EXPECT_EQ(l.total, 30);
+}
 
-    rosetta::moc::connect<"ageChanged", "onAge">(p, l);
-    rosetta::moc::connect<"nameChanged", "onName">(p, l);
+TEST(Property, EqualityGatedSetIsSilent) {
+    Person p;
+    Logger l;
+    moc::connect<"ageChanged", "onAge">(p, l);
+    moc::set<"age">(p, 30);
+    moc::set<"age">(p, 30); // same value -> no NOTIFY
+    EXPECT_EQ(l.total, 30); // fired exactly once
+}
 
-    std::println("-- set name --");
-    rosetta::moc::set<"name">(p, std::string{"Ada"});
+TEST(Property, NameNotifyDeliversValue) {
+    Person p;
+    Logger l;
+    moc::connect<"nameChanged", "onName">(p, l);
+    moc::set<"name">(p, std::string{"Ada"});
+    EXPECT_EQ(l.name_calls, 1);
+    EXPECT_EQ(l.last_name, "Ada");
+}
 
-    std::println("-- set age 30 (fires) --");
-    rosetta::moc::set<"age">(p, 30);
+TEST(Property, NoNotifyDeclaredStillSets) {
+    Person p;
+    moc::set<"id">(p, 42); // no NOTIFY signal declared
+    EXPECT_EQ(moc::get<"id">(p), 42);
+}
 
-    std::println("-- set age 30 again (equality-gated, silent) --");
-    rosetta::moc::set<"age">(p, 30);
+// ----------------------------------------------------------
+// Signal core
+// ----------------------------------------------------------
 
-    std::println("-- set id 42 (no NOTIFY declared) --");
-    rosetta::moc::set<"id">(p, 42);
+TEST(Signal, EmitCallsEverySlot) {
+    moc::Signal<int> sig;
+    int              sum = 0;
+    sig.connect([&](int v) { sum += v; });
+    sig.connect([&](int v) { sum += v * 10; });
+    sig(3);
+    EXPECT_EQ(sum, 33);
+}
 
-    std::println("\nfinal: name={}, age={}, id={}, logger.total={}",
-                 rosetta::moc::get<"name">(p),
-                 rosetta::moc::get<"age">(p),
-                 rosetta::moc::get<"id">(p),
-                 l.total);
-    return 0;
+TEST(Signal, DisconnectById) {
+    moc::Signal<int> sig;
+    int              a = 0, b = 0;
+    auto             id = sig.connect([&](int v) { a += v; });
+    sig.connect([&](int v) { b += v; });
+
+    sig(1);
+    EXPECT_EQ(a, 1);
+    EXPECT_EQ(b, 1);
+
+    EXPECT_TRUE(sig.disconnect(id));
+    EXPECT_FALSE(sig.disconnect(id)); // already gone
+
+    sig(1);
+    EXPECT_EQ(a, 1); // disconnected slot did not fire
+    EXPECT_EQ(b, 2);
+}
+
+TEST(Signal, DisconnectAll) {
+    moc::Signal<int> sig;
+    int              n = 0;
+    sig.connect([&](int) { ++n; });
+    sig.connect([&](int) { ++n; });
+    sig.disconnect_all();
+    sig(1);
+    EXPECT_EQ(n, 0);
+}
+
+TEST(Signal, ReentrantSelfDisconnect) {
+    moc::Signal<int>     sig;
+    int                  hits = 0;
+    moc::Signal<int>::Id self{};
+    self = sig.connect([&](int) {
+        ++hits;
+        sig.disconnect(self); // disconnect itself mid-emission
+    });
+    sig.connect([&](int) { ++hits; });
+
+    sig(1); // both fire
+    sig(2); // only the second remains
+    EXPECT_EQ(hits, 3);
+}
+
+// ----------------------------------------------------------
+// ScopedConnection
+// ----------------------------------------------------------
+
+TEST(ScopedConnection, AutoDisconnectAtScopeExit) {
+    moc::Signal<int> sig;
+    int              hits = 0;
+    {
+        auto sc = sig.scoped_connect([&](int) { ++hits; });
+        sig(1);
+        sig(1);
+    } // sc destroyed -> auto-disconnect
+    sig(1);
+    EXPECT_EQ(hits, 2);
+}
+
+TEST(ScopedConnection, ResetDisconnectsEarly) {
+    moc::Signal<int> sig;
+    int              hits = 0;
+    auto             sc   = sig.scoped_connect([&](int) { ++hits; });
+    sig(1);
+    EXPECT_TRUE(sc.connected());
+    sc.reset();
+    EXPECT_FALSE(sc.connected());
+    sig(1);
+    EXPECT_EQ(hits, 1);
+}
+
+TEST(ScopedConnection, ReleaseKeepsConnectionAlive) {
+    moc::Signal<int> sig;
+    int              hits = 0;
+    {
+        auto sc = sig.scoped_connect([&](int) { ++hits; });
+        sc.release(); // detach ownership; connection survives the wrapper
+        EXPECT_FALSE(sc.connected());
+    }
+    sig(1);
+    EXPECT_EQ(hits, 1);
+}
+
+TEST(ScopedConnection, MoveTransfersOwnership) {
+    moc::Signal<int> sig;
+    int              hits = 0;
+    auto             sc   = sig.scoped_connect([&](int) { ++hits; });
+    {
+        auto moved = std::move(sc);
+        EXPECT_TRUE(moved.connected());
+        EXPECT_FALSE(sc.connected());
+        sig(1);
+        EXPECT_EQ(hits, 1);
+    } // moved destroyed -> disconnect
+    sig(1);
+    EXPECT_EQ(hits, 1); // unchanged: connection gone
 }

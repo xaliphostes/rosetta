@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <experimental/meta>
 #include <functional>
+#include <list>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -110,6 +111,48 @@ namespace rosetta::moc {
     };
 
     /**
+     * ScopedConnection: an RAII handle that ties a single signal/slot connection to a scope (or to
+     * an owning object). When the ScopedConnection is destroyed it disconnects the connection it
+     * owns, so callers no longer have to remember to call Signal::disconnect(id) by hand. This is the
+     * standard fix for the "dangling slot" hazard: a slot that captures a receiver outlives that
+     * receiver and the next emission calls into freed memory. Storing a ScopedConnection as a member
+     * of the receiver makes the connection die with the receiver automatically.
+     *
+     * The disconnect action is type-erased into a std::function<void()>, so one (non-templated)
+     * ScopedConnection type can own a connection to any Signal<Args...>. It is move-only: a
+     * connection has exactly one owner, and copying would let two objects both try to disconnect the
+     * same Id. reset() disconnects early; release() detaches ownership without disconnecting (the
+     * connection then lives on, like std::unique_ptr::release).
+     *
+     * Lifetime caveat: a ScopedConnection captures a back-reference to its Signal, so the Signal must
+     * outlive any ScopedConnection that targets it; otherwise ~ScopedConnection would disconnect on a
+     * dead object. For this prototype that ordering is documented rather than enforced.
+     */
+    class ScopedConnection {
+        std::function<void()> disconnect_;
+
+    public:
+        ScopedConnection() = default;
+        explicit ScopedConnection(std::function<void()> d);
+
+        ScopedConnection(ScopedConnection &&o) noexcept;
+        ScopedConnection &operator=(ScopedConnection &&o) noexcept;
+        ScopedConnection(const ScopedConnection &)            = delete;
+        ScopedConnection &operator=(const ScopedConnection &) = delete;
+
+        ~ScopedConnection();
+
+        /// Disconnect now, if still owning a live connection.
+        void reset();
+
+        /// Detach ownership without disconnecting; the connection survives.
+        void release();
+
+        /// True while this handle still owns a connection.
+        bool connected() const;
+    };
+
+    /**
      * Signal: a simple implementation of a signal class that can connect to multiple subscribers.
      * It uses a vector of std::function to store the connected slots, and the connect method allows
      * adding new subscribers. The operator() is defined to call all connected slots with the
@@ -117,21 +160,52 @@ namespace rosetta::moc {
      * mechanism, allowing us to define signals that can be emitted and have multiple slots respond
      * to them. The template parameters allow us to define signals with any number of arguments, and
      * the use of std::function provides flexibility in the types of callables that can be connected
-     * as slots. Note that this is a very basic implementation and does not include features like
-     * disconnecting slots, handling return values, or managing object lifetimes, but it serves the
-     * purpose of demonstrating the core concept of signals and slots in the context of this
-     * mini_moc implementation.
+     * as slots.
+     *
+     * Disconnection: connect() returns a stable Id (a monotonically increasing handle) that
+     * identifies the connection independently of its position in the underlying vector. disconnect()
+     * removes the connection with that Id, and disconnect_all() removes every connection. Stable Ids
+     * are necessary because vector indices shift whenever an earlier connection is erased, and
+     * std::function itself is not equality-comparable, so there would otherwise be nothing to
+     * disconnect by. Emission is re-entrancy-safe: a slot may disconnect itself (or another slot)
+     * while the signal is firing without invalidating the in-progress iteration.
+     *
+     * Note that this implementation still does not handle return values from slots or manage object
+     * lifetimes, but it serves the purpose of demonstrating the core concept of signals and slots in
+     * the context of this mini_moc implementation.
      */
     template <class... Args> class Signal {
-        std::vector<std::function<void(Args...)>> subs_;
+        struct Conn {
+            std::size_t                  id;
+            std::function<void(Args...)> fn; // null == tombstoned, pending removal
+        };
+        // Node-based storage: a slot may connect or disconnect during emission, and
+        // std::list keeps every other node's iterator valid across both, so we never
+        // move or destroy the std::function we are currently calling.
+        mutable std::list<Conn> subs_;
+        mutable std::size_t     emitting_{0};
+        std::size_t             next_{1};
+
+        // Physically drop tombstoned connections. Only safe when not iterating.
+        void compact() const;
 
     public:
-        void connect(std::function<void(Args...)> f) { subs_.push_back(std::move(f)); }
-        void operator()(Args... a) const {
-            for (auto const &f : subs_) {
-                f(a...);
-            }
-        }
+        /// Opaque handle identifying a single connection. 0 is never a valid Id.
+        using Id = std::size_t;
+
+        /// Connect a slot; returns a stable Id that can be passed to disconnect().
+        Id connect(std::function<void(Args...)> f);
+
+        /// Remove the connection with the given Id. Returns true if one was removed.
+        bool disconnect(Id id);
+
+        /// Remove every connection.
+        void disconnect_all();
+
+        /// Connect a slot and hand back an RAII handle that disconnects it on destruction.
+        ScopedConnection scoped_connect(std::function<void(Args...)> f);
+
+        void operator()(Args... a) const;
     };
 
     /**
@@ -150,9 +224,12 @@ namespace rosetta::moc {
      * receiver. This means that the signal and slot members must be callable (e.g., the signal
      * member should be of type Signal<Args...> and the slot member should be a callable that can
      * accept the same arguments).
+     *
+     * Returns the Signal::Id of the freshly created connection, so the caller can later tear it down
+     * with `(sender.theSignal).disconnect(id)`.
      */
     template <fixed_string Sig, fixed_string Slot, class S, class R>
-    void connect(S &sender, R &receiver);
+    auto connect(S &sender, R &receiver);
 
     /**
      * get<"prop">(obj): read access to a property. It uses compile-time reflection to find the

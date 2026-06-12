@@ -1,6 +1,92 @@
 namespace rosetta::moc {
 
     // -------------------------------------------------------------------------
+    // Signal<Args...> members.
+    // -------------------------------------------------------------------------
+    template <class... Args> void Signal<Args...>::compact() const {
+        std::erase_if(subs_, [](Conn const &c) { return !c.fn; });
+    }
+
+    template <class... Args>
+    auto Signal<Args...>::connect(std::function<void(Args...)> f) -> Id {
+        Id id = next_++;
+        subs_.push_back({id, std::move(f)});
+        return id;
+    }
+
+    template <class... Args> bool Signal<Args...>::disconnect(Id id) {
+        for (auto &c : subs_) {
+            if (c.id == id && c.fn) {
+                c.fn = nullptr; // tombstone now; skipped from here on
+                if (emitting_ == 0) {
+                    compact(); // safe to physically erase when idle
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    template <class... Args>
+    ScopedConnection Signal<Args...>::scoped_connect(std::function<void(Args...)> f) {
+        Id id = connect(std::move(f));
+        return ScopedConnection{[this, id] { this->disconnect(id); }};
+    }
+
+    template <class... Args> void Signal<Args...>::disconnect_all() {
+        if (emitting_ != 0) {
+            for (auto &c : subs_) {
+                c.fn = nullptr;
+            }
+        } else {
+            subs_.clear();
+        }
+    }
+
+    template <class... Args> void Signal<Args...>::operator()(Args... a) const {
+        ++emitting_;
+        // list iterators survive inserts/erases of other nodes; tombstoned slots
+        // (including any disconnected mid-emission) are skipped via the null check.
+        for (auto const &c : subs_) {
+            if (c.fn) {
+                c.fn(a...);
+            }
+        }
+        if (--emitting_ == 0) {
+            compact();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // ScopedConnection members.
+    // -------------------------------------------------------------------------
+    inline ScopedConnection::ScopedConnection(std::function<void()> d) : disconnect_(std::move(d)) {}
+
+    inline ScopedConnection::ScopedConnection(ScopedConnection &&o) noexcept
+        : disconnect_(std::exchange(o.disconnect_, nullptr)) {}
+
+    inline ScopedConnection &ScopedConnection::operator=(ScopedConnection &&o) noexcept {
+        if (this != &o) {
+            reset();
+            disconnect_ = std::exchange(o.disconnect_, nullptr);
+        }
+        return *this;
+    }
+
+    inline ScopedConnection::~ScopedConnection() { reset(); }
+
+    inline void ScopedConnection::reset() {
+        if (disconnect_) {
+            disconnect_();
+            disconnect_ = nullptr;
+        }
+    }
+
+    inline void ScopedConnection::release() { disconnect_ = nullptr; }
+
+    inline bool ScopedConnection::connected() const { return static_cast<bool>(disconnect_); }
+
+    // -------------------------------------------------------------------------
     // Reflection helpers.
     // -------------------------------------------------------------------------
     namespace detail {
@@ -44,7 +130,7 @@ namespace rosetta::moc {
     // types fail at the lambda body.
     // -------------------------------------------------------------------------
     template <fixed_string Sig, fixed_string Slot, class S, class R>
-    inline void connect(S &sender, R &receiver) {
+    inline auto connect(S &sender, R &receiver) {
         constexpr auto sig_r  = detail::find_tagged<signal_tag, S>(Sig.view());
         constexpr auto slot_r = detail::find_tagged<slot_tag, R>(Slot.view());
         static_assert(sig_r != std::meta::info{},
@@ -52,7 +138,7 @@ namespace rosetta::moc {
         static_assert(slot_r != std::meta::info{},
                       "no [[=slot]]-tagged member with that name on receiver");
 
-        (sender.[:sig_r:]).connect([&receiver](auto &&...args) {
+        return (sender.[:sig_r:]).connect([&receiver](auto &&...args) {
             (receiver.[:slot_r:])(std::forward<decltype(args)>(args)...);
         });
     }
