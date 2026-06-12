@@ -50,6 +50,32 @@ struct Widget {
 
 That is the whole surface: run `rosetta_gen manifest.json gen`, build, and every backend sees the annotations. The `annotations` path is resolved relative to the manifest.
 
+## Or: attach the JSON directly to the type
+
+The manifest's `annotations` field is just sugar for specializing the
+`rosetta::ann_json_source<T>` customization point. You can do that yourself, with
+the JSON inline as a string literal — attached to the type from **anywhere**
+(another file, a TU, after the class), so the header still stays clean:
+
+```cpp
+#include "widget.h"            // the untouched class
+#include <rosetta/annotate.h>  // for the customization point
+
+template <>
+constexpr std::string_view rosetta::ann_json_source<Widget> = R"({
+  "title": { "doc": "The widget title" },
+  "count": { "doc": "Visible items", "range": [0, 100] },
+  "id":    { "readonly": true },
+  "mode":  { "combobox": ["fast", "slow"] }
+})";
+```
+
+Same schema, same merge with inline annotations, same effect on every backend.
+The only rule is that this specialization must be visible (i.e. `#include`d)
+before `rosetta::walk<Widget>()` runs in a translation unit — which is exactly
+why the manifest route bakes it into `bindings.h`. This is also how the unit
+test wires it up (see `tests/annotate_json.cpp`).
+
 ## How it works
 
 `rosetta_gen` emits, into `bindings.h` (right after the class header is included, so `T` is complete):
