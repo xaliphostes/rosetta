@@ -99,8 +99,9 @@ namespace rosetta {
                       std::define_static_array(std::meta::nonstatic_data_members_of(^^T, ctx))) {
             constexpr auto name = std::define_static_string(std::meta::identifier_of(fld));
             // Inline P3394 annotations merged with any out-of-line ones from a
-            // #embed'd JSON side-car (see <rosetta/annotate.h>). Entries are
-            // already constant reflections, so they splice directly.
+            // JSON side-car baked into ann_json_source<T> (see
+            // <rosetta/annotate.h>). Entries are already constant reflections,
+            // so they splice directly.
             constexpr auto anns = std::define_static_array(detail::merged_annotations<T>(fld));
 
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {

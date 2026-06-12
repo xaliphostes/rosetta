@@ -219,7 +219,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 - [Generate](docs/GENERATE.md) — full reference for `rosetta::generate`, the manifest schema, and the tool layering
 - [Free functions](docs/FREE_FUNCTIONS.md) — sketch for reflecting namespace-scope functions
 - [Other annotations](docs/OTHER_ANNOTATIONS.md) — proposed annotation kinds beyond the current three
-- [Out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) — keep headers clean: `#embed` a JSON side-car of annotations, merged at compile time
+- [Out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) — keep headers clean: a JSON side-car of annotations baked in at generation time, merged at compile time
 - [Todo list](docs/TODO.md) — what the walker and visitor surface still miss (enums, bases, ctors, statics, parameter metadata, ...)
 
 ## License
