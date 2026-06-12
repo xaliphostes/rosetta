@@ -1,0 +1,6 @@
+{
+  "title": { "doc": "The widget title" },
+  "count": { "doc": "Visible items", "range": [0, 100] },
+  "id":    { "readonly": true },
+  "mode":  { "combobox": ["fast", "slow"] }
+}

@@ -53,3 +53,11 @@ target_include_directories(moc PRIVATE ${CMAKE_SOURCE_DIR}/../include)
 target_compile_options(moc PRIVATE -fannotation-attributes)
 target_link_libraries(moc PRIVATE GTest::gtest_main)
 gtest_discover_tests(moc)
+
+# Out-of-line annotations: metadata supplied via the ann_json_source<T>
+# customization point (the same point rosetta_gen bakes a JSON side-car into).
+add_executable(annotate_json annotate_json.cpp)
+target_include_directories(annotate_json PRIVATE ${CMAKE_SOURCE_DIR}/../include)
+target_compile_options(annotate_json PRIVATE -fannotation-attributes)
+target_link_libraries(annotate_json PRIVATE GTest::gtest_main)
+gtest_discover_tests(annotate_json)

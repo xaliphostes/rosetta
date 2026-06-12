@@ -76,6 +76,7 @@ Per-class entry:
 |---|---|
 | `header` | filename written into `#include "..."` (required) |
 | `name` | C++ type name, must be reachable after `#include "<header>"` (optional — defaults to the header's basename) |
+| `annotations` | path (relative to `manifest.json`) to an out-of-line annotation JSON side-car; baked into `bindings.h` so the header stays clean (optional — see [Out-of-line annotations](OUT_OF_LINE_ANNOTATIONS.md)) |
 
 Each class's binding library / module name is derived as
 `reflected_<lowercase name>` and baked into `binding_info<T>::lib`.

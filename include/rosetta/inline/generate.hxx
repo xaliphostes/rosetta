@@ -66,6 +66,32 @@ endif()
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            // Out-of-line annotations: backends whose emitted .cpp re-walks the
+            // type at its own compile time (python / node) need the
+            // ann_json_source<T> specialization in their TU, or they would see
+            // the empty primary and lose the side-car. Re-emit it here, after
+            // the class headers (so T is complete). Backends that render purely
+            // from GenClass ignore the unused specialization.
+            std::string anns;
+            for (const auto &k : c.classes) {
+                if (k.annotations_json.empty()) {
+                    continue;
+                }
+                std::string bytes;
+                char        buf[16];
+                for (unsigned char ch : k.annotations_json) {
+                    std::snprintf(buf, sizeof buf, "char(0x%02x), ", ch);
+                    bytes += buf;
+                }
+                anns += "template <> inline constexpr auto rosetta::detail::ann_storage<" + k.name +
+                        "> =\n    std::to_array<char>({" + bytes + "'\\0'});\n" +
+                        "template <> inline constexpr std::string_view rosetta::ann_json_source<" +
+                        k.name + "> =\n    std::string_view{rosetta::detail::ann_storage<" + k.name +
+                        ">.data(), rosetta::detail::ann_storage<" + k.name + ">.size() - 1};\n";
+            }
+            if (!anns.empty()) {
+                s += "#include <rosetta/annotate.h>\n" + anns;
+            }
             return s;
         }
 
@@ -263,6 +289,10 @@ endif()
             gc.name   = class_name<T>();
             gc.header = binding_info<T>::header;
             gc.doc    = generate_markdown<T>();
+            // Carry the out-of-line annotation source so re-walking backends
+            // (python / node) can re-emit it into their own TUs — see
+            // includes_of(). Empty when the class has no side-car.
+            gc.annotations_json = std::string(rosetta::ann_json_source<T>);
             IRVisitor v{gc};
             walk<T>(v);
             return gc;

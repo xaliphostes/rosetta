@@ -141,6 +141,7 @@ namespace rosetta {
         std::string name;   // reflected C++ identifier
         std::string header; // binding_info<T>::header — basename for #include
         std::string doc;    // generate_markdown<T>() — README body fragment
+        std::string annotations_json; // raw out-of-line annotation side-car (ann_json_source<T>), if any
 
         std::vector<GenField>              fields;  // public data members
         std::vector<GenMethod>             methods; // instance + static methods

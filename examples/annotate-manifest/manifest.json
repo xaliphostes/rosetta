@@ -1,0 +1,14 @@
+{
+  "user_include": ".",
+  "rosetta_include": "../../include",
+  "generator_name": "widget_gen",
+  "module_name": "widget",
+  "targets": [ "markdown", "python", "node" ],
+  "classes": [
+    {
+      "name": "Widget",
+      "header": "widget.h",
+      "annotations": "widget.ann.json"
+    }
+  ]
+}

@@ -31,6 +31,7 @@
 #pragma once
 
 #include <experimental/meta>
+#include <rosetta/annotate.h>
 #include <rosetta/annotations.h>
 #include <type_traits>
 #include <utility>
@@ -97,10 +98,13 @@ namespace rosetta {
         template for (constexpr auto fld :
                       std::define_static_array(std::meta::nonstatic_data_members_of(^^T, ctx))) {
             constexpr auto name = std::define_static_string(std::meta::identifier_of(fld));
-            constexpr auto anns = std::define_static_array(std::meta::annotations_of(fld));
+            // Inline P3394 annotations merged with any out-of-line ones from a
+            // #embed'd JSON side-car (see <rosetta/annotate.h>). Entries are
+            // already constant reflections, so they splice directly.
+            constexpr auto anns = std::define_static_array(detail::merged_annotations<T>(fld));
 
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                v.template field<fld, ([:std::meta::constant_of(anns[Is]):])...>(name);
+                v.template field<fld, ([:anns[Is]:])...>(name);
             }(std::make_index_sequence<anns.size()>{});
         }
 
@@ -109,15 +113,13 @@ namespace rosetta {
                       std::define_static_array(std::meta::members_of(^^T, ctx))) {
             if constexpr (is_exportable_member_function(fn)) {
                 constexpr auto name = std::define_static_string(std::meta::identifier_of(fn));
-                constexpr auto anns = std::define_static_array(std::meta::annotations_of(fn));
+                constexpr auto anns = std::define_static_array(detail::merged_annotations<T>(fn));
 
                 [&]<std::size_t... Is>(std::index_sequence<Is...>) {
                     if constexpr (std::meta::is_static_member(fn)) {
-                        v.template method_static<fn, ([:std::meta::constant_of(anns[Is]):])...>(
-                            name);
+                        v.template method_static<fn, ([:anns[Is]:])...>(name);
                     } else {
-                        v.template method_instance<fn, ([:std::meta::constant_of(anns[Is]):])...>(
-                            name);
+                        v.template method_instance<fn, ([:anns[Is]:])...>(name);
                     }
                 }(std::make_index_sequence<anns.size()>{});
             }

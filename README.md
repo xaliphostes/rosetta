@@ -34,6 +34,8 @@ Everything below is discovered by **reflection** from your unmodified headers �
 - `range{lo, hi}` — value-range validation on assignment.
 - `combobox{{...}}` — enumerated choices (UI hint).
 
+Don't want to touch the header at all? Provide the same annotations from an **external JSON file** instead: add an `"annotations": "Type.ann.json"` field to the class in `manifest.json`. The side-car is baked in at generation time, merged with any inline annotations, and reaches every backend (Python, Node, REST, OpenAPI, …) — see [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md).
+
 **Backends** (one combined module per target, from a single generator)
 
 | Target | Output | C++26 status |
@@ -49,6 +51,45 @@ Everything below is discovered by **reflection** from your unmodified headers �
 | **Markdown** | API reference document | ✅ Working |
 
 New backends register without touching the generator — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
+
+## Mini-MOC — Qt signals / slots / properties, without moc
+
+Beyond binding generation, rosetta ships [`mini_moc.h`](include/rosetta/mini_moc.h): a header-only, **moc-less** reimagining of Qt's signals/slots/properties built directly on C++26 reflection (P2996) + annotations (P3394). No code generator, no separate compile step — just annotate members and connect them.
+
+You mark members with annotations and reach them through three free functions:
+
+```cpp
+#include <rosetta/mini_moc.h>
+namespace moc = rosetta::moc;
+
+class Person {
+public:
+    [[= moc::signal]] moc::Signal<std::string const &> nameChanged;
+    [[= moc::signal]] moc::Signal<int>                 ageChanged;
+
+    [[= moc::property{"name", "nameChanged"}]] std::string m_name;
+    [[= moc::property{"age",  "ageChanged"}]]  int         m_age = 0;
+    [[= moc::property{"id"}]]                   int         m_id  = 0;   // no NOTIFY
+};
+
+struct Logger {
+    [[= moc::slot]] void onAge(int v)               { total += v; }
+    [[= moc::slot]] void onName(std::string const&) { /* ... */ }
+    int total = 0;
+};
+
+Person p; Logger l;
+moc::connect<"ageChanged", "onAge">(p, l);  // compile-time checked
+moc::set<"age">(p, 30);                      // equality-gated; fires NOTIFY -> Logger::onAge
+moc::get<"age">(p);                          // -> 30
+```
+
+- **Annotations** — `signal`, `slot`, `property{"name", "notifySig"}` mark members; reflection discovers them.
+- **`connect<"sig","slot">(sender, receiver)`** — compile-time checked: a wrong name is a `static_assert`, mismatched argument types are a template error.
+- **`get<"prop">` / `set<"prop">`** — property access from outside the class (token injection, P3294, isn't in clang-p2996 yet, so accessors aren't emitted into the class body). `set<>` is equality-gated and fires the property's `NOTIFY` signal only on an actual change.
+- **`Signal<Args...>`** — the only machinery type you spell out; supports `connect` / `disconnect` / `disconnect_all`, re-entrant self-disconnect, and a `ScopedConnection` RAII handle for scope-bound connections.
+
+See the [`examples/moc`](examples/moc) demo and the test suite in [`tests/moc.cpp`](tests/moc.cpp).
 
 ## Status
 
@@ -145,6 +186,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 | Path                       | What it shows                                       |
 |----------------------------|-----------------------------------------------------|
 | `examples/manifest`        | Manifest-driven generation for `Person` (no class modification) |
+| `examples/annotate-manifest`| Out-of-line annotations from an external JSON file, wired by the manifest's `annotations` field ([details](docs/OUT_OF_LINE_ANNOTATIONS.md)) |
 | `examples/geom-lib`        | Manifest-driven bindings for a small geometry library (nested types, vectors) |
 | `examples/moc`             | Qt-flavoured meta-object demo on `mini_moc.h` (properties + signals) |
 | `examples/docgen`          | Reflection-driven Markdown reference generator      |
@@ -164,6 +206,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 - [Generate](docs/GENERATE.md) — full reference for `rosetta::generate`, the manifest schema, and the tool layering
 - [Free functions](docs/FREE_FUNCTIONS.md) — sketch for reflecting namespace-scope functions
 - [Other annotations](docs/OTHER_ANNOTATIONS.md) — proposed annotation kinds beyond the current three
+- [Out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) — keep headers clean: `#embed` a JSON side-car of annotations, merged at compile time
 - [Todo list](docs/TODO.md) — what the walker and visitor surface still miss (enums, bases, ctors, statics, parameter metadata, ...)
 
 ## License
