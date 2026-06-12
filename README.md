@@ -34,7 +34,20 @@ Everything below is discovered by **reflection** from your unmodified headers �
 - `range{lo, hi}` — value-range validation on assignment.
 - `combobox{{...}}` — enumerated choices (UI hint).
 
-Don't want to touch the header at all? Provide the same annotations from an **external JSON file** instead: add an `"annotations": "Type.ann.json"` field to the class in `manifest.json`. The side-car is baked in at generation time, merged with any inline annotations, and reaches every backend (Python, Node, REST, OpenAPI, …) — see [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md).
+Don't want to touch the header at all? Provide the same annotations **out of line**, from a JSON string attached to the type elsewhere — even in another file:
+
+```cpp
+struct MyClass {
+    int value = 0;
+};
+
+// Add annotation later on in another file
+template <>
+constexpr std::string_view rosetta::ann_json_source<MyClass> = 
+  R"({ "value": { "range": [1, 9] } })";
+```
+
+In a manifest-driven build you don't write that by hand: add an `"annotations": "Type.ann.json"` field to the class in `manifest.json` and rosetta bakes the external file in for you. Either way the metadata is merged with any inline annotations and reaches every backend (Python, Node, REST, OpenAPI, …) — see [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md).
 
 **Backends** (one combined module per target, from a single generator)
 
