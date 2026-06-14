@@ -169,10 +169,13 @@ struct LuaBackend : rosetta::Backend {
 };
 ```
 
-The built-in backends — one file each in
-[`include/rosetta/inline/`](../include/rosetta/inline/) (`python_backend.hxx`,
-`node_backend.hxx`, `rest_backend.hxx`, `wasm_backend.hxx`) — are the reference for the CMake flags (`-freflection -freflection-latest
--fexperimental-library -fannotation-attributes`, the clang-p2996 link line, etc.).
+The built-in backends — a declaration header in
+[`include/rosetta/backends/`](../include/rosetta/backends/) (`python_backend.h`,
+`node_backend.h`, `rest_backend.h`, `wasm_backend.h`) with its implementation
+alongside in [`include/rosetta/backends/inline/`](../include/rosetta/backends/inline/)
+(`python_backend.hxx`, …) — are the reference for the CMake flags
+(`-freflection -freflection-latest -fexperimental-library -fannotation-attributes`,
+the clang-p2996 link line, etc.).
 
 ---
 

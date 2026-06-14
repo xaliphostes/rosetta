@@ -25,13 +25,9 @@
 // -----------------------------------------------------------------------------
 class Thermostat {
 public:
-    [[= rosetta::moc::signal]]
-    rosetta::moc::Signal<double> temperatureChanged;
-
-    [[= rosetta::moc::signal]]
-    rosetta::moc::Signal<double> targetChanged;
-
-    [[= rosetta::moc::signal]]
+    // A Signal<...> data member is a signal by type — no annotation needed.
+    rosetta::moc::Signal<double>              temperatureChanged;
+    rosetta::moc::Signal<double>              targetChanged;
     rosetta::moc::Signal<std::string const &> modeChanged;
 
     [[= rosetta::moc::property{"temperature", "temperatureChanged"}]]
@@ -139,7 +135,7 @@ int main() {
     // Compile-error demos — uncomment one at a time to see them fail:
     //
     // rosetta::moc::connect<"temperatreChanged", "showTemperature">(th, d);
-    //   -> static_assert: no [[=signal]]-tagged member with that name on sender
+    //   -> static_assert: no Signal<...> member with that name on sender
     //
     // rosetta::moc::connect<"modeChanged", "onTemperature">(th, h);
     //   -> template error: slot takes double, signal carries std::string const&

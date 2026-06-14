@@ -21,13 +21,13 @@
 //    wrong name -> static_assert, wrong arg types -> template error.
 //
 // What you use:
-//  * Annotations  : signal, slot, property{...}   (mark members)
+//  * Annotations  : slot, property{...}            (mark members)
 //  * Free funcs   : connect<...>, get<...>, set<...>
-// You declare a signal as a `Signal<Args...>` data member, but you never call
-// its methods directly — connect through connect<>, and emission happens when
-// set<> fires a property's NOTIFY. The Signal<...> machinery and the
-// ScopedConnection RAII handle are therefore treated as implementation detail
-// and defined in inline/mini_moc.hxx, not here.
+// A signal needs NO annotation: any `Signal<Args...>` data member IS a signal,
+// recognized by its type via reflection. You never call its methods directly —
+// connect through connect<>, and emission happens when set<> fires a property's
+// NOTIFY. The Signal<...> machinery and the ScopedConnection RAII handle are
+// treated as implementation detail and defined in inline/mini_moc.hxx, not here.
 //
 // See tests/moc.cpp
 //
@@ -69,31 +69,21 @@ namespace rosetta::moc {
     template <std::size_t N> fixed_string(const char (&)[N]) -> fixed_string<N>;
 
     /**
-     * signal_tag and slot_tag: empty structs used as annotation tags to mark members as signals or
-     * slots. The operator== is defaulted to allow for easy comparison in static_asserts and other
-     * compile-time checks. These tags are used in the find_tagged function to identify which
-     * members of a class are annotated as signals or slots. By defining these tags as empty
-     * structs, we can use them purely as markers without any associated data, and the defaulted
-     * equality operator allows us to compare them easily when searching for annotated members.
-     */
-    struct signal_tag {
-        bool operator==(const signal_tag &) const = default;
-    };
-
-    /**
-     * slot_tag is an empty struct used as an annotation tag to mark members as slots. The
+     * slot_tag is an empty struct used as an annotation tag to mark methods as slots. The
      * operator== is defaulted to allow for easy comparison in static_asserts and other compile-time
      * checks. This tag is used in the find_tagged function to identify which members of a class are
      * annotated as slots. By defining this tag as an empty struct, we can use it purely as a marker
      * without any associated data, and the defaulted equality operator allows us to compare it
      * easily when searching for annotated members.
+     *
+     * Signals need no equivalent tag: a signal is any `Signal<Args...>` data member, recognized by
+     * its type in detail::find_signal — so it carries no annotation (see inline/mini_moc.hxx).
      */
     struct slot_tag {
         bool operator==(const slot_tag &) const = default;
     };
 
-    inline constexpr signal_tag signal{};
-    inline constexpr slot_tag   slot{};
+    inline constexpr slot_tag slot{};
 
     /**
      * property: an annotation struct used to mark fields as properties. It contains the name of the
@@ -119,19 +109,21 @@ namespace rosetta::moc {
         bool operator==(const property &) const = default;
     };
 
-    // Signal<...> backs a [[=signal]] member, so it is forward-declared here to
-    // surface the one machinery name a user actually spells out. The complete
-    // definition (along with ScopedConnection, the RAII handle returned by
-    // Signal::scoped_connect and normally bound with `auto`) lives in
-    // inline/mini_moc.hxx, included at the bottom of this header. That include is
-    // required regardless: a [[=signal]] data member needs the complete
-    // Signal<...> type, which a forward declaration alone cannot provide.
+    // Signal<...> is the one machinery type a user spells out; a data member of
+    // this type IS a signal (no annotation needed — detail::find_signal matches
+    // it by type). It is forward-declared here; the complete definition (along
+    // with ScopedConnection, the RAII handle returned by Signal::scoped_connect
+    // and normally bound with `auto`) lives in inline/mini_moc.hxx, included at
+    // the bottom of this header. That include is required regardless: a
+    // Signal<...> data member needs the complete type, which a forward
+    // declaration alone cannot provide.
     template <class... Args> class Signal;
 
     /**
      * connect<"sig","slot">(sender, receiver): a function template that connects a signal from the
-     * sender to a slot on the receiver. It uses compile-time reflection to find the members of the
-     * sender and receiver that are annotated with the specified signal and slot tags. If the
+     * sender to a slot on the receiver. It uses compile-time reflection to find the matching members:
+     * the signal is the sender's `Signal<...>` data member of that name (matched by type, no
+     * annotation), and the slot is the receiver's [[=slot]]-tagged method of that name. If the
      * specified signal or slot is not found, it triggers a static_assert with an appropriate error
      * message. If both are found, it connects the signal to the slot by creating a lambda that
      * captures the receiver and calls the slot with the arguments from the signal. This function

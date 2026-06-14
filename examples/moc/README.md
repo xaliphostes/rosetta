@@ -18,7 +18,7 @@ cmake --build build
 
 - `[[= property{"handle", "notifySignal"}]]` on data members, accessed via
   `rosetta::moc::get<"handle">(obj)` / `set<"handle">(obj, v)`.
-- `[[= signal]]` `Signal<...>` members + `[[= slot]]` methods,
+- `Signal<...>` members (signals by type — no annotation) + `[[= slot]]` methods,
   wired with `rosetta::moc::connect<"sig", "slot">(sender, receiver)`.
 - **Multicast**: `temperatureChanged` reaches both the `Display` and the
   `Heater` from a single emit.

@@ -273,64 +273,62 @@ if(SPEC.functions.length){
             return s;
         }
 
-        struct RestBackend : Backend {
-            void emit(const GenContext &c) const override {
-                const std::string html =
-                    render(REST_HTML, {{"LIB", c.lib}, {"SPEC", rest_client_spec(c)}});
+        inline void RestBackend::emit(const GenContext &c) const {
+            const std::string html =
+                render(REST_HTML, {{"LIB", c.lib}, {"SPEC", rest_client_spec(c)}});
 
-                std::string binds;
-                // Serve the browser client at the server root, so visiting
-                // http://host:port/ in a browser shows the UI (same-origin, no
-                // file:// or CORS needed). The page is baked into the binary.
-                binds += "    static const char INDEX_HTML[] = R\"ROSETTA_HTML(" + html +
-                         ")ROSETTA_HTML\";\n";
-                binds += "    server.Get(\"/\", [](const httplib::Request &, httplib::Response "
-                         "&res) {\n";
-                binds += "        res.set_content(INDEX_HTML, \"text/html; charset=utf-8\");\n";
-                binds += "    });\n";
+            std::string binds;
+            // Serve the browser client at the server root, so visiting
+            // http://host:port/ in a browser shows the UI (same-origin, no
+            // file:// or CORS needed). The page is baked into the binary.
+            binds += "    static const char INDEX_HTML[] = R\"ROSETTA_HTML(" + html +
+                     ")ROSETTA_HTML\";\n";
+            binds += "    server.Get(\"/\", [](const httplib::Request &, httplib::Response "
+                     "&res) {\n";
+            binds += "        res.set_content(INDEX_HTML, \"text/html; charset=utf-8\");\n";
+            binds += "    });\n";
 
-                // The OpenAPI 3.1 spec at /openapi.json, and Swagger UI at /docs.
-                binds += "    static const char OPENAPI_JSON[] = R\"ROSETTA_OAS(" + openapi_doc(c) +
-                         ")ROSETTA_OAS\";\n";
-                binds += "    server.Get(\"/openapi.json\", [](const httplib::Request &, "
-                         "httplib::Response &res) {\n";
-                binds += "        res.set_content(OPENAPI_JSON, \"application/json\");\n";
-                binds += "    });\n";
-                const std::string swagger =
-                    "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-                    "<title>" + c.lib + " — API docs</title>"
-                    "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@5/"
-                    "swagger-ui.css\"></head><body><div id=\"swagger-ui\"></div>"
-                    "<script src=\"https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js\" "
-                    "crossorigin></script><script>window.onload=()=>{SwaggerUIBundle("
-                    "{url:'openapi.json',dom_id:'#swagger-ui'});};</script></body></html>";
-                binds += "    static const char SWAGGER_HTML[] = R\"ROSETTA_SWG(" + swagger +
-                         ")ROSETTA_SWG\";\n";
-                binds += "    server.Get(\"/docs\", [](const httplib::Request &, httplib::Response "
-                         "&res) {\n";
-                binds += "        res.set_content(SWAGGER_HTML, \"text/html; charset=utf-8\");\n";
-                binds += "    });\n";
+            // The OpenAPI 3.1 spec at /openapi.json, and Swagger UI at /docs.
+            binds += "    static const char OPENAPI_JSON[] = R\"ROSETTA_OAS(" + openapi_doc(c) +
+                     ")ROSETTA_OAS\";\n";
+            binds += "    server.Get(\"/openapi.json\", [](const httplib::Request &, "
+                     "httplib::Response &res) {\n";
+            binds += "        res.set_content(OPENAPI_JSON, \"application/json\");\n";
+            binds += "    });\n";
+            const std::string swagger =
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                "<title>" + c.lib + " — API docs</title>"
+                "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@5/"
+                "swagger-ui.css\"></head><body><div id=\"swagger-ui\"></div>"
+                "<script src=\"https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js\" "
+                "crossorigin></script><script>window.onload=()=>{SwaggerUIBundle("
+                "{url:'openapi.json',dom_id:'#swagger-ui'});};</script></body></html>";
+            binds += "    static const char SWAGGER_HTML[] = R\"ROSETTA_SWG(" + swagger +
+                     ")ROSETTA_SWG\";\n";
+            binds += "    server.Get(\"/docs\", [](const httplib::Request &, httplib::Response "
+                     "&res) {\n";
+            binds += "        res.set_content(SWAGGER_HTML, \"text/html; charset=utf-8\");\n";
+            binds += "    });\n";
 
-                for (const auto &k : c.classes) {
-                    binds += "    rosetta::Store<" + k.name + "> store_" + k.name +
-                             ";\n    rosetta::bind_rest<" + k.name + ">(server, \"/" + k.name +
-                             "\", store_" + k.name + ");\n";
-                }
-                for (const auto &e : c.enums) {
-                    binds += "    rosetta::bind_rest_enum<" + e.name + ">(server, \"/" + e.name +
-                             "\");\n";
-                }
-                for (const auto &f : c.functions) {
-                    binds += "    rosetta::bind_rest_function<^^" + f.qualified + ">(server, \"/" +
-                             f.name + "\");\n";
-                }
-                auto dir = c.out_dir / "rest";
-                write_file(dir / "auto_rest.cpp", render_source(REST_CPP, c, binds));
-                write_file(dir / "CMakeLists.txt", render_meta(REST_CMAKE, c));
-                write_file(dir / "index.html", html);
-                write_file(dir / "README.md", readme("rest", c));
+            for (const auto &k : c.classes) {
+                binds += "    rosetta::Store<" + k.name + "> store_" + k.name +
+                         ";\n    rosetta::bind_rest<" + k.name + ">(server, \"/" + k.name +
+                         "\", store_" + k.name + ");\n";
             }
-        };
+            for (const auto &e : c.enums) {
+                binds += "    rosetta::bind_rest_enum<" + e.name + ">(server, \"/" + e.name +
+                         "\");\n";
+            }
+            for (const auto &f : c.functions) {
+                binds += "    rosetta::bind_rest_function<^^" + f.qualified + ">(server, \"/" +
+                         f.name + "\");\n";
+            }
+            auto dir = c.out_dir / "rest";
+            write_file(dir / "auto_rest.cpp", render_source(REST_CPP, c, binds));
+            write_file(dir / "CMakeLists.txt", render_meta(REST_CMAKE, c));
+            write_file(dir / "index.html", html);
+            write_file(dir / "README.md", readme("rest", c));
+        }
 
     } // namespace gen_detail
 } // namespace rosetta

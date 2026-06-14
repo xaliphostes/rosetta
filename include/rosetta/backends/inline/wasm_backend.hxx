@@ -48,26 +48,24 @@ target_link_options({{LIB}} PRIVATE
 set_target_properties({{LIB}} PROPERTIES SUFFIX ".js")
 )CMK";
 
-        struct WasmBackend : Backend {
-            void emit(const GenContext &c) const override {
-                std::string binds;
-                // Enums first so class fields/methods can resolve them.
-                for (const auto &e : c.enums) {
-                    binds += "    rosetta::bind_wasm_enum<" + e.name + ">(\"" + e.name + "\");\n";
-                }
-                for (const auto &k : c.classes) {
-                    binds += "    rosetta::bind_wasm<" + k.name + ">(\"" + k.name + "\");\n";
-                }
-                for (const auto &f : c.functions) {
-                    binds += "    emscripten::function(\"" + f.name + "\", &" + f.qualified +
-                             ");\n";
-                }
-                auto dir = c.out_dir / "wasm";
-                write_file(dir / "auto_emscripten.cpp", render_source(WASM_CPP, c, binds));
-                write_file(dir / "CMakeLists.txt", render_meta(WASM_CMAKE, c));
-                write_file(dir / "README.md", readme("wasm", c));
+        inline void WasmBackend::emit(const GenContext &c) const {
+            std::string binds;
+            // Enums first so class fields/methods can resolve them.
+            for (const auto &e : c.enums) {
+                binds += "    rosetta::bind_wasm_enum<" + e.name + ">(\"" + e.name + "\");\n";
             }
-        };
+            for (const auto &k : c.classes) {
+                binds += "    rosetta::bind_wasm<" + k.name + ">(\"" + k.name + "\");\n";
+            }
+            for (const auto &f : c.functions) {
+                binds += "    emscripten::function(\"" + f.name + "\", &" + f.qualified +
+                         ");\n";
+            }
+            auto dir = c.out_dir / "wasm";
+            write_file(dir / "auto_emscripten.cpp", render_source(WASM_CPP, c, binds));
+            write_file(dir / "CMakeLists.txt", render_meta(WASM_CMAKE, c));
+            write_file(dir / "README.md", readme("wasm", c));
+        }
 
     } // namespace gen_detail
 } // namespace rosetta

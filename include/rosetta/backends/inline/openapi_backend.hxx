@@ -254,13 +254,11 @@ namespace rosetta {
                    oa_join(paths) + "},\"components\":{\"schemas\":{" + oa_join(schemas) + "}}}";
         }
 
-        struct OpenApiBackend : Backend {
-            void emit(const GenContext &c) const override {
-                auto dir = c.out_dir / "openapi";
-                write_file(dir / "openapi.json", openapi_doc(c));
-                write_file(dir / "README.md", readme("openapi", c));
-            }
-        };
+        inline void OpenApiBackend::emit(const GenContext &c) const {
+            auto dir = c.out_dir / "openapi";
+            write_file(dir / "openapi.json", openapi_doc(c));
+            write_file(dir / "README.md", readme("openapi", c));
+        }
 
     } // namespace gen_detail
 } // namespace rosetta

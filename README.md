@@ -77,12 +77,12 @@ namespace moc = rosetta::moc;
 
 class Person {
 public:
-    [[= moc::signal]] moc::Signal<std::string const &> nameChanged;
-    [[= moc::signal]] moc::Signal<int>                 ageChanged;
+    moc::Signal<std::string const &> nameChanged;   // a Signal<...> member IS a signal
+    moc::Signal<int>                 ageChanged;
 
     [[= moc::property{"name", "nameChanged"}]] std::string m_name;
     [[= moc::property{"age",  "ageChanged"}]]  int         m_age = 0;
-    [[= moc::property{"id"}]]                   int         m_id  = 0;   // no NOTIFY
+    [[= moc::property{"id"}]]                  int         m_id  = 0;   // no NOTIFY
 };
 
 struct Logger {
@@ -97,7 +97,7 @@ moc::set<"age">(p, 30);                      // equality-gated; fires NOTIFY -> 
 moc::get<"age">(p);                          // -> 30
 ```
 
-- **Annotations** — `signal`, `slot`, `property{"name", "notifySig"}` mark members; reflection discovers them.
+- **Signals need no annotation** — any `Signal<...>` data member is a signal, recognized by its type. `slot` and `property{"name", "notifySig"}` annotations mark the members that *aren't* self-identifying; reflection discovers them.
 - **`connect<"sig","slot">(sender, receiver)`** — compile-time checked: a wrong name is a `static_assert`, mismatched argument types are a template error.
 - **`get<"prop">` / `set<"prop">`** — property access from outside the class (token injection, P3294, isn't in clang-p2996 yet, so accessors aren't emitted into the class body). `set<>` is equality-gated and fires the property's `NOTIFY` signal only on an actual change.
 - **`Signal<Args...>`** — the only machinery type you spell out; supports `connect` / `disconnect` / `disconnect_all`, re-entrant self-disconnect, and a `ScopedConnection` RAII handle for scope-bound connections.

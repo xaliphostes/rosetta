@@ -339,15 +339,15 @@ endif()
 // Each defines its templates + a gen_detail::*Backend, using the shared
 // render helpers above. New backends register the same way (see
 // docs/EXTENDING_BACKEND.md) without touching generate().
-#include "json_backend.hxx"
-#include "julia_backend.hxx"
-#include "markdown_backend.hxx"
-#include "node_backend.hxx"
-#include "openapi_backend.hxx"
-#include "python_backend.hxx"
-#include "rest_backend.hxx"
-#include "typescript_backend.hxx"
-#include "wasm_backend.hxx"
+#include <rosetta/backends/json_backend.h>
+#include <rosetta/backends/julia_backend.h>
+#include <rosetta/backends/markdown_backend.h>
+#include <rosetta/backends/node_backend.h>
+#include <rosetta/backends/openapi_backend.h>
+#include <rosetta/backends/python_backend.h>
+#include <rosetta/backends/rest_backend.h>
+#include <rosetta/backends/typescript_backend.h>
+#include <rosetta/backends/wasm_backend.h>
 
 namespace rosetta {
 

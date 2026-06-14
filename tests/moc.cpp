@@ -5,7 +5,7 @@
 // of C++26 reflection (P2996) + annotations (P3394).
 //
 // Covers:
-//   - [[= signal]]-tagged Signal<...> data members
+//   - Signal<...> data members (recognized by type — no annotation)
 //   - [[= slot]]-tagged methods
 //   - [[= property{"name", "notifySig"}]]-tagged data members
 //   - connect<"sig","slot">(sender, receiver) and equality-gated set<> + NOTIFY
@@ -25,9 +25,9 @@ namespace moc = rosetta::moc;
 
 class Person {
 public:
-    [[= moc::signal]] moc::Signal<std::string const &> nameChanged;
+    moc::Signal<std::string const &> nameChanged; // a Signal<...> member IS a signal
 
-    [[= moc::signal]] moc::Signal<int> ageChanged;
+    moc::Signal<int> ageChanged;
 
     [[= moc::property{"name", "nameChanged"}]] std::string m_name;
 

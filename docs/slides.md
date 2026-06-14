@@ -316,7 +316,7 @@ C++26 reflection makes it… optional.
 ```cpp
 class Thermostat {
 public:
-    [[= moc::signal]] moc::Signal<double> temperatureChanged;
+    moc::Signal<double> temperatureChanged;   // a Signal<...> member IS a signal
 
     [[= moc::property{"temperature", "temperatureChanged"}]]
     double m_temperature = 20.0;
@@ -338,7 +338,7 @@ moc::connect<"temperatureChanged", "showTemperature">(th, d);
 
 Three failure modes, **all at compile time**:
 
-- typo'd signal name → `static_assert`: "no `[[=signal]]`-tagged member"
+- typo'd signal name → `static_assert`: "no `Signal<...>` member with that name"
 - typo'd slot name  → `static_assert`: "no `[[=slot]]`-tagged member"
 - mismatched types  → template error at the lambda body
 

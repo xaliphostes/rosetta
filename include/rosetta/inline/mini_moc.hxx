@@ -195,6 +195,27 @@ namespace rosetta::moc {
             return {};
         }
 
+        // Reflection of the Signal<...> primary template, obtained from a dummy
+        // specialization (the bare template name isn't directly spellable with
+        // ^^). Used to recognize signal members by their type.
+        constexpr std::meta::info signal_template = std::meta::template_of(^^Signal<int>);
+
+        // Find a signal by name: a Signal<...> data member of T with that
+        // identifier. Signals carry no annotation — the type is the marker, so
+        // there is nothing to keep in sync between an annotation and the type.
+        template <class T> consteval std::meta::info find_signal(std::string_view name) {
+            constexpr auto ctx = std::meta::access_context::unchecked();
+            for (auto m : std::meta::nonstatic_data_members_of(^^T, ctx)) {
+                auto t = std::meta::type_of(m);
+                if (std::meta::has_template_arguments(t) &&
+                    std::meta::template_of(t) == signal_template &&
+                    std::meta::identifier_of(m) == name) {
+                    return m;
+                }
+            }
+            return {};
+        }
+
         template <class T> consteval std::meta::info find_property_field(std::string_view name) {
             /**
              * This assumes that the property annotation is on the field itself, not on the
@@ -224,10 +245,10 @@ namespace rosetta::moc {
     // -------------------------------------------------------------------------
     template <fixed_string Sig, fixed_string Slot, class S, class R>
     inline auto connect(S &sender, R &receiver) {
-        constexpr auto sig_r  = detail::find_tagged<signal_tag, S>(Sig.view());
+        constexpr auto sig_r  = detail::find_signal<S>(Sig.view());
         constexpr auto slot_r = detail::find_tagged<slot_tag, R>(Slot.view());
         static_assert(sig_r != std::meta::info{},
-                      "no [[=signal]]-tagged member with that name on sender");
+                      "no Signal<...> member with that name on sender");
         static_assert(slot_r != std::meta::info{},
                       "no [[=slot]]-tagged member with that name on receiver");
 
@@ -263,7 +284,7 @@ namespace rosetta::moc {
         constexpr auto pa          = std::meta::annotation_of_type<property>(field_r).value();
         constexpr auto notify_name = std::string_view{pa.notify};
         if constexpr (!notify_name.empty()) {
-            constexpr auto sig_r = detail::find_tagged<signal_tag, T>(notify_name);
+            constexpr auto sig_r = detail::find_signal<T>(notify_name);
             static_assert(sig_r != std::meta::info{},
                           "NOTIFY signal named by property is not declared");
             (obj.[:sig_r:])(obj.[:field_r:]);

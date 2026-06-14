@@ -71,28 +71,26 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
         ${CMAKE_CURRENT_SOURCE_DIR}/$<TARGET_FILE_NAME:{{LIB}}>)
 )CMK";
 
-        struct JuliaBackend : Backend {
-            void emit(const GenContext &c) const override {
-                std::string binds;
-                // Enums first so class fields/methods can resolve them.
-                for (const auto &e : c.enums) {
-                    binds += "    rosetta::bind_julia_enum<" + e.name + ">(mod, \"" + e.name +
-                             "\");\n";
-                }
-                for (const auto &k : c.classes) {
-                    binds +=
-                        "    rosetta::bind_julia<" + k.name + ">(mod, \"" + k.name + "\");\n";
-                }
-                for (const auto &f : c.functions) {
-                    binds += "    rosetta::bind_julia_function<^^" + f.qualified + ">(mod, \"" +
-                             f.name + "\");\n";
-                }
-                auto dir = c.out_dir / "julia";
-                write_file(dir / "auto_jlcxx.cpp", render_source(JULIA_CPP, c, binds));
-                write_file(dir / "CMakeLists.txt", render_meta(JULIA_CMAKE, c));
-                write_file(dir / "README.md", readme("julia", c));
+        inline void JuliaBackend::emit(const GenContext &c) const {
+            std::string binds;
+            // Enums first so class fields/methods can resolve them.
+            for (const auto &e : c.enums) {
+                binds += "    rosetta::bind_julia_enum<" + e.name + ">(mod, \"" + e.name +
+                         "\");\n";
             }
-        };
+            for (const auto &k : c.classes) {
+                binds +=
+                    "    rosetta::bind_julia<" + k.name + ">(mod, \"" + k.name + "\");\n";
+            }
+            for (const auto &f : c.functions) {
+                binds += "    rosetta::bind_julia_function<^^" + f.qualified + ">(mod, \"" +
+                         f.name + "\");\n";
+            }
+            auto dir = c.out_dir / "julia";
+            write_file(dir / "auto_jlcxx.cpp", render_source(JULIA_CPP, c, binds));
+            write_file(dir / "CMakeLists.txt", render_meta(JULIA_CMAKE, c));
+            write_file(dir / "README.md", readme("julia", c));
+        }
 
     } // namespace gen_detail
 } // namespace rosetta

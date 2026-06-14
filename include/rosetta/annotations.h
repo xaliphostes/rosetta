@@ -116,7 +116,7 @@ namespace rosetta {
      *   int age;
      *
      * Each tag is an inline constexpr instance so it can be written
-     * without braces in the annotation, matching `rosetta::moc::signal`.
+     * without braces in the annotation, matching `rosetta::moc::slot`.
      */
     namespace widget {
 

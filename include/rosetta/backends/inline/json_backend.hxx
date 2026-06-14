@@ -84,14 +84,12 @@ target_link_options({{LIB}}_demo PRIVATE
             return d;
         }
 
-        struct JsonBackend : Backend {
-            void emit(const GenContext &c) const override {
-                auto dir = c.out_dir / "json";
-                write_file(dir / "demo.cpp", json_demo(c));
-                write_file(dir / "CMakeLists.txt", render_meta(JSON_CMAKE, c));
-                write_file(dir / "README.md", readme("json", c));
-            }
-        };
+        inline void JsonBackend::emit(const GenContext &c) const {
+            auto dir = c.out_dir / "json";
+            write_file(dir / "demo.cpp", json_demo(c));
+            write_file(dir / "CMakeLists.txt", render_meta(JSON_CMAKE, c));
+            write_file(dir / "README.md", readme("json", c));
+        }
 
     } // namespace gen_detail
 } // namespace rosetta
