@@ -24,6 +24,18 @@ namespace rosetta {
             return out;
         }
 
+        // Look up a type-erased annotation by type in a GenClass/GenField's
+        // `annotations`. Returns nullptr if absent. Lets a backend read its own
+        // annotation kinds without the core ever naming them.
+        template <class A> inline const A *find_annotation(const std::vector<std::any> &anns) {
+            for (const auto &a : anns) {
+                if (const A *p = std::any_cast<A>(&a)) {
+                    return p;
+                }
+            }
+            return nullptr;
+        }
+
         // Reflected identifier of T as a runtime string.
         template <typename T> inline std::string class_name() {
             constexpr const char *n = std::define_static_string(std::meta::identifier_of(^^T));
@@ -243,6 +255,12 @@ endif()
             } else if constexpr (std::is_enum_v<U>) {
                 g.kind   = "enum";
                 g.object = class_name<U>();
+                template for (constexpr auto e : std::define_static_array(
+                                  std::meta::enumerators_of(std::meta::dealias(^^U)))) {
+                    constexpr const char *en =
+                        std::define_static_string(std::meta::identifier_of(e));
+                    g.enumerators.push_back(GenEnumerator{en, static_cast<long long>([:e:])});
+                }
             } else if constexpr (std::is_class_v<U>) {
                 g.kind   = "object";
                 g.object = class_name<U>();
@@ -268,8 +286,29 @@ endif()
             return params_impl<Fn>(std::make_index_sequence<n>{});
         }
 
-        // Walk visitor that collects member type info into a GenClass.
-        struct IRVisitor {
+        inline std::string num_str(double d); // defined below; used by default_value_str
+
+        // Render a field's default member initializer (read from a default-built
+        // instance) to a string, for the kinds that map to a scalar property.
+        template <class F> inline std::string default_value_str(const F &v) {
+            if constexpr (std::is_same_v<F, bool>) {
+                return v ? "1" : "0";
+            } else if constexpr (std::is_enum_v<F>) {
+                return std::to_string(static_cast<long long>(v));
+            } else if constexpr (std::is_integral_v<F>) {
+                return std::to_string(v);
+            } else if constexpr (std::is_floating_point_v<F>) {
+                return num_str(static_cast<double>(v));
+            } else if constexpr (std::is_same_v<F, std::string>) {
+                return v;
+            } else {
+                return {}; // vectors / objects — no scalar default
+            }
+        }
+
+        // Walk visitor that collects member type info into a GenClass. Templated
+        // on T so it can read default member initializers from a default instance.
+        template <class T> struct IRVisitor {
             GenClass &out;
 
             template <std::meta::info Fld, auto... Anns> void field(const char *name) {
@@ -288,6 +327,14 @@ endif()
                         gf.choices.push_back(cb.choices[i]);
                     }
                 }
+                // Default value: read the member from a default-built instance.
+                if constexpr (std::is_default_constructible_v<T>) {
+                    using F = std::remove_cvref_t<typename[:std::meta::type_of(Fld):]>;
+                    T tmp{};
+                    gf.default_value = default_value_str<F>(tmp.[:Fld:]);
+                }
+                // Every annotation, type-erased — backends query what they want.
+                (gf.annotations.emplace_back(Anns), ...);
                 out.fields.push_back(std::move(gf));
             }
 
@@ -408,7 +455,13 @@ endif()
             // (python / node) can re-emit it into their own TUs — see
             // includes_of(). Empty when the class has no side-car.
             gc.annotations_json = std::string(rosetta::ann_json_source<T>);
-            IRVisitor v{gc};
+            // Every class-level annotation, type-erased — backends query what
+            // they want via find_annotation<A>(); the core names none of them.
+            template for (constexpr auto a :
+                          std::define_static_array(std::meta::annotations_of(^^T))) {
+                gc.annotations.emplace_back([:std::meta::constant_of(a):]);
+            }
+            IRVisitor<T> v{gc};
             walk<T>(v);
             // Render the doc fragment after the walk has filled fields/methods.
             gc.doc = class_markdown(gc);
@@ -479,6 +532,7 @@ endif()
 #include <rosetta/backends/markdown_backend.h>
 #include <rosetta/backends/node_backend.h>
 #include <rosetta/backends/openapi_backend.h>
+#include <rosetta/backends/paraview_backend.h>
 #include <rosetta/backends/python_backend.h>
 #include <rosetta/backends/rest_backend.h>
 #include <rosetta/backends/typescript_backend.h>
@@ -501,6 +555,7 @@ namespace rosetta {
             m["html"]       = std::make_shared<gen_detail::HtmlBackend>();
             m["json"]       = std::make_shared<gen_detail::JsonBackend>();
             m["openapi"]    = std::make_shared<gen_detail::OpenApiBackend>();
+            m["paraview"]   = std::make_shared<gen_detail::ParaViewBackend>();
             return m;
         }();
         return reg;

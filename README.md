@@ -4,7 +4,7 @@
 
 # Rosetta
 
-A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown, HTML... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a requirement: add them where you want docstrings, validation, or UI hints; leave the rest of the class alone. Reflection does the work either way.
 
@@ -63,6 +63,7 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 | **TypeScript** | ambient `.d.ts` type declarations | ✅ Working |
 | **Markdown** | API reference document | ✅ Working |
 | **HTML** | self-contained, styled API reference page (anchored TOC, field/enum tables; annotations become description tags) | ✅ Working |
+| **ParaView** | Server Manager XML for a plugin: fields → properties with range / **enumeration** / boolean / string-list domains, **default values** (from member initializers), `readonly`→`information_only`, plus a pipeline **`InputProperty`** and **`ArrayListDomain`** array-selection. Proxy `class=`/group/input from `paraview_proxy` / `paraview_input` / `paraview_array` annotations | ✅ Working (single input port) |
 
 New backends register without touching the generator — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
 
@@ -203,7 +204,8 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 | `examples/annotate-manifest`| Out-of-line annotations from an external JSON file, wired by the manifest's `annotations` field ([details](docs/OUT_OF_LINE_ANNOTATIONS.md)) |
 | `examples/geom-lib`        | Manifest-driven bindings for a small geometry library (nested types, vectors) |
 | `examples/moc`             | Qt-flavoured meta-object demo on `mini_moc.h` (properties + signals) |
-| `examples/docgen`          | Reflection-driven Markdown reference generator      |
+| `examples/docgen`          | Reflection-driven Markdown / HTML reference generator |
+| `examples/paraview`        | ParaView plugin property-panel XML from an annotated `vtkThreshold` spec (every backend feature) |
 | `examples/qt`              | Building a Qt widget form from a reflected struct   |
 | `examples/qml`             | Exposing a reflected C++ object to QML              |
 | `examples/bindings/python` | Hand-written pybind11 backend (reference)           |

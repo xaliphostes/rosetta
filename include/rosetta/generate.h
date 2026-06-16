@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <any>
 #include <cstdio>
 #include <experimental/meta>
 #include <filesystem>
@@ -77,12 +78,19 @@ namespace rosetta {
      * entry (the element type); for "object" and "enum", `object` is the
      * class / enumeration identifier.
      */
+    /** @brief One enumerator: its name and its value as a signed integer. */
+    struct GenEnumerator {
+        std::string name;
+        long long   value = 0;
+    };
+
     struct GenType {
         std::string          kind    = "unknown";
         std::string          object;  // class / enum identifier ("object" / "enum")
         std::vector<GenType> element; // 0 or 1 entry, the element when "vector"
         bool                 integer = false; // kind == "number" and integral (vs floating)
         std::string          spelling; // prettified C++ type spelling (for human docs)
+        std::vector<GenEnumerator> enumerators; // populated when kind == "enum"
     };
 
     /** @brief A numeric range constraint (rosetta::range annotation). */
@@ -98,7 +106,12 @@ namespace rosetta {
         bool        is_readonly = false;
         std::string doc;     // rosetta::doc annotation text, if any
         GenRange    range;   // rosetta::range, if any
-        std::vector<std::string> choices; // rosetta::combobox choices, if any
+        std::vector<std::string> choices;       // rosetta::combobox choices, if any
+        std::string              default_value; // default member initializer, rendered (if capturable)
+
+        // Every annotation on this member, type-erased. Backends query the ones
+        // they care about via find_annotation<A>() — the core names none of them.
+        std::vector<std::any> annotations;
     };
 
     struct GenParam {
@@ -143,15 +156,12 @@ namespace rosetta {
         std::string doc;    // class_markdown(*this) — per-class Markdown fragment (README body)
         std::string annotations_json; // raw out-of-line annotation side-car (ann_json_source<T>), if any
 
+        // Every class-level annotation, type-erased (see GenField::annotations).
+        std::vector<std::any> annotations;
+
         std::vector<GenField>              fields;  // public data members
         std::vector<GenMethod>             methods; // instance + static methods
         std::vector<std::vector<GenParam>> ctors;   // one param list per constructor
-    };
-
-    /** @brief One enumerator: its name and its value as a signed integer. */
-    struct GenEnumerator {
-        std::string name;
-        long long   value = 0;
     };
 
     /**
