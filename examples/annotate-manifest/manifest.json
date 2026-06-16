@@ -3,7 +3,7 @@
   "rosetta_include": "../../include",
   "generator_name": "widget_gen",
   "module_name": "widget",
-  "targets": [ "markdown", "python", "node" ],
+  "targets": [ "html", "markdown", "python", "node" ],
   "classes": [
     {
       "name": "Widget",

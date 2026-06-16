@@ -72,8 +72,8 @@ Not shippable. Very fun.
 include/rosetta/
   annotations.h   doc / range / readonly / ... — shared structural types
   walk.h          consteval walk<T>(visitor) over fields + methods
-  docgen.h        a visitor that emits Markdown reference docs
   generate.h      reflection-driven binding scaffolder: rosetta::generate<T>
+  backends/       generation backends (python, node, rest, markdown, html, ...)
   mini_moc.h      signals / slots / properties on top of reflection
   visitors/       per-backend bind kits (pybind, N-API, REST, emscripten)
 
@@ -167,7 +167,7 @@ template <typename T> void generate(const GenerateOptions& opt) {
     c.class_name  = std::meta::identifier_of(^^T);
     c.lib_name    = info::lib;
     c.header      = info::header;
-    c.readme_body = generate_markdown<T>();  // docgen walks T
+    c.readme_body = class_markdown(describe<T>());  // IR-based markdown fragment
 
     for (std::string_view t : info::targets) {
         if      (t == "python") emit_python(opt.out_dir, c);
@@ -256,7 +256,8 @@ Every backend is **just a visitor**.
 
 | Visitor                 | What it produces                          |
 |-------------------------|-------------------------------------------|
-| `docgen.h`              | Markdown reference pages                  |
+| `backends/markdown`     | Markdown reference pages                  |
+| `backends/html`         | Self-contained HTML reference pages       |
 | `examples/qt`           | A Qt `QFormLayout` of editors             |
 | `examples/qml`          | A `QObject` exposed to QML, properties & all |
 | `bindings/python`       | pybind11 module                           |
@@ -267,11 +268,11 @@ Every backend is **just a visitor**.
 
 ---
 
-## Spotlight: docgen
+## Spotlight: docs to a string
 
 ```cpp
-#include <rosetta/docgen.h>
-std::cout << rosetta::generate_markdown<Person>();
+#include <rosetta/generate.h>
+std::cout << rosetta::to_markdown<Person>();   // or to_html<Person>()
 ```
 
 Output:

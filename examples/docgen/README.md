@@ -1,17 +1,24 @@
 # Auto-docgen example
 
-Emits Markdown documentation for the annotated `Person` struct from
-`../bindings/person.h`, using `rosetta::generate_markdown<T>()` from
-`<rosetta/docgen.h>`. Unlike the other examples, this one has **no**
-external dependencies — just libc++.
+Renders documentation for the annotated `Algo` struct from `../Algo.h` in
+**Markdown or HTML**, using `rosetta::to_markdown<T>()` / `rosetta::to_html<T>()`
+from `<rosetta/generate.h>` (the markdown/html backends' render-to-string entry
+points). Unlike the other examples, this one has **no** external dependencies —
+just libc++.
 
-## Build
+## Build & run
+
+The format is chosen by an argument (default Markdown), and the single document
+is written to stdout — so the usual `> file` redirect still works:
 
 ```bash
 cmake -G Ninja -B build
 cmake --build build
-./build/auto_docgen              # print to stdout
-./build/auto_docgen > Person.md  # capture to a file
+
+./build/auto_docgen                   # Markdown to stdout (default)
+./build/auto_docgen > Algo.md         # capture Markdown
+./build/auto_docgen html > Algo.html  # capture HTML
+./build/auto_docgen md   > Algo.md    # explicit Markdown
 ```
 
 ## Sample output
@@ -48,9 +55,10 @@ Returns a greeting prefixed by the given salutation.
 
 | File                | Role                                                  |
 |---------------------|-------------------------------------------------------|
-| `main.cpp`          | Walks `Person`, writes the markdown to stdout         |
+| `main.cpp`          | Renders `Algo` (md/html by arg), writes it to stdout  |
 | `CMakeLists.txt`    | clang-p2996 wiring                                    |
-| `../bindings/person.h` | Demo type — same one used by every other backend   |
+| `../Algo.h`         | Demo type                                            |
 
-The visitor itself lives in `include/rosetta/docgen.h` and is fewer
-than 120 lines.
+`to_markdown<T>()` is the markdown backend's render-to-string entry point
+(`include/rosetta/backends/markdown_backend.h`); `to_html<T>()` is its HTML
+counterpart. Both build on the same reflected IR every backend consumes.

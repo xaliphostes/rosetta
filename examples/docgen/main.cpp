@@ -1,23 +1,37 @@
 // SPDX-FileCopyrightText: Copyright (c) fmaerten@gmail.com
 // SPDX-License-Identifier: UNLICENSED
 
-// Auto-docgen demo: emits Markdown documentation for the annotated
-// Person struct (../bindings/person.h) via the rosetta::walk visitor
-// in <rosetta/docgen.h>. No external dependencies — just libc++.
+// Auto-docgen demo: renders reflection-driven documentation for the annotated
+// Algo struct (../Algo.h) in Markdown or HTML, via rosetta::to_markdown<T>() /
+// rosetta::to_html<T>(). No external dependencies — just libc++.
 //
 // Build flags: -freflection -freflection-latest -fannotation-attributes
 // See CMakeLists.txt in this folder.
 //
-//   ./build/auto_docgen              # prints to stdout
-//   ./build/auto_docgen > Person.md  # capture to a file
+// One document goes to stdout, so the usual `> file` redirect still works:
+//   ./build/auto_docgen                 # Markdown to stdout (default)
+//   ./build/auto_docgen > Algo.md       # capture Markdown
+//   ./build/auto_docgen html > Algo.html# capture HTML
+//   ./build/auto_docgen md   > Algo.md  # explicit Markdown
 
-// #include "../bindings/person.h"
 #include "../Algo.h"
 #include <cstdio>
-#include <rosetta/docgen.h>
+#include <rosetta/generate.h>
+#include <string_view>
 
-int main() {
-    const auto md = rosetta::generate_markdown<Algo>();
-    std::fputs(md.c_str(), stdout);
+int main(int argc, char **argv) {
+    const std::string_view fmt = argc > 1 ? argv[1] : "md";
+
+    std::string out;
+    if (fmt == "html") {
+        out = rosetta::to_html<Algo>("Algo");
+    } else if (fmt == "md" || fmt == "markdown") {
+        out = rosetta::to_markdown<Algo>("Algo");
+    } else {
+        std::fprintf(stderr, "usage: %s [md|html]   (default: md)\n", argv[0]);
+        return 1;
+    }
+
+    std::fputs(out.c_str(), stdout);
     return 0;
 }

@@ -4,7 +4,7 @@
 
 # Rosetta
 
-A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown, HTML... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a requirement: add them where you want docstrings, validation, or UI hints; leave the rest of the class alone. Reflection does the work either way.
 
@@ -62,6 +62,7 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 | **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code | ✅ Working |
 | **TypeScript** | ambient `.d.ts` type declarations | ✅ Working |
 | **Markdown** | API reference document | ✅ Working |
+| **HTML** | self-contained, styled API reference page (anchored TOC, field/enum tables; annotations become description tags) | ✅ Working |
 
 New backends register without touching the generator — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
 

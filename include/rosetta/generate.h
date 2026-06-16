@@ -34,7 +34,6 @@
 #include <map>
 #include <memory>
 #include <rosetta/annotations.h>
-#include <rosetta/docgen.h>
 #include <rosetta/walk.h>
 #include <string>
 #include <string_view>
@@ -83,6 +82,7 @@ namespace rosetta {
         std::string          object;  // class / enum identifier ("object" / "enum")
         std::vector<GenType> element; // 0 or 1 entry, the element when "vector"
         bool                 integer = false; // kind == "number" and integral (vs floating)
+        std::string          spelling; // prettified C++ type spelling (for human docs)
     };
 
     /** @brief A numeric range constraint (rosetta::range annotation). */
@@ -140,7 +140,7 @@ namespace rosetta {
     struct GenClass {
         std::string name;   // reflected C++ identifier
         std::string header; // binding_info<T>::header — basename for #include
-        std::string doc;    // generate_markdown<T>() — README body fragment
+        std::string doc;    // class_markdown(*this) — per-class Markdown fragment (README body)
         std::string annotations_json; // raw out-of-line annotation side-car (ann_json_source<T>), if any
 
         std::vector<GenField>              fields;  // public data members
@@ -194,8 +194,13 @@ namespace rosetta {
      * backend — no edit to `generate` itself is required.
      */
     struct Backend {
-        virtual ~Backend()                       = default;
+        virtual ~Backend()                          = default;
+        // Write this target's project tree under c.out_dir.
         virtual void emit(const GenContext &) const = 0;
+        // Render this backend's primary document to a string, for single-artifact
+        // ("document") backends like markdown / html. Multi-file project backends
+        // (python, node, rest, …) have no single string and leave this empty.
+        virtual std::string render(const GenContext &) const { return {}; }
     };
 
     /**

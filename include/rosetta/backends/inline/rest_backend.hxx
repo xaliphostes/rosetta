@@ -275,7 +275,7 @@ if(SPEC.functions.length){
 
         inline void RestBackend::emit(const GenContext &c) const {
             const std::string html =
-                render(REST_HTML, {{"LIB", c.lib}, {"SPEC", rest_client_spec(c)}});
+                subst(REST_HTML, {{"LIB", c.lib}, {"SPEC", rest_client_spec(c)}});
 
             std::string binds;
             // Serve the browser client at the server root, so visiting

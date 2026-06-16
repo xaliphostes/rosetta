@@ -8,9 +8,11 @@ namespace rosetta {
         }
 
         // Substitute {{KEY}} placeholders. Plain string scan — no escapes.
+        // (Named `subst`, not `render`, so it isn't shadowed by Backend::render
+        // when called unqualified inside a backend's emit().)
         inline std::string
-        render(std::string_view                                                     tmpl,
-               std::initializer_list<std::pair<std::string_view, std::string_view>> vars) {
+        subst(std::string_view                                                     tmpl,
+              std::initializer_list<std::pair<std::string_view, std::string_view>> vars) {
             std::string out{tmpl};
             for (const auto &[k, v] : vars) {
                 std::string needle = "{{" + std::string(k) + "}}";
@@ -107,17 +109,17 @@ endif()
         // CMake / package vars — backend source uses {{INCLUDES}}/{{BINDINGS}}
         // which are passed separately by render_source().
         inline std::string render_meta(std::string_view tmpl, const GenContext &c) {
-            return render(tmpl, {{"LIB", c.lib},
-                                 {"HEADER_BLOCK", CMAKE_HEADER},
-                                 {"USER_INCLUDE", c.user_include},
-                                 {"ROSETTA_INCLUDE", c.rosetta_include}});
+            return subst(tmpl, {{"LIB", c.lib},
+                                {"HEADER_BLOCK", CMAKE_HEADER},
+                                {"USER_INCLUDE", c.user_include},
+                                {"ROSETTA_INCLUDE", c.rosetta_include}});
         }
 
         inline std::string render_source(std::string_view tmpl, const GenContext &c,
                                          std::string_view binds) {
-            return render(tmpl, {{"LIB", c.lib},
-                                 {"INCLUDES", includes_of(c)},
-                                 {"BINDINGS", binds}});
+            return subst(tmpl, {{"LIB", c.lib},
+                                {"INCLUDES", includes_of(c)},
+                                {"BINDINGS", binds}});
         }
 
         // Can a value of this type cross a JSON boundary (REST / OpenAPI)?
@@ -192,10 +194,38 @@ endif()
         template <typename T> struct is_func : std::false_type {};
         template <typename R, typename... A> struct is_func<std::function<R(A...)>> : std::true_type {};
 
+        // Prettify a canonical type spelling for human docs: display_string_of
+        // yields e.g. basic_string<char, …>; show std::string instead.
+        inline std::string prettify(std::string s) {
+            struct Rule {
+                const char *from;
+                const char *to;
+            };
+            static constexpr Rule rules[] = {
+                {"basic_string<char, char_traits<char>, allocator<char>>", "std::string"},
+                {"basic_string_view<char, char_traits<char>>", "std::string_view"},
+            };
+            for (const auto &r : rules) {
+                std::string::size_type pos  = 0;
+                const std::string      from = r.from;
+                const std::string      to   = r.to;
+                while ((pos = s.find(from, pos)) != std::string::npos) {
+                    s.replace(pos, from.size(), to);
+                    pos += to.size();
+                }
+            }
+            return s;
+        }
+
         // Map a C++ type to the language-neutral GenType descriptor.
         template <typename T> inline GenType type_descriptor() {
             using U = std::remove_cvref_t<T>;
             GenType g;
+            // dealias so we print the underlying type ("std::string", "int"),
+            // not the local alias name "U".
+            constexpr const char *sp =
+                std::define_static_string(std::meta::display_string_of(std::meta::dealias(^^U)));
+            g.spelling = prettify(sp);
             if constexpr (std::is_void_v<U>) {
                 g.kind = "void";
             } else if constexpr (std::is_same_v<U, bool>) {
@@ -283,18 +313,105 @@ endif()
             }
         };
 
+        // A readable type name for human docs: vectors as `element[]`, everything
+        // else its prettified C++ spelling (falling back to the neutral kind).
+        inline std::string readable_type(const GenType &t) {
+            if (t.kind == "vector") {
+                return (t.element.empty() ? std::string("any") : readable_type(t.element.front())) +
+                       "[]";
+            }
+            if (!t.spelling.empty()) {
+                return t.spelling;
+            }
+            if (t.kind == "object" || t.kind == "enum") {
+                return t.object.empty() ? "any" : t.object;
+            }
+            return t.kind;
+        }
+
+        // Format a range bound as a clean number (drop a trailing ".0…").
+        inline std::string num_str(double d) {
+            if (d == static_cast<long long>(d)) {
+                return std::to_string(static_cast<long long>(d));
+            }
+            std::string s = std::to_string(d);
+            s.erase(s.find_last_not_of('0') + 1);
+            if (!s.empty() && s.back() == '.') {
+                s.pop_back();
+            }
+            return s;
+        }
+
+        // The per-class Markdown fragment (heading + field table + methods),
+        // rendered from the erased IR. Used as GenClass::doc (README bodies and
+        // the markdown backend) and by rosetta::to_markdown<T>(). Mirrors what the
+        // former <rosetta/docgen.h> produced, but from GenClass rather than a walk.
+        inline std::string class_markdown(const GenClass &gc) {
+            std::string out = "# " + gc.name + "\n\n";
+            if (!gc.fields.empty()) {
+                out += "## Fields\n\n| Name | Type | Description |\n|------|------|-------------|\n";
+                for (const auto &f : gc.fields) {
+                    std::string desc = f.doc;
+                    auto        add  = [&](const std::string &tag) {
+                        if (!desc.empty()) {
+                            desc += " ";
+                        }
+                        desc += tag;
+                    };
+                    if (f.range.has) {
+                        add("(range: " + num_str(f.range.min) + ".." + num_str(f.range.max) + ")");
+                    }
+                    if (!f.choices.empty()) {
+                        std::string c = "(choices: ";
+                        for (std::size_t i = 0; i < f.choices.size(); ++i) {
+                            c += (i ? ", " : "") + f.choices[i];
+                        }
+                        add(c + ")");
+                    }
+                    if (f.is_readonly) {
+                        add("_(readonly)_");
+                    }
+                    out += "| `" + f.name + "` | `" + readable_type(f.type) + "` | " + desc + " |\n";
+                }
+            }
+            if (!gc.methods.empty()) {
+                out += (gc.fields.empty() ? "" : "\n");
+                out += "## Methods\n\n";
+                for (const auto &m : gc.methods) {
+                    out += "### `";
+                    out += (m.is_static ? "static " : "");
+                    out += m.name + "(";
+                    for (std::size_t i = 0; i < m.params.size(); ++i) {
+                        out += (i ? ", " : "") + m.params[i].name + ": " +
+                               readable_type(m.params[i].type);
+                    }
+                    out += ") → " + readable_type(m.ret) + "`\n\n";
+                    if (!m.doc.empty()) {
+                        out += m.doc + "\n\n";
+                    }
+                }
+            }
+            return out;
+        }
+
         // Erase one class to plain data — the only place reflection runs.
         template <typename T> inline GenClass describe() {
             GenClass gc;
-            gc.name   = class_name<T>();
-            gc.header = binding_info<T>::header;
-            gc.doc    = generate_markdown<T>();
+            gc.name = class_name<T>();
+            // binding_info<T>::header is the #include basename — needed by code
+            // backends, but not by render-to-string callers (to_markdown / to_html),
+            // which may have no specialization. Use it only when present.
+            if constexpr (requires { binding_info<T>::header; }) {
+                gc.header = binding_info<T>::header;
+            }
             // Carry the out-of-line annotation source so re-walking backends
             // (python / node) can re-emit it into their own TUs — see
             // includes_of(). Empty when the class has no side-car.
             gc.annotations_json = std::string(rosetta::ann_json_source<T>);
             IRVisitor v{gc};
             walk<T>(v);
+            // Render the doc fragment after the walk has filled fields/methods.
+            gc.doc = class_markdown(gc);
             return gc;
         }
 
@@ -331,6 +448,23 @@ endif()
             return ge;
         }
 
+        // Build a GenContext from a type pack (no files, no targets) — the same
+        // class/enum split generate() does, for the render-to-string helpers.
+        template <typename... Ts> inline GenContext make_context(std::string lib) {
+            GenContext c;
+            c.lib = std::move(lib);
+            (
+                [&] {
+                    if constexpr (std::is_enum_v<Ts>) {
+                        c.enums.push_back(describe_enum<Ts>());
+                    } else {
+                        c.classes.push_back(describe<Ts>());
+                    }
+                }(),
+                ...);
+            return c;
+        }
+
     } // namespace gen_detail
 
 } // namespace rosetta
@@ -339,6 +473,7 @@ endif()
 // Each defines its templates + a gen_detail::*Backend, using the shared
 // render helpers above. New backends register the same way (see
 // docs/EXTENDING_BACKEND.md) without touching generate().
+#include <rosetta/backends/html_backend.h>
 #include <rosetta/backends/json_backend.h>
 #include <rosetta/backends/julia_backend.h>
 #include <rosetta/backends/markdown_backend.h>
@@ -363,6 +498,7 @@ namespace rosetta {
             m["wasm"]       = std::make_shared<gen_detail::WasmBackend>();
             m["typescript"] = std::make_shared<gen_detail::TypeScriptBackend>();
             m["markdown"]   = std::make_shared<gen_detail::MarkdownBackend>();
+            m["html"]       = std::make_shared<gen_detail::HtmlBackend>();
             m["json"]       = std::make_shared<gen_detail::JsonBackend>();
             m["openapi"]    = std::make_shared<gen_detail::OpenApiBackend>();
             return m;

@@ -150,7 +150,8 @@ That's it — no C++ to hand-edit.
 - **`<generator_name>` (generated)** calls `rosetta::generate<T>(opt)` per
   class. `generate<T>` reads the `binding_info<T>` trait (lib name,
   header, targets) and walks `T` via `rosetta::walk` to produce the
-  README body via `docgen::generate_markdown<T>`. The per-backend
+  README body via the markdown renderer (`gen_detail::class_markdown`,
+  also exposed standalone as `rosetta::to_markdown<T>()`). The per-backend
   templates emit `auto_<backend>.cpp` + CMake + package.json.
 - **The generated backends** are ordinary standalone CMake projects
   that compile the user's class against rosetta's binding kit.

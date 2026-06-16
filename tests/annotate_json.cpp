@@ -18,7 +18,7 @@
 
 #include <cstddef>
 #include <gtest/gtest.h>
-#include <rosetta/docgen.h>
+#include <rosetta/generate.h>
 #include <string>
 
 // ---- clean class: zero inline annotations, all metadata from JSON ----------
@@ -51,7 +51,7 @@ struct Plain {
 // ---------------------------------------------------------------------------
 
 TEST(AnnotateJson, CleanClassPicksUpAllKindsFromJson) {
-    const std::string md = rosetta::generate_markdown<Widget>();
+    const std::string md = rosetta::to_markdown<Widget>();
     EXPECT_NE(md.find("The widget title"), std::string::npos); // doc
     EXPECT_NE(md.find("0..100"), std::string::npos);           // range
     EXPECT_NE(md.find("readonly"), std::string::npos);         // readonly
@@ -60,13 +60,13 @@ TEST(AnnotateJson, CleanClassPicksUpAllKindsFromJson) {
 }
 
 TEST(AnnotateJson, InlineAndJsonAreConcatenated) {
-    const std::string md = rosetta::generate_markdown<Mixed>();
+    const std::string md = rosetta::to_markdown<Mixed>();
     EXPECT_NE(md.find("inline summary"), std::string::npos); // inline kept
     EXPECT_NE(md.find("1..9"), std::string::npos);           // JSON merged in
 }
 
 TEST(AnnotateJson, NoSourceIsUnannotated) {
-    const std::string md = rosetta::generate_markdown<Plain>();
+    const std::string md = rosetta::to_markdown<Plain>();
     EXPECT_EQ(md.find("range:"), std::string::npos);
     EXPECT_EQ(md.find("readonly"), std::string::npos);
     EXPECT_EQ(md.find("choices:"), std::string::npos);
