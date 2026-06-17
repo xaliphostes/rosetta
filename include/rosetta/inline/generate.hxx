@@ -286,6 +286,28 @@ endif()
             return params_impl<Fn>(std::make_index_sequence<n>{});
         }
 
+        // Exact C++ spelling of a reflected type (cv- and ref-qualifiers kept),
+        // prettified only for the libc++ basic_string spelling. Unlike
+        // type_descriptor (which strips cvref for the language-neutral kind),
+        // this is what a trampoline override signature must reproduce verbatim.
+        template <std::meta::info Ty> inline std::string exact_spelling() {
+            constexpr const char *s = std::define_static_string(std::meta::display_string_of(Ty));
+            return prettify(s);
+        }
+
+        template <std::meta::info Fn, std::size_t... Is>
+        inline std::vector<std::string> param_cpp_impl(std::index_sequence<Is...>) {
+            constexpr auto           ps = std::define_static_array(std::meta::parameters_of(Fn));
+            std::vector<std::string> out;
+            (out.push_back(exact_spelling<std::meta::type_of(ps[Is])>()), ...);
+            return out;
+        }
+
+        template <std::meta::info Fn> inline std::vector<std::string> param_cpp_of() {
+            constexpr auto n = std::define_static_array(std::meta::parameters_of(Fn)).size();
+            return param_cpp_impl<Fn>(std::make_index_sequence<n>{});
+        }
+
         inline std::string num_str(double d); // defined below; used by default_value_str
 
         // Render a field's default member initializer (read from a default-built
@@ -339,11 +361,15 @@ endif()
             }
 
             template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
-                push_method<Fn>(name, false, ann::get_or<doc>(doc{""}, Anns...).text);
+                constexpr auto vs = ann::get_or<virtual_spec>(virtual_spec{}, Anns...);
+                push_method<Fn>(name, false, ann::get_or<doc>(doc{""}, Anns...).text,
+                                ann::has<virtual_spec>(Anns...), vs);
             }
 
             template <std::meta::info Fn, auto... Anns> void method_static(const char *name) {
-                push_method<Fn>(name, true, ann::get_or<doc>(doc{""}, Anns...).text);
+                // static members are never virtual; pass a default virtual_spec.
+                push_method<Fn>(name, true, ann::get_or<doc>(doc{""}, Anns...).text, false,
+                                virtual_spec{});
             }
 
             template <std::meta::info Ctor, auto... /*Anns*/> void constructor() {
@@ -352,11 +378,22 @@ endif()
 
           private:
             template <std::meta::info Fn>
-            void push_method(const char *name, bool is_static, const char *docstr) {
-                out.methods.push_back(GenMethod{
-                    name, is_static,
-                    type_descriptor<std::remove_cvref_t<typename[:std::meta::return_type_of(Fn):]>>(),
-                    params_of<Fn>(), std::string(docstr)});
+            void push_method(const char *name, bool is_static, const char *docstr, bool is_virtual,
+                             virtual_spec vs) {
+                GenMethod m;
+                m.name      = name;
+                m.is_static = is_static;
+                m.ret =
+                    type_descriptor<std::remove_cvref_t<typename[:std::meta::return_type_of(Fn):]>>();
+                m.params      = params_of<Fn>();
+                m.doc         = docstr;
+                m.is_virtual  = is_virtual;
+                m.is_pure     = vs.pure;
+                m.is_const    = std::meta::is_const(Fn);
+                m.is_noexcept = std::meta::is_noexcept(Fn);
+                m.ret_cpp     = exact_spelling<std::meta::return_type_of(Fn)>();
+                m.param_cpp   = param_cpp_of<Fn>();
+                out.methods.push_back(std::move(m));
             }
         };
 

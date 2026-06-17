@@ -13,7 +13,10 @@ namespace rosetta {
     namespace gen_detail {
 
         struct NodeBackend : Backend {
-            void emit(const GenContext &c) const override;
+            void        emit(const GenContext &c) const override;
+            // Returns the generated auto_napi.cpp source (trampolines + bindings),
+            // the same text emit() writes — exposed so it can be inspected/tested.
+            std::string render(const GenContext &c) const override;
         };
 
     } // namespace gen_detail

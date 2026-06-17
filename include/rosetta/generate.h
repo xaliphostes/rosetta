@@ -125,6 +125,20 @@ namespace rosetta {
         GenType                ret;
         std::vector<GenParam>  params;
         std::string            doc; // rosetta::doc annotation text, if any
+
+        // Virtual / trampoline metadata, captured from the rosetta::virtual_spec
+        // that walk<T>() synthesizes plus direct reflection queries. Used by
+        // backends that emit overridable bindings (e.g. pybind11 trampolines).
+        // `ret_cpp` / `param_cpp` are the *exact* C++ spellings (cv- and
+        // ref-qualifiers preserved), unlike GenType::spelling which is
+        // cvref-stripped for human docs — a trampoline override must match the
+        // base signature exactly to actually override it.
+        bool                     is_virtual  = false;
+        bool                     is_pure     = false;
+        bool                     is_const    = false;
+        bool                     is_noexcept = false;
+        std::string              ret_cpp;   // exact return-type spelling
+        std::vector<std::string> param_cpp; // exact parameter-type spellings, in order
     };
 
     /**

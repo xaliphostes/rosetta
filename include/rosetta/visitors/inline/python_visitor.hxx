@@ -1,8 +1,12 @@
 namespace rosetta {
 
-    template <typename T> struct PybindVisitor {
-        py::class_<T> &cls;
-        bool           saw_default_ctor = false;
+    // Templated on the py::class_ instantiation (Cls) rather than py::class_<T>
+    // directly, so the same visitor drives both a plain py::class_<T> and a
+    // trampoline-backed py::class_<T, Trampoline> — the pybind member API
+    // (def / def_property / def_static / def(py::init<>)) is identical for both.
+    template <typename T, typename Cls> struct PybindVisitor {
+        Cls &cls;
+        bool saw_default_ctor = false;
 
         template <std::meta::info Ctor, auto... Anns> void constructor() {
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
@@ -60,14 +64,33 @@ namespace rosetta {
         }
     };
 
-    template <typename T> inline void bind_pybind(py::module_ &m, const char *py_name) {
-        py::class_<T>    cls(m, py_name);
-        PybindVisitor<T> v{cls};
+    // Run the reflection walk against an already-declared class_ binding.
+    // `Trampoline` is the type pybind actually instantiates (the trampoline when
+    // one is supplied, else T), so the default-ctor probe checks the right type.
+    template <typename T, typename Trampoline, typename Cls>
+    inline void bind_pybind_into(Cls &cls) {
+        PybindVisitor<T, Cls> v{cls};
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
         // reflection; register one so `T()` keeps working.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<T>) {
+        if (!v.saw_default_ctor && std::is_default_constructible_v<Trampoline>) {
             cls.def(py::init<>());
+        }
+    }
+
+    // Bind T. When a `Trampoline` type is supplied (a subclass of T with
+    // PYBIND11_OVERRIDE shims for T's virtuals — emitted by the python backend),
+    // the class is registered as py::class_<T, Trampoline> so Python subclasses
+    // can override those virtuals and C++ dispatches back into Python. With no
+    // trampoline (the default) this is the plain py::class_<T> binding as before.
+    template <typename T, typename Trampoline = T>
+    inline void bind_pybind(py::module_ &m, const char *py_name) {
+        if constexpr (std::is_same_v<Trampoline, T>) {
+            py::class_<T> cls(m, py_name);
+            bind_pybind_into<T, T>(cls);
+        } else {
+            py::class_<T, Trampoline> cls(m, py_name);
+            bind_pybind_into<T, Trampoline>(cls);
         }
     }
 

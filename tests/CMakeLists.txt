@@ -77,3 +77,19 @@ target_include_directories(inheritance PRIVATE ${CMAKE_SOURCE_DIR}/../include)
 target_compile_options(inheritance PRIVATE -fannotation-attributes)
 target_link_libraries(inheritance PRIVATE GTest::gtest_main nlohmann_json::nlohmann_json)
 gtest_discover_tests(inheritance)
+
+# Python backend trampoline emission for virtual methods (consumes virtual_spec).
+# Verifies the generated auto_pybind.cpp source, not a live pybind build.
+add_executable(python_trampoline python_trampoline.cpp)
+target_include_directories(python_trampoline PRIVATE ${CMAKE_SOURCE_DIR}/../include)
+target_compile_options(python_trampoline PRIVATE -fannotation-attributes)
+target_link_libraries(python_trampoline PRIVATE GTest::gtest_main)
+gtest_discover_tests(python_trampoline)
+
+# Node backend trampoline emission for virtual methods (consumes virtual_spec).
+# Verifies the generated auto_napi.cpp source (no live N-API build needed).
+add_executable(node_trampoline node_trampoline.cpp)
+target_include_directories(node_trampoline PRIVATE ${CMAKE_SOURCE_DIR}/../include)
+target_compile_options(node_trampoline PRIVATE -fannotation-attributes)
+target_link_libraries(node_trampoline PRIVATE GTest::gtest_main)
+gtest_discover_tests(node_trampoline)

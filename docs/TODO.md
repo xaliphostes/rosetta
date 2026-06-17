@@ -27,8 +27,8 @@
 2. ~~Enums~~ — done.
 3. ~~Constructors~~ — done.
 4. ~~Bases / inherited members~~ — done (with virtual/override detection).
-5. Method qualifiers (`const` / `noexcept` / ref) + parameter names/defaults — the qualifiers follow the `virtual_spec` pattern exactly.
-6. Have a backend *consume* `virtual_spec` — pybind11 trampoline emission so a Python subclass can override a C++ virtual.
+5. Method qualifiers (`const` / `noexcept` / ref) + parameter names/defaults — the qualifiers follow the `virtual_spec` pattern exactly. (`const` / `noexcept` are now captured into the IR's `GenMethod` for trampoline signatures; still not surfaced to the *runtime* visitor pack.)
+6. ~~Have a backend *consume* `virtual_spec`~~ — done: **Python** emits pybind11 trampolines (`PYBIND11_OVERRIDE[_PURE]`) and **Node** emits N-API trampolines (`Js_T : public T, NapiTrampoline` with a function-identity recursion guard). Both verified end-to-end — the generated module compiles and a Python/JS subclass override dispatches back through the C++ virtual (see `examples/trampoline` and `examples/trampoline-node`). Julia still ignores it; the N-API path carries a by-value-marshalling caveat (a trampolined type passed by value is sliced).
 7. Operators & static fields / nested types.
 
 All remaining items are additive — no further walker-signature changes are required.

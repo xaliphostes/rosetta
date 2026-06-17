@@ -32,8 +32,38 @@ namespace rosetta {
 
     // ---- Forward declarations (mutually recursive with conversions) ----
 
-    template <typename T> class Wrap;
+    template <typename T, typename Tramp = T> class Wrap;
     template <typename T> Napi::FunctionReference &ctor_ref();
+
+    // ---- Virtual-method trampoline support (JS subclasses override C++) ----
+
+    // Base mixin for a generated trampoline subclass (`class Js_T : public T,
+    // public NapiTrampoline`). Holds a *weak* handle to the JS object that wraps
+    // this C++ instance — weak so it doesn't keep the object alive (the JS object
+    // already owns this C++ instance, so a strong ref would be a cycle). Wrap<>
+    // sets it right after construction.
+    class NapiTrampoline {
+      public:
+        void __rosetta_set_self(Napi::Object self) {
+            self_     = Napi::Weak(self);
+            has_self_ = true;
+        }
+        bool         __rosetta_has_self() const { return has_self_ && !self_.IsEmpty(); }
+        Napi::Object __rosetta_self() const { return self_.Value(); }
+
+      private:
+        Napi::ObjectReference self_;
+        bool                  has_self_ = false;
+    };
+
+    // name -> the bound C++ prototype function for T's virtual methods. Used to
+    // tell "JS subclass overrode this" from "JS inherited our bound method":
+    // strict-equality against this entry. Populated by bind_napi after DefineClass.
+    template <typename T>
+    inline std::unordered_map<std::string, Napi::FunctionReference> &napi_override_guard() {
+        static std::unordered_map<std::string, Napi::FunctionReference> m;
+        return m;
+    }
 
     // Constructor dispatch table for T, keyed by argument count. Populated by
     // bind_napi<T> (via the walk) and consulted by Wrap<T>'s constructor.
@@ -103,19 +133,92 @@ namespace rosetta {
         }
     }
 
+    // Has the JS object overridden `name`, rather than inheriting T's bound C++
+    // method? True iff the function it would call differs from the one we bound
+    // onto the prototype. This is the recursion guard: without it, a non-override
+    // would bounce C++ -> JS -> bound C++ -> trampoline -> JS -> ... forever.
+    template <typename T> inline bool napi_is_overridden(Napi::Object self, const char *name) {
+        Napi::Value f = self.Get(name);
+        if (!f.IsFunction()) {
+            return false;
+        }
+        auto &guard = napi_override_guard<T>();
+        auto  it    = guard.find(name);
+        if (it == guard.end()) {
+            return false; // not a tracked virtual — treat as not overridden
+        }
+        return !f.StrictEquals(it->second.Value());
+    }
+
+    // C++ virtual call landed in the trampoline: route to the JS override if the
+    // JS subclass defines one, otherwise fall back to the C++ base via `base`.
+    template <typename T, typename Ret, typename Base, typename... Args>
+    inline Ret napi_call_override(const NapiTrampoline &self, const char *name, Base base,
+                                  const Args &...args) {
+        if (self.__rosetta_has_self()) {
+            Napi::Object obj = self.__rosetta_self();
+            if (napi_is_overridden<T>(obj, name)) {
+                Napi::Value r =
+                    obj.Get(name).template As<Napi::Function>().Call(obj, {to_napi(obj.Env(),
+                                                                                   args)...});
+                if constexpr (std::is_void_v<Ret>) {
+                    return;
+                } else {
+                    return from_napi<Ret>(r);
+                }
+            }
+        }
+        return base();
+    }
+
+    // Same, for a pure virtual: there is no C++ base to fall back to, so a
+    // missing JS override is an error rather than a silent no-op.
+    template <typename T, typename Ret, typename... Args>
+    inline Ret napi_call_override_pure(const NapiTrampoline &self, const char *name,
+                                       const Args &...args) {
+        if (self.__rosetta_has_self()) {
+            Napi::Object obj = self.__rosetta_self();
+            if (napi_is_overridden<T>(obj, name)) {
+                Napi::Value r =
+                    obj.Get(name).template As<Napi::Function>().Call(obj, {to_napi(obj.Env(),
+                                                                                   args)...});
+                if constexpr (std::is_void_v<Ret>) {
+                    return;
+                } else {
+                    return from_napi<Ret>(r);
+                }
+            }
+            throw Napi::Error::New(obj.Env(), std::string("rosetta: pure virtual '") + name +
+                                                  "' is not overridden in JS");
+        }
+        throw std::runtime_error(std::string("rosetta: pure virtual '") + name +
+                                 "' called before the JS object was bound");
+    }
+
     // ---- CRTP wrapper template ----
 
-    template <typename T> class Wrap : public Napi::ObjectWrap<Wrap<T>> {
+    template <typename T, typename Tramp> class Wrap : public Napi::ObjectWrap<Wrap<T, Tramp>> {
     public:
-        T inner;
+        // The held value is the trampoline subclass when one was supplied (so its
+        // vtable routes virtuals back into JS), otherwise plain T. Either way it
+        // IS-A T, so all field/method access below is unchanged.
+        Tramp inner;
 
-        Wrap(const Napi::CallbackInfo &info) : Napi::ObjectWrap<Wrap<T>>(info) {
+        Wrap(const Napi::CallbackInfo &info) : Napi::ObjectWrap<Wrap<T, Tramp>>(info) {
+            // Give the trampoline a handle to its JS object so virtual overrides
+            // can dispatch into JS (no-op when Tramp == T).
+            if constexpr (!std::is_same_v<T, Tramp>) {
+                inner.__rosetta_set_self(this->Value());
+            }
             // `inner` is default-constructed above; if the call arity matches a
-            // registered constructor, rebuild it from the JS arguments.
-            auto &tbl = ctor_table<T>();
+            // registered constructor, rebuild it from the JS arguments. The table
+            // builds the concrete held type (Tramp), so this works even when T is
+            // abstract. Assigning through the T& base slice leaves inner's dynamic
+            // type (and its JS-self handle) intact — only T's members are copied.
+            auto &tbl = ctor_table<Tramp>();
             auto  it  = tbl.find(info.Length());
             if (it != tbl.end()) {
-                inner = it->second(info);
+                static_cast<T &>(inner) = it->second(info);
             } else if (info.Length() > 0) {
                 throw Napi::TypeError::New(info.Env(),
                                            "no matching constructor for " +
@@ -241,9 +344,12 @@ namespace rosetta {
 
     // ---- Visitor ----
 
-    template <typename T> struct NapiVisitor {
-        using This = Wrap<T>;
+    template <typename T, typename Tramp = T> struct NapiVisitor {
+        using This = Wrap<T, Tramp>;
         std::vector<Napi::ClassPropertyDescriptor<This>> &props;
+        // Names of the virtual instance methods bound on this class — used by
+        // bind_napi to populate the override guard. Null when no trampoline.
+        std::vector<std::string> *virtual_names = nullptr;
 
         template <std::meta::info Ctor, auto... /*Anns*/> void constructor() {
             if constexpr (ctor_supported<Ctor>()) {
@@ -276,10 +382,15 @@ namespace rosetta {
             }
         }
 
-        template <std::meta::info Fn, auto... /*Anns*/> void method_instance(const char *name) {
+        template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
             if constexpr (method_supported<Fn>()) {
                 props.push_back(
                     This::template InstanceMethod<&This::template call_method<Fn>>(name));
+                if constexpr (ann::has<virtual_spec>(Anns...)) {
+                    if (virtual_names) {
+                        virtual_names->push_back(name);
+                    }
+                }
             }
         }
 
@@ -291,33 +402,53 @@ namespace rosetta {
         }
 
       private:
-        // Build a T from the JS arguments for a specific constructor. A named
-        // static template (not a lambda) so the std::function stores a plain
-        // function pointer — capturing the consteval-only param pack would be
-        // ill-formed.
+        // Build the concrete held type (Tramp, which equals T when there's no
+        // trampoline) from the JS arguments. Building Tramp rather than T means
+        // this works for an abstract T, and gives the instance the trampoline's
+        // vtable. Tramp inherits T's constructors (`using T::T`). A named static
+        // template (not a lambda) so the std::function stores a plain function
+        // pointer — capturing the consteval-only param pack would be ill-formed.
         template <std::meta::info Ctor, std::size_t... Is>
-        static T construct(const Napi::CallbackInfo &info) {
+        static Tramp construct(const Napi::CallbackInfo &info) {
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
-            return T(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
+            return Tramp(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
                 info[Is])...);
         }
 
         template <std::meta::info Ctor, std::size_t... Is>
         void register_ctor(std::index_sequence<Is...>) {
-            ctor_table<T>()[sizeof...(Is)] = &construct<Ctor, Is...>;
+            ctor_table<Tramp>()[sizeof...(Is)] = &construct<Ctor, Is...>;
         }
     };
 
-    template <typename T>
+    // Bind T. When a `Trampoline` subclass is supplied (generated by the node
+    // backend for classes with virtual methods), the wrapper holds it instead of
+    // a plain T, so a JS subclass can override T's virtuals and C++ dispatches
+    // back into JS. With no trampoline (the default) this is the prior behaviour.
+    template <typename T, typename Trampoline = T>
     inline Napi::Function bind_napi(Napi::Env env, const char *class_name) {
-        using This = Wrap<T>;
+        using This = Wrap<T, Trampoline>;
         std::vector<Napi::ClassPropertyDescriptor<This>> props;
-        NapiVisitor<T> v{props};
+        std::vector<std::string>                         vnames;
+        NapiVisitor<T, Trampoline> v{props, &vnames};
         walk<T>(v);
         Napi::Function ctor = This::DefineClass(env, class_name, props);
         // Persist the constructor so to_napi can build instances of T later.
         ctor_ref<T>() = Napi::Persistent(ctor);
         ctor_ref<T>().SuppressDestruct();
+        // Record each virtual method's bound prototype function so the trampoline
+        // can distinguish a JS override from the inherited C++ binding.
+        if constexpr (!std::is_same_v<T, Trampoline>) {
+            Napi::Object proto = ctor.Get("prototype").As<Napi::Object>();
+            auto        &guard = napi_override_guard<T>();
+            for (const auto &n : vnames) {
+                Napi::Value f = proto.Get(n);
+                if (f.IsFunction()) {
+                    guard[n] = Napi::Persistent(f.As<Napi::Function>());
+                    guard[n].SuppressDestruct();
+                }
+            }
+        }
         return ctor;
     }
 

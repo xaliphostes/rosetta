@@ -204,6 +204,8 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 | `examples/manifest`        | Manifest-driven generation for `Person` (no class modification) |
 | `examples/annotate-manifest`| Out-of-line annotations from an external JSON file, wired by the manifest's `annotations` field ([details](docs/OUT_OF_LINE_ANNOTATIONS.md)) |
 | `examples/geom-lib`        | Manifest-driven bindings for a small geometry library (nested types, vectors) |
+| `examples/trampoline`      | Overriding C++ virtuals from Python — generated pybind11 trampolines from `virtual_spec` |
+| `examples/trampoline-node` | Overriding C++ virtuals from JavaScript — generated N-API trampolines from `virtual_spec` |
 | `examples/moc`             | Qt-flavoured meta-object demo on `mini_moc.h` (properties + signals) |
 | `examples/docgen`          | Reflection-driven Markdown / HTML reference generator |
 | `examples/paraview`        | ParaView plugin property-panel XML from an annotated `vtkThreshold` spec (every backend feature) |
