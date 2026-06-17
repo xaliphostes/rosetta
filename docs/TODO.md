@@ -1,51 +1,34 @@
+# Done
+
+- **Annotation-pack visitor design.** The walker hands each visitor the full annotation pack — `v.template field<fld, Anns...>(name)`, `method_instance<fn, Anns...>`, `method_static<fn, Anns...>`, `constructor<ctor, Anns...>()` — and backends query it with `ann::has<A>(Anns...)` / `ann::get_or<A>(fallback, Anns...)`. Adding an annotation kind no longer touches the walker or every backend.
+- **Enums.** `enum` / `enum class` are reflected with their enumerators (name + value).
+- **Constructors.** Exposed via a `constructor<Ctor, Anns...>()` visitor entrypoint (public, non-copy/move, non-template, non-deleted). Copy/move/templated ctors are filtered.
+- **Base classes / inherited members.** `walk<T>()` recurses public bases (`bases_of`) and flattens their fields + methods alongside `T`'s own, deduped by identifier: a derived declaration shadows the base one (most-derived wins) and a virtual diamond collapses to a single member (a `seen_types` guard keeps the walk linear). Annotations stay keyed on each member's *declaring* class, so a base member's inline + JSON side-car annotations are honoured. See `tests/inheritance.cpp`.
+- **Virtual / override detection.** A synthesized `rosetta::virtual_spec{pure, overrides}` is injected into a method's annotation pack when its surviving reflection is virtual, so backends can tell a virtual / overriding method from a plain one (e.g. to emit a pybind11 trampoline). Other qualifiers (`const`, `noexcept`, ref-qualifiers) are still not surfaced — see below.
+
 # Entities not visited at all
 
-- Base classes. nonstatic_data_members_of(^^T, ctx) returns only members declared in T. Inherited fields/methods are silently
-dropped — fine for POD-like records, broken for any polymorphic hierarchy. You need bases_of(^^T) plus either a recursive walk  
-or a walk_inherited entrypoint.  
-- Constructors. Filtered out by is_exportable_member_function. But every backend (pybind11 .def(py::init<…>()), Node .New(...), REST POST /T) needs the constructor signatures. Likely walk should expose them as a separate ctor<Fn> visitor call. 
-- Static data members. nonstatic_data_members_of skips them by definition, and there's no field_static visitor signature.  
+- Static data members. nonstatic_data_members_of skips them by definition, and there's no field_static visitor signature.
 - Nested types (nested classes/structs/enums, type aliases). A Point::Coord enum nested in Point is invisible.
-- Conversion operators and overloaded operators (operator(), operator+, operator[], …). operator() in particular is functor   reflection — the project's prompt explicitly calls it out. The current filter rejects nothing for these by name, but there's no  visitor signature distinguishing them, so backends can't route operator+ → __add__. 
-  
-# Details ignored about what is visited  
- 
-- Method qualifiers. A const method, an &&-ref-qualified method, a virtual method, a noexcept method all reach method_instance<Fn> identically. Some backends care (pybind11 needs to know const-ness for py::const_; REST binding for safe vs.
-unsafe verbs).  
-- Parameter metadata. Parameter names and default arguments aren't surfaced. Python **kwargs-style binding really wants both. `identifier_of(param)` and `has_default_argument(param)` exist; nothing currently propagates them. 
-- Per-parameter annotations. `[[=range{0,1}]] double t` on a parameter is invisible — same plumbing as field annotations needs to  repeat there. 
-- Bit-fields, mutable, anonymous unions. Niche but real; a generator that claims "full reflection" should at least flag them so backends can refuse cleanly rather than miscompile.  
-- Return-type metadata. The backend re-derives return_type_of(Fn) itself, fine — but `[[nodiscard]]`, ref/cv qualifiers, and `noexcept` get lost unless surfaced. 
-- Field traits. Is the type a std::optional, std::variant, container, smart pointer, or raw pointer? Each backend re-discovers this; centralising it in the walker (or in a tiny shape-classifier) would deduplicate a lot of backend code.  
-  
-# The annotation-routing design itself  
+- Conversion operators and overloaded operators (operator(), operator+, operator[], …). operator() in particular is functor reflection — the project's prompt explicitly calls it out. The current filter rejects nothing for these by name, but there's no visitor signature distinguishing them, so backends can't route operator+ → __add__.
 
-This is the structural issue, not a missing item. Today the walker decides for each field which of three shapes to call
-(field_plain / field_readonly / field_ranged). Every new annotation kind (alias, widget, deprecated, unit, …) requires:
+# Details ignored about what is visited
 
-1. a new shape on the visitor concept,
-2. a new branch in the walker,
-3. an update in every backend.
-
-That's O(annotations × backends) churn. A better pivot: hand the visitor the annotation pack and let it decide.
-
-```cpp
-v.template field<fld, Anns...>(name);// Anns... is the full annotation pack
-v.template method<fn,  Anns...>(name);
-v.template ctor<fn, Anns...>();
-v.template enumerator<e, Anns...>(name);
-```
-
-Then field_readonly / field_ranged become helper queries the visitor can call on Anns..., not separate ABI surfaces of the
-walker. Same shape covers any future annotation — widget, group, alias, deprecated — with zero walker changes.
+- Method qualifiers. `virtual` is now surfaced via `virtual_spec` (see Done). A `const` method, an `&&`-ref-qualified method, and a `noexcept` method still all reach method_instance<Fn> identically. Some backends care (pybind11 needs const-ness for py::const_; REST binding for safe vs. unsafe verbs). Same plumbing as `virtual_spec` — synthesize a marker into the annotation pack.
+- Parameter metadata. Parameter names and default arguments aren't surfaced. Python **kwargs-style binding really wants both. `identifier_of(param)` and `has_default_argument(param)` exist; nothing currently propagates them.
+- Per-parameter annotations. `[[=range{0,1}]] double t` on a parameter is invisible — same plumbing as field annotations needs to repeat there.
+- Bit-fields, mutable, anonymous unions. Niche but real; a generator that claims "full reflection" should at least flag them so backends can refuse cleanly rather than miscompile.
+- Return-type metadata. The backend re-derives return_type_of(Fn) itself, fine — but `[[nodiscard]]`, ref/cv qualifiers, and `noexcept` get lost unless surfaced.
+- Field traits. Is the type a std::optional, std::variant, container, smart pointer, or raw pointer? Each backend re-discovers this; centralising it in the walker (or in a tiny shape-classifier) would deduplicate a lot of backend code.
 
 # A practical "what's next" punch list
 
-1. Annotation-pack refactor first — it changes the visitor signature, so doing it later means rewriting backends twice.
-2. Enums — independent entrypoint, big payoff per LOC.
-3. Constructors — every backend needs them.
-4. Bases / inherited members — flips a lot of "doesn't work on real code" into "works."
-5. Method qualifiers + parameter names/defaults.
-6. Operators & static fields / nested types.
+1. ~~Annotation-pack refactor~~ — done.
+2. ~~Enums~~ — done.
+3. ~~Constructors~~ — done.
+4. ~~Bases / inherited members~~ — done (with virtual/override detection).
+5. Method qualifiers (`const` / `noexcept` / ref) + parameter names/defaults — the qualifiers follow the `virtual_spec` pattern exactly.
+6. Have a backend *consume* `virtual_spec` — pybind11 trampoline emission so a Python subclass can override a C++ virtual.
+7. Operators & static fields / nested types.
 
-The first one is the only architectural change; the rest are additive and can land in any order.
+All remaining items are additive — no further walker-signature changes are required.

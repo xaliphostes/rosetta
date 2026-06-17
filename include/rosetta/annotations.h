@@ -46,6 +46,26 @@ namespace rosetta {
     };
 
     /**
+     * @brief Synthesized (not user-written) marker that walk<T>() injects into a
+     * method's annotation pack when its surviving reflection is virtual. Lets
+     * backends tell a virtual / overriding method apart from a plain one — e.g.
+     * to emit a pybind11 trampoline so a Python subclass can override it.
+     *
+     * Detect with rosetta::ann::has<rosetta::virtual_spec>(Anns...); read the
+     * flags with rosetta::ann::get_or<rosetta::virtual_spec>({}, Anns...).
+     *
+     * `pure` is true for a pure-virtual declaration (= 0); `overrides` is true
+     * when the method overrides a base virtual. Note: after override dedup the
+     * surviving reflection is the most-derived one, so a concrete override
+     * reports pure == false even though the base declaration was pure.
+     */
+    struct virtual_spec {
+        bool pure      = false;
+        bool overrides = false;
+        bool operator==(const virtual_spec &) const = default;
+    };
+
+    /**
      * @brief Drop-down / choice-list annotation for string-like members. Each
      * choice literal is routed through std::define_static_string so the
      * annotation stays NTTP-eligible.

@@ -21,6 +21,7 @@ Everything below is discovered by **reflection** from your unmodified headers �
 
 - **Public fields** — exposed as read/write properties, with per-backend getters/setters.
 - **Public methods** — both instance and `static` members.
+- **Inheritance** — public base-class fields and methods are flattened into the derived binding; a derived declaration shadows the base one (most-derived wins) and a virtual diamond collapses to a single member. Virtual / overriding methods are flagged (`virtual_spec`) so backends can tell them apart from plain ones.
 - **Multiple constructors** — default *and* parameterized; each overload is bound.
 - **Enums** — `enum` / `enum class`, with enumerators surfaced as named constants.
 - **Free (non-member) functions** — declared in the manifest, no edit to your headers ([details](docs/FREE_FUNCTIONS.md)).
@@ -223,7 +224,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 - [Free functions](docs/FREE_FUNCTIONS.md) — sketch for reflecting namespace-scope functions
 - [Other annotations](docs/OTHER_ANNOTATIONS.md) — proposed annotation kinds beyond the current three
 - [Out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) — keep headers clean: a JSON side-car of annotations baked in at generation time, merged at compile time
-- [Todo list](docs/TODO.md) — what the walker and visitor surface still miss (enums, bases, ctors, statics, parameter metadata, ...)
+- [Todo list](docs/TODO.md) — what the walker and visitor surface still miss (static data members, parameter metadata, nested types, ...)
 
 ## License
 

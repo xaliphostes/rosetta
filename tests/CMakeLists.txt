@@ -41,6 +41,14 @@ FetchContent_Declare(
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# nlohmann/json — header-only, used by the JSON visitor (rosetta::to_json).
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 enable_testing()
 include(GoogleTest)
 
@@ -61,3 +69,11 @@ target_include_directories(annotate_json PRIVATE ${CMAKE_SOURCE_DIR}/../include)
 target_compile_options(annotate_json PRIVATE -fannotation-attributes)
 target_link_libraries(annotate_json PRIVATE GTest::gtest_main)
 gtest_discover_tests(annotate_json)
+
+# Inherited-member flattening in walk<T>(): single inheritance, shadowing,
+# and virtual-diamond collapse. Verified via to_json/from_json and to_markdown.
+add_executable(inheritance inheritance.cpp)
+target_include_directories(inheritance PRIVATE ${CMAKE_SOURCE_DIR}/../include)
+target_compile_options(inheritance PRIVATE -fannotation-attributes)
+target_link_libraries(inheritance PRIVATE GTest::gtest_main nlohmann_json::nlohmann_json)
+gtest_discover_tests(inheritance)
