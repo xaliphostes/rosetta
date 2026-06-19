@@ -4,14 +4,27 @@
 
 # Rosetta
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/C%2B%2B-26-blue.svg?logo=cplusplus" alt="C++26">
+  <img src="https://img.shields.io/badge/status-prototype-yellow.svg" alt="Status: prototype">
+  <a href="https://xaliphostes.github.io/rosetta/#1"><img src="https://img.shields.io/badge/slides-rosetta-blue?logo=marp" alt="Slides"></a>
+  <a href="https://github.com/xaliphostes/rosetta2/stargazers"><img src="https://img.shields.io/github/stars/xaliphostes/rosetta2?style=social" alt="GitHub stars"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/bloomberg/clang-p2996"><img src="https://img.shields.io/badge/clang--p2996-tested-brightgreen.svg?logo=llvm" alt="clang-p2996: tested"></a>
+  <img src="https://img.shields.io/badge/EDG-experimental-yellow.svg" alt="EDG: experimental">
+  <img src="https://img.shields.io/badge/NVC%2B%2B-planned-lightgrey.svg?logo=nvidia" alt="NVC++: planned">
+  <img src="https://img.shields.io/badge/GCC-in%20progress-lightgrey.svg?logo=gnu" alt="GCC: in progress">
+  <img src="https://img.shields.io/badge/Clang%20%7C%20MSVC-tracking-lightgrey.svg" alt="Clang | MSVC: tracking">
+</p>
+
 A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a requirement: add them where you want docstrings, validation, or UI hints; leave the rest of the class alone. Reflection does the work either way.
 
 [QUICKSTART](docs/QUICKSTART.md)
-
-
-[![Slides](https://img.shields.io/badge/slides-rosetta-blue?logo=marp)](https://xaliphostes.github.io/rosetta/#1)
 
 ## Features
 
@@ -115,8 +128,17 @@ Prototype. Tracks the in-flight C++26 reflection papers:
 - **P3394** — annotation attributes (`[[= rosetta::doc{"..."}]]`)
 - **P3294** — token injection (not yet used; see notes in `mini_moc.h`)
 
-Builds with the Bloomberg [clang-p2996 fork](https://github.com/bloomberg/clang-p2996).
-No mainline compiler implements enough of these proposals yet.
+Builds with the Bloomberg [clang-p2996 fork](https://github.com/bloomberg/clang-p2996) — the reference implementation rosetta is developed and tested against.
+
+No mainline compiler ships these proposals yet, but other front-ends are implementing P2996 and should become viable targets as their support matures (and as rosetta's compiler-specific flags are abstracted):
+
+- **clang-p2996** (Bloomberg fork) — ✅ supported today; what rosetta is built and tested with.
+- **EDG** — front-end has an experimental P2996 implementation; the most likely next target.
+- **NVC++ / NVHPC** — built on the EDG front-end, so it could inherit reflection as EDG's support lands in releases.
+- **GCC** — reflection is under active development on experimental branches; not yet usable for rosetta.
+- **Mainline Clang / MSVC** — tracking P2996 but no usable implementation yet.
+
+Annotations (P3394) and token injection (P3294) are newer and currently exist only in the clang-p2996 fork, so full-feature builds remain fork-only for now.
 
 ## Requirements
 
