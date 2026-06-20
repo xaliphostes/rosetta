@@ -1,0 +1,5 @@
+{
+  "x": { "doc": "The x-coordinate of the point" },
+  "y": { "doc": "The y-coordinate of the point" },
+  "z": { "doc": "The z-coordinate of the point" }
+}

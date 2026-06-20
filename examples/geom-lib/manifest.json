@@ -8,6 +8,11 @@
             "name": "pygeom"
         },
         {
+            "doc": "Python binding via nanobind (leaner/faster pybind11 successor)",
+            "lang": "nanobind",
+            "name": "nbgeom"
+        },
+        {
             "doc": "Automatique REST binding",
             "lang": "rest"
         },

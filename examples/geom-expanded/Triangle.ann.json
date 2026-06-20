@@ -1,0 +1,6 @@
+{
+  "a":    { "doc": "First vertex index",  "range": [0, 1000000] },
+  "b":    { "doc": "Second vertex index", "range": [0, 1000000] },
+  "c":    { "doc": "Third vertex index",  "range": [0, 1000000] },
+  "kind": { "doc": "What kind of primitive this triangle represents" }
+}

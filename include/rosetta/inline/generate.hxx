@@ -64,7 +64,7 @@ endif()
         // `[[ = rosetta::doc{...} ]]` annotations parse (they don't include
         // rosetta themselves).
         inline std::string includes_of(const GenContext &c) {
-            std::string s = "#include <rosetta/annotations.h>\n";
+            std::string s   = "#include <rosetta/annotations.h>\n";
             auto        add = [&](const std::string &h) {
                 const std::string line = "#include \"" + h + "\"\n";
                 if (s.find(line) == std::string::npos) {
@@ -100,8 +100,9 @@ endif()
                 anns += "template <> inline constexpr auto rosetta::detail::ann_storage<" + k.name +
                         "> =\n    std::to_array<char>({" + bytes + "'\\0'});\n" +
                         "template <> inline constexpr std::string_view rosetta::ann_json_source<" +
-                        k.name + "> =\n    std::string_view{rosetta::detail::ann_storage<" + k.name +
-                        ">.data(), rosetta::detail::ann_storage<" + k.name + ">.size() - 1};\n";
+                        k.name + "> =\n    std::string_view{rosetta::detail::ann_storage<" +
+                        k.name + ">.data(), rosetta::detail::ann_storage<" + k.name +
+                        ">.size() - 1};\n";
             }
             if (!anns.empty()) {
                 s += "#include <rosetta/annotate.h>\n" + anns;
@@ -129,9 +130,7 @@ endif()
 
         inline std::string render_source(std::string_view tmpl, const GenContext &c,
                                          std::string_view binds) {
-            return subst(tmpl, {{"LIB", c.lib},
-                                {"INCLUDES", includes_of(c)},
-                                {"BINDINGS", binds}});
+            return subst(tmpl, {{"LIB", c.lib}, {"INCLUDES", includes_of(c)}, {"BINDINGS", binds}});
         }
 
         // Can a value of this type cross a JSON boundary (REST / OpenAPI)?
@@ -204,7 +203,8 @@ endif()
         template <typename U, typename A> struct is_vec<std::vector<U, A>> : std::true_type {};
 
         template <typename T> struct is_func : std::false_type {};
-        template <typename R, typename... A> struct is_func<std::function<R(A...)>> : std::true_type {};
+        template <typename R, typename... A>
+        struct is_func<std::function<R(A...)>> : std::true_type {};
 
         // Prettify a canonical type spelling for human docs: display_string_of
         // yields e.g. basic_string<char, …>; show std::string instead.
@@ -336,7 +336,8 @@ endif()
             template <std::meta::info Fld, auto... Anns> void field(const char *name) {
                 GenField gf;
                 gf.name = name;
-                gf.type = type_descriptor<std::remove_cvref_t<typename[:std::meta::type_of(Fld):]>>();
+                gf.type =
+                    type_descriptor<std::remove_cvref_t<typename[:std::meta::type_of(Fld):]>>();
                 gf.is_readonly = ann::has<readonly>(Anns...);
                 gf.doc         = ann::get_or<doc>(doc{""}, Anns...).text;
                 if constexpr (ann::has<range>(Anns...)) {
@@ -374,17 +375,20 @@ endif()
 
             template <std::meta::info Ctor, auto... /*Anns*/> void constructor() {
                 out.ctors.push_back(params_of<Ctor>());
+                // Exact parameter spellings, so a code-emitting backend can
+                // reproduce `py::init<...>()` without reflection on the target.
+                out.ctor_param_cpp.push_back(param_cpp_of<Ctor>());
             }
 
-          private:
+        private:
             template <std::meta::info Fn>
             void push_method(const char *name, bool is_static, const char *docstr, bool is_virtual,
                              virtual_spec vs) {
                 GenMethod m;
                 m.name      = name;
                 m.is_static = is_static;
-                m.ret =
-                    type_descriptor<std::remove_cvref_t<typename[:std::meta::return_type_of(Fn):]>>();
+                m.ret       = type_descriptor<
+                    std::remove_cvref_t<typename[:std::meta::return_type_of(Fn):]>>();
                 m.params      = params_of<Fn>();
                 m.doc         = docstr;
                 m.is_virtual  = is_virtual;
@@ -433,7 +437,8 @@ endif()
         inline std::string class_markdown(const GenClass &gc) {
             std::string out = "# " + gc.name + "\n\n";
             if (!gc.fields.empty()) {
-                out += "## Fields\n\n| Name | Type | Description |\n|------|------|-------------|\n";
+                out +=
+                    "## Fields\n\n| Name | Type | Description |\n|------|------|-------------|\n";
                 for (const auto &f : gc.fields) {
                     std::string desc = f.doc;
                     auto        add  = [&](const std::string &tag) {
@@ -455,7 +460,8 @@ endif()
                     if (f.is_readonly) {
                         add("_(readonly)_");
                     }
-                    out += "| `" + f.name + "` | `" + readable_type(f.type) + "` | " + desc + " |\n";
+                    out +=
+                        "| `" + f.name + "` | `" + readable_type(f.type) + "` | " + desc + " |\n";
                 }
             }
             if (!gc.methods.empty()) {
@@ -498,6 +504,7 @@ endif()
                           std::define_static_array(std::meta::annotations_of(^^T))) {
                 gc.annotations.emplace_back([:std::meta::constant_of(a):]);
             }
+            gc.is_default_constructible = std::is_default_constructible_v<T>;
             IRVisitor<T> v{gc};
             walk<T>(v);
             // Render the doc fragment after the walk has filled fields/methods.
@@ -567,13 +574,17 @@ endif()
 #include <rosetta/backends/json_backend.h>
 #include <rosetta/backends/julia_backend.h>
 #include <rosetta/backends/markdown_backend.h>
+#include <rosetta/backends/nanobind_backend.h>
 #include <rosetta/backends/node_backend.h>
 #include <rosetta/backends/openapi_backend.h>
 #include <rosetta/backends/paraview_backend.h>
 #include <rosetta/backends/python_backend.h>
+#include <rosetta/backends/python_expanded_backend.h>
+#include <rosetta/backends/node_expanded_backend.h>
 #include <rosetta/backends/rest_backend.h>
 #include <rosetta/backends/typescript_backend.h>
 #include <rosetta/backends/wasm_backend.h>
+#include <rosetta/backends/wasm_expanded_backend.h>
 
 namespace rosetta {
 
@@ -582,17 +593,21 @@ namespace rosetta {
     inline std::map<std::string, std::shared_ptr<Backend>> &backend_registry() {
         static std::map<std::string, std::shared_ptr<Backend>> reg = [] {
             std::map<std::string, std::shared_ptr<Backend>> m;
-            m["python"]     = std::make_shared<gen_detail::PythonBackend>();
-            m["node"]       = std::make_shared<gen_detail::NodeBackend>();
-            m["julia"]      = std::make_shared<gen_detail::JuliaBackend>();
-            m["rest"]       = std::make_shared<gen_detail::RestBackend>();
-            m["wasm"]       = std::make_shared<gen_detail::WasmBackend>();
-            m["typescript"] = std::make_shared<gen_detail::TypeScriptBackend>();
-            m["markdown"]   = std::make_shared<gen_detail::MarkdownBackend>();
-            m["html"]       = std::make_shared<gen_detail::HtmlBackend>();
-            m["json"]       = std::make_shared<gen_detail::JsonBackend>();
-            m["openapi"]    = std::make_shared<gen_detail::OpenApiBackend>();
-            m["paraview"]   = std::make_shared<gen_detail::ParaViewBackend>();
+            m["python"]          = std::make_shared<gen_detail::PythonBackend>();
+            m["python-expanded"] = std::make_shared<gen_detail::PythonExpandedBackend>();
+            m["nanobind"]        = std::make_shared<gen_detail::NanobindBackend>();
+            m["node"]            = std::make_shared<gen_detail::NodeBackend>();
+            m["node-expanded"]   = std::make_shared<gen_detail::NodeExpandedBackend>();
+            m["julia"]           = std::make_shared<gen_detail::JuliaBackend>();
+            m["rest"]            = std::make_shared<gen_detail::RestBackend>();
+            m["wasm"]            = std::make_shared<gen_detail::WasmBackend>();
+            m["wasm-expanded"]   = std::make_shared<gen_detail::WasmExpandedBackend>();
+            m["typescript"]      = std::make_shared<gen_detail::TypeScriptBackend>();
+            m["markdown"]        = std::make_shared<gen_detail::MarkdownBackend>();
+            m["html"]            = std::make_shared<gen_detail::HtmlBackend>();
+            m["json"]            = std::make_shared<gen_detail::JsonBackend>();
+            m["openapi"]         = std::make_shared<gen_detail::OpenApiBackend>();
+            m["paraview"]        = std::make_shared<gen_detail::ParaViewBackend>();
             return m;
         }();
         return reg;
@@ -608,8 +623,7 @@ namespace rosetta {
     // comes from the manifest (free functions carry no in-source annotation, so
     // user headers stay untouched).
     template <std::meta::info F>
-    inline GenFunction make_function(const char *qualified, const char *header,
-                                     const char *doc) {
+    inline GenFunction make_function(const char *qualified, const char *header, const char *doc) {
         GenFunction gf;
         gf.name      = std::define_static_string(std::meta::identifier_of(F));
         gf.qualified = qualified;
@@ -640,15 +654,13 @@ namespace rosetta {
             auto &reg = backend_registry();
             auto  it  = reg.find(t.lang);
             if (it == reg.end() || !it->second) {
-                std::fprintf(
-                    stderr,
-                    "rosetta::generate: no backend registered for target '%s' — skipped\n",
-                    t.lang.c_str());
+                std::fprintf(stderr,
+                             "rosetta::generate: no backend registered for target '%s' — skipped\n",
+                             t.lang.c_str());
                 continue;
             }
-            it->second->emit(GenContext{opt.out_dir, t.name, classes, enums,
-                                        opt.functions, opt.user_include.string(),
-                                        opt.rosetta_include.string()});
+            it->second->emit(GenContext{opt.out_dir, t.name, classes, enums, opt.functions,
+                                        opt.user_include.string(), opt.rosetta_include.string()});
         }
     }
 

@@ -176,6 +176,19 @@ namespace rosetta {
         std::vector<GenField>              fields;  // public data members
         std::vector<GenMethod>             methods; // instance + static methods
         std::vector<std::vector<GenParam>> ctors;   // one param list per constructor
+
+        // Whether T is default-constructible. The implicitly-declared default
+        // ctor is often *not* enumerated as a member, so `ctors` may be empty
+        // even when `T()` is valid; backends that emit an explicit binding for
+        // it (e.g. python-expanded's py::init<>()) consult this instead.
+        bool is_default_constructible = false;
+
+        // Exact C++ spellings of each constructor's parameter types, in the same
+        // order as `ctors`. Parallel to `ctors` (which carries the neutral IR);
+        // a backend that has to *spell* the constructor signature in emitted C++
+        // (e.g. py::init<const std::vector<double>&, ...>()) uses these, since
+        // GenType::spelling is cvref-stripped and may not round-trip.
+        std::vector<std::vector<std::string>> ctor_param_cpp;
     };
 
     /**
