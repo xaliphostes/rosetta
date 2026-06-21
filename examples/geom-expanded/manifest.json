@@ -10,10 +10,10 @@
     "module_name": "pygeom",
 
     "targets": [
-        { "lang": "python-expanded", "name": "pygeom" },
-        { "lang": "node-expanded",   "name": "jsgeom" },
-        { "lang": "wasm-expanded",   "name": "geom" },
-        { "lang": "markdown",        "name": "geom-expanded" }
+        { "lang": "python-expanded",   "name": "pygeom" },
+        { "lang": "nanobind-expanded", "name": "nbgeom" },
+        { "lang": "node-expanded",     "name": "jsgeom" },
+        { "lang": "wasm-expanded",   "name": "geom" }
     ],
 
     "classes": [

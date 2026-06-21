@@ -580,6 +580,7 @@ endif()
 #include <rosetta/backends/paraview_backend.h>
 #include <rosetta/backends/python_backend.h>
 #include <rosetta/backends/python_expanded_backend.h>
+#include <rosetta/backends/nanobind_expanded_backend.h>
 #include <rosetta/backends/node_expanded_backend.h>
 #include <rosetta/backends/rest_backend.h>
 #include <rosetta/backends/typescript_backend.h>
@@ -595,7 +596,8 @@ namespace rosetta {
             std::map<std::string, std::shared_ptr<Backend>> m;
             m["python"]          = std::make_shared<gen_detail::PythonBackend>();
             m["python-expanded"] = std::make_shared<gen_detail::PythonExpandedBackend>();
-            m["nanobind"]        = std::make_shared<gen_detail::NanobindBackend>();
+            m["nanobind"]          = std::make_shared<gen_detail::NanobindBackend>();
+            m["nanobind-expanded"] = std::make_shared<gen_detail::NanobindExpandedBackend>();
             m["node"]            = std::make_shared<gen_detail::NodeBackend>();
             m["node-expanded"]   = std::make_shared<gen_detail::NodeExpandedBackend>();
             m["julia"]           = std::make_shared<gen_detail::JuliaBackend>();

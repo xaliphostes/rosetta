@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<!--
+  Browser test for the wasm-expanded binding (target "geom").
+
+  The module is built with -sMODULARIZE=1 -sEXPORT_NAME=createModule
+  -sENVIRONMENT=node,web, so loading geom.js defines a global `createModule()`
+  factory returning a Promise that resolves to the module instance.
+
+  Build first:
+    emcmake cmake -S bindings/wasm-expanded -B bindings/wasm-expanded/build
+    cmake --build bindings/wasm-expanded/build -j
+
+  Then serve over HTTP (browsers can't fetch .wasm from file://) and open:
+    python3 -m http.server 8000
+    # visit http://localhost:8000/example_wasm.html
+
+  Same Model/Surface/Point/Triangle API as example_wasm.js — here we also draw
+  the surface on a <canvas>. embind exposes registered std::vector types
+  (vector_double / vector_int / ...) and JS-owned C++ objects must be .delete()'d.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>rosetta · wasm-expanded (geom)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 1.5rem;
+         max-width: 880px; margin-inline: auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
+  .sub { opacity: .7; margin: 0 0 1.25rem; }
+  #status { padding: .5rem .75rem; border-radius: 6px; font-weight: 600; }
+  #status.loading { background: #fff3cd; color: #664d03; }
+  #status.ok      { background: #d1e7dd; color: #0f5132; }
+  #status.err     { background: #f8d7da; color: #842029; }
+  .row { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;
+         margin-top: 1.25rem; }
+  canvas { border: 1px solid #8884; border-radius: 6px; background: #00000008; }
+  pre { background: #00000010; padding: .75rem 1rem; border-radius: 6px;
+        overflow: auto; flex: 1; min-width: 280px; margin: 0; }
+  code { background: #00000014; padding: .1rem .35rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>rosetta — <code>wasm-expanded</code> binding (module <code>geom</code>)</h1>
+  <p class="sub">A reflection-free embind module, built with a stock emsdk, loaded
+     and exercised in the browser.</p>
+
+  <div id="status" class="loading">Loading WebAssembly module…</div>
+
+  <div class="row">
+    <canvas id="view" width="320" height="320"></canvas>
+    <pre id="log"></pre>
+  </div>
+
+  <!-- Loads geom.js (the MODULARIZE factory) from the build directory. -->
+  <script src="bindings/wasm-expanded/build/geom.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
+    const log = (...a) => { logEl.textContent += a.join(" ") + "\n"; };
+
+    function setStatus(text, cls) { statusEl.textContent = text; statusEl.className = cls; }
+
+    // Resolve geom.wasm next to geom.js regardless of the page's location.
+    createModule({ locateFile: (p) => "bindings/wasm-expanded/build/" + p })
+      .then((geom) => {
+        try {
+          run(geom);
+          setStatus("✓ Module loaded and exercised successfully.", "ok");
+        } catch (e) {
+          setStatus("✗ " + (e.message || e), "err");
+          log("\nERROR:", e.message || e);
+        }
+      })
+      .catch((e) => setStatus("✗ Failed to load module: " + (e.message || e), "err"));
+
+    // Build an embind std::vector<T> from a JS array.
+    function toVector(VecType, values) {
+      const v = new VecType();
+      for (const x of values) v.push_back(x);
+      return v;
+    }
+
+    function run(geom) {
+      // A unit triangle in the XY plane: positions (x,y,z)*3, indices.
+      const positions = toVector(geom.vector_double, [0, 0, 0, 1, 0, 0, 0, 1, 0]);
+      const indices = toVector(geom.vector_int, [0, 1, 2]);
+
+      const surface = new geom.Surface(positions, indices);
+      positions.delete();
+      indices.delete();
+
+      const model = new geom.Model();
+      model.addSurface(surface);
+
+      // Pull the geometry back across the boundary for display + drawing.
+      const drawPoints = [];
+      const drawTris = [];
+      const surfaces = model.getSurfaces();
+      for (let i = 0; i < surfaces.size(); ++i) {
+        const s = surfaces.get(i);
+
+        const pts = s.getPoints();
+        log("Surface points:");
+        for (let k = 0; k < pts.size(); ++k) {
+          const p = pts.get(k);
+          drawPoints.push([p.x, p.y, p.z]);
+          log(`  (${p.x}, ${p.y}, ${p.z})`);
+          p.delete();
+        }
+        pts.delete();
+
+        const tris = s.getTriangles();
+        log("Surface triangles:");
+        for (let k = 0; k < tris.size(); ++k) {
+          const t = tris.get(k);
+          drawTris.push([t.a, t.b, t.c]);
+          log(`  [${t.a}, ${t.b}, ${t.c}]`);
+          t.delete();
+        }
+        tris.delete();
+
+        s.delete();
+      }
+      surfaces.delete();
+
+      // Free function bound from common.h: swizzle (x,y,z) -> (x*2, z*3, y*4).
+      const p = new geom.Point(1, 2, 3);
+      const q = geom.transform(p);
+      log(`\ntransform(1, 2, 3) => (${q.x}, ${q.y}, ${q.z})`);
+      p.delete();
+      q.delete();
+
+      // Range validation generated from Triangle.ann.json (0..1000000).
+      const tri = new geom.Triangle(0, 1, 2);
+      try {
+        tri.a = -1;
+        log("range check: NOT enforced (unexpected)");
+      } catch (e) {
+        log("range check: rejected out-of-range assignment ✓");
+      }
+      tri.delete();
+
+      model.delete();
+      surface.delete();
+
+      draw(drawPoints, drawTris);
+    }
+
+    // Draw the surface: a 2D (x, y) projection, y-up, auto-fit to the canvas.
+    function draw(points, tris) {
+      const c = document.getElementById("view");
+      const ctx = c.getContext("2d");
+      const W = c.width, H = c.height, pad = 40;
+      ctx.clearRect(0, 0, W, H);
+      if (!points.length) return;
+
+      const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const span = Math.max(maxX - minX, maxY - minY) || 1;
+      const sx = (x) => pad + ((x - minX) / span) * (W - 2 * pad);
+      const sy = (y) => H - pad - ((y - minY) / span) * (H - 2 * pad); // flip: y up
+
+      // Triangle edges.
+      ctx.strokeStyle = "#4c8bf5";
+      ctx.fillStyle = "#4c8bf533";
+      ctx.lineWidth = 2;
+      for (const [a, b, cc] of tris) {
+        ctx.beginPath();
+        ctx.moveTo(sx(points[a][0]), sy(points[a][1]));
+        ctx.lineTo(sx(points[b][0]), sy(points[b][1]));
+        ctx.lineTo(sx(points[cc][0]), sy(points[cc][1]));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Vertices + labels.
+      ctx.fillStyle = "#e8590c";
+      ctx.font = "12px system-ui, sans-serif";
+      points.forEach((p, i) => {
+        const X = sx(p[0]), Y = sy(p[1]);
+        ctx.beginPath();
+        ctx.arc(X, Y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText(`P${i} (${p[0]}, ${p[1]}, ${p[2]})`, X + 8, Y - 8);
+      });
+    }
+  </script>
+</body>
+</html>

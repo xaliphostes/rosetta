@@ -70,6 +70,7 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 | **Python** | pybind11 extension module | ✅ Working |
 | **Python (expanded)** | `python-expanded` — fully-expanded pybind11 | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
 | **Python (nanobind)** | `nanobind` extension module — leaner/faster pybind11 successor | ✅ Working (≈½ the binary size of the pybind11 build) |
+| **Python (nanobind, expanded)** | `nanobind-expanded` — fully-expanded nanobind | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
 | **Node** | N-API native addon | ✅ Working |
 | **Node (expanded)** | `node-expanded` — fully-expanded N-API | ✅ Builds with a **stock C++20** compiler — no reflection on the target |
 | **Julia** | CxxWrap.jl / jlcxx shared module | ✅ Builds & runs <br> ⚠️ `std::vector` skipped (fork libc++ gap) |
