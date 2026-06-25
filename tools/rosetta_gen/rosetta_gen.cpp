@@ -16,20 +16,34 @@
 //   {
 //     "user_include": "./geom",
 //     "rosetta_include": "../../include",
-//     "generator_name": "generator_geom",   // driver tool / CMake target
-//     "module_name": "geom",                 // default binding module name
-//     "targets": [                           // shared by every class
-//       { "lang": "python", "name": "pygeom" },  // per-target module name
-//       "node"                                   // shorthand: uses module_name
+//     "generator_name": "generator_geom",           // driver tool / CMake target
+//     "module_name": "geom",                        // default binding module name
+//     "cpp26_root": "$ENV{HOME}/clang-p2996/build", // optional: C++26/P2996
+//                                                   // toolchain root for the thin
+//                                                   // (reflection) backends. Default:
+//                                                   // $ENV{HOME}/devs/c++/clang-p2996/build
+//     "cpp26_cxx": "clang++",                       // optional: C++ compiler (name or
+//                                                   //   path). Default ${root}/bin/clang++
+//     "cpp26_cc":  "clang",                         // optional: C compiler.
+//                                                   //   Default ${root}/bin/clang
+//     "cpp26_lib": "/path/to/fork/lib",             // optional: dir with libc++/
+//                                                   //   libc++abi (-L/-rpath).
+//                                                   //   Default ${root}/lib
+//     "qt_dir": "$ENV{HOME}/Qt/6.8.3/macos",        // optional: Qt 6 prefix for the
+//                                                   //   qt-expanded / qml-expanded
+//                                                   //   backends. Default that path.
+//     "targets": [                                  // shared by every class
+//       { "lang": "python", "name": "pygeom" },     // per-target module name
+//       "node"                                      // shorthand: uses module_name
 //     ],
 //     "classes": [
 //       { "name": "Model", "header": "Model.h",
-//         "annotations": "Model.ann.json" },  // optional out-of-line annotations
-//       { "header": "Point.h" }              // name derived from header stem
+//         "annotations": "Model.ann.json" },        // optional out-of-line annotations
+//       { "header": "Point.h" }                     // name derived from header stem
 //     ],
-//     "functions": [                         // optional: free (non-member) fns
+//     "functions": [                                // optional: free (non-member) fns
 //       { "name": "transform", "header": "common.h", "doc": "..." }
-//     ]                                      // name may be qualified (api::add)
+//     ]                                             // name may be qualified (api::add)
 //   }
 //
 // One generator emits a single combined module per backend exposing
@@ -66,17 +80,31 @@ struct TargetEntry {
 };
 
 struct Manifest {
-    fs::path                 user_include;    // absolute
-    fs::path                 rosetta_include; // absolute
-    std::string              generator_name;  // driver tool / CMake target name
-    std::vector<TargetEntry>   targets;       // backends + per-backend module name
+    fs::path                   user_include;    // absolute
+    fs::path                   rosetta_include; // absolute
+    std::string                generator_name;  // driver tool / CMake target name
+    std::vector<TargetEntry>   targets;         // backends + per-backend module name
     std::vector<ClassEntry>    classes;
-    std::vector<FunctionEntry> functions;     // free functions to expose
-    std::vector<std::string>   plugins;       // extra .cpp sources (absolute) for the driver
+    std::vector<FunctionEntry> functions; // free functions to expose
+    std::vector<std::string>   plugins;   // extra .cpp sources (absolute) for the driver
+    std::string                cpp26_root; // optional C++26/P2996 toolchain root (verbatim)
+    std::string                cpp26_cxx;  // optional C++ compiler (name or path)
+    std::string                cpp26_cc;   // optional C compiler (name or path)
+    std::string                cpp26_lib;  // optional fork stdlib dir (libc++/libc++abi)
+    std::string                qt_dir;     // optional Qt 6 prefix (qt/qml backends)
 
     // CMake target / binary basename.
     std::string target() const { return generator_name; }
 };
+
+// Defaults baked into the driver CMakeLists when the manifest omits a field.
+// Kept in sync with rosetta::gen_detail::DEFAULT_CPP26_*. The compiler / stdlib
+// defaults are CMake expressions deriving from CLANG_P2996_ROOT, so setting only
+// "cpp26_root" moves all three together.
+static const char *kDefaultCpp26Root = "$ENV{HOME}/devs/c++/clang-p2996/build";
+static const char *kDefaultCpp26Cxx  = "${CLANG_P2996_ROOT}/bin/clang++";
+static const char *kDefaultCpp26Cc   = "${CLANG_P2996_ROOT}/bin/clang";
+static const char *kDefaultCpp26Lib  = "${CLANG_P2996_ROOT}/lib";
 
 static Manifest load(const fs::path &manifest_path) {
     std::ifstream in(manifest_path);
@@ -90,22 +118,19 @@ static Manifest load(const fs::path &manifest_path) {
     Manifest       m;
     const fs::path base = fs::absolute(manifest_path).parent_path();
 
-    m.user_include = fs::weakly_canonical(
-        base / fs::path(j.at("user_include").get<std::string>()));
-    m.rosetta_include = fs::weakly_canonical(
-        base / fs::path(j.at("rosetta_include").get<std::string>()));
+    m.user_include = fs::weakly_canonical(base / fs::path(j.at("user_include").get<std::string>()));
+    m.rosetta_include =
+        fs::weakly_canonical(base / fs::path(j.at("rosetta_include").get<std::string>()));
 
     // `generator_name` is optional; falls back to the manifest's parent
     // directory name (the driver tool / CMake target name).
-    m.generator_name = j.contains("generator_name")
-            ? j.at("generator_name").get<std::string>()
-            : base.filename().string();
+    m.generator_name = j.contains("generator_name") ? j.at("generator_name").get<std::string>()
+                                                    : base.filename().string();
 
     // `module_name` is optional too; the default binding module name when a
     // target gives no `name`. Falls back to `generator_name`.
     const std::string module_name =
-        j.contains("module_name") ? j.at("module_name").get<std::string>()
-                                  : m.generator_name;
+        j.contains("module_name") ? j.at("module_name").get<std::string>() : m.generator_name;
 
     // A target is either a bare string ("node") — using module_name — or an
     // object { "lang": ..., "name": ... } overriding the module name.
@@ -131,8 +156,8 @@ static Manifest load(const fs::path &manifest_path) {
         // (doc/range/readonly/combobox keyed by member name). Baked into
         // bindings.h at generation time, so the user's header stays clean.
         if (c.contains("annotations")) {
-            e.annotations = fs::weakly_canonical(
-                base / fs::path(c.at("annotations").get<std::string>()));
+            e.annotations =
+                fs::weakly_canonical(base / fs::path(c.at("annotations").get<std::string>()));
         }
         m.classes.push_back(std::move(e));
     }
@@ -158,6 +183,31 @@ static Manifest load(const fs::path &manifest_path) {
             m.plugins.push_back(
                 fs::weakly_canonical(base / fs::path(p.get<std::string>())).string());
         }
+    }
+
+    // `cpp26_root` is optional: the path to the C++26 / P2996 reflection
+    // toolchain root (the clang-p2996 build dir, holding bin/clang++ and lib/).
+    // Stored verbatim so a value like "$ENV{HOME}/..." or an absolute path is
+    // baked straight into the generated CMakeLists. Only the reflection-driven
+    // (thin) targets use it; the stock *-expanded targets ignore it.
+    if (j.contains("cpp26_root")) {
+        m.cpp26_root = j.at("cpp26_root").get<std::string>();
+    }
+    // Optional finer-grained overrides; each defaults from cpp26_root if unset.
+    //   cpp26_cxx — C++ compiler (name or path)   cpp26_cc — C compiler
+    //   cpp26_lib — fork stdlib dir (libc++/libc++abi) for -L / -rpath
+    if (j.contains("cpp26_cxx")) {
+        m.cpp26_cxx = j.at("cpp26_cxx").get<std::string>();
+    }
+    if (j.contains("cpp26_cc")) {
+        m.cpp26_cc = j.at("cpp26_cc").get<std::string>();
+    }
+    if (j.contains("cpp26_lib")) {
+        m.cpp26_lib = j.at("cpp26_lib").get<std::string>();
+    }
+    // Optional Qt 6 install prefix for the qt-expanded / qml-expanded backends.
+    if (j.contains("qt_dir")) {
+        m.qt_dir = j.at("qt_dir").get<std::string>();
     }
 
     if (m.generator_name.empty()) {
@@ -251,7 +301,7 @@ static std::string render_bindings_h(const Manifest &m) {
 }
 
 static std::string render_project_gen_cpp(const Manifest &m) {
-    const std::string target = m.target();
+    const std::string  target = m.target();
     std::ostringstream out;
     out << "// Generated by rosetta_gen — do not edit by hand.\n"
         << "#include \"bindings.h\"\n"
@@ -264,8 +314,25 @@ static std::string render_project_gen_cpp(const Manifest &m) {
         << "    rosetta::GenerateOptions opt;\n"
         << "    opt.out_dir         = argv[1];\n"
         << "    opt.user_include    = \"" << m.user_include.string() << "\";\n"
-        << "    opt.rosetta_include = \"" << m.rosetta_include.string() << "\";\n"
-        << "    opt.targets         = {\n";
+        << "    opt.rosetta_include = \"" << m.rosetta_include.string() << "\";\n";
+    // These reach the per-backend (thin) CMakeLists via GenContext; each is
+    // emitted only when set (empty ⇒ generate() applies its built-in default).
+    if (!m.cpp26_root.empty()) {
+        out << "    opt.cpp26_root      = \"" << m.cpp26_root << "\";\n";
+    }
+    if (!m.cpp26_cxx.empty()) {
+        out << "    opt.cpp26_cxx       = \"" << m.cpp26_cxx << "\";\n";
+    }
+    if (!m.cpp26_cc.empty()) {
+        out << "    opt.cpp26_cc        = \"" << m.cpp26_cc << "\";\n";
+    }
+    if (!m.cpp26_lib.empty()) {
+        out << "    opt.cpp26_lib       = \"" << m.cpp26_lib << "\";\n";
+    }
+    if (!m.qt_dir.empty()) {
+        out << "    opt.qt_dir          = \"" << m.qt_dir << "\";\n";
+    }
+    out << "    opt.targets         = {\n";
     for (const auto &t : m.targets) {
         out << "        {\"" << t.lang << "\", \"" << t.name << "\"},\n";
     }
@@ -292,15 +359,25 @@ static std::string render_project_gen_cpp(const Manifest &m) {
 }
 
 static std::string render_cmakelists(const Manifest &m) {
-    const std::string target = "generator"; //m.target();
+    const std::string  target = "generator"; // m.target();
     std::ostringstream out;
+    const std::string cpp26_root = m.cpp26_root.empty() ? kDefaultCpp26Root : m.cpp26_root;
+    const std::string cpp26_cxx  = m.cpp26_cxx.empty() ? kDefaultCpp26Cxx : m.cpp26_cxx;
+    const std::string cpp26_cc   = m.cpp26_cc.empty() ? kDefaultCpp26Cc : m.cpp26_cc;
+    const std::string cpp26_lib  = m.cpp26_lib.empty() ? kDefaultCpp26Lib : m.cpp26_lib;
     out << "# Generated by rosetta_gen — do not edit by hand.\n"
         << "cmake_minimum_required(VERSION 3.28)\n\n"
-        << "set(CLANG_P2996_ROOT \"$ENV{HOME}/devs/c++/clang-p2996/build\"\n"
-        << "    CACHE PATH \"Bloomberg clang-p2996 fork build directory\")\n"
+        << "set(CLANG_P2996_ROOT \"" << cpp26_root << "\"\n"
+        << "    CACHE PATH \"C++26 / P2996 reflection toolchain root (clang-p2996 build dir)\")\n"
+        << "set(ROSETTA_CXX_COMPILER \"" << cpp26_cxx << "\"\n"
+        << "    CACHE FILEPATH \"C++26 / P2996 C++ compiler\")\n"
+        << "set(ROSETTA_C_COMPILER \"" << cpp26_cc << "\"\n"
+        << "    CACHE FILEPATH \"C++26 / P2996 C compiler\")\n"
+        << "set(ROSETTA_STDLIB \"" << cpp26_lib << "\"\n"
+        << "    CACHE PATH \"Directory holding the fork's libc++ / libc++abi (-L and -rpath)\")\n"
         << "if(NOT CMAKE_CXX_COMPILER)\n"
-        << "    set(CMAKE_C_COMPILER   \"${CLANG_P2996_ROOT}/bin/clang\")\n"
-        << "    set(CMAKE_CXX_COMPILER \"${CLANG_P2996_ROOT}/bin/clang++\")\n"
+        << "    set(CMAKE_C_COMPILER   \"${ROSETTA_C_COMPILER}\")\n"
+        << "    set(CMAKE_CXX_COMPILER \"${ROSETTA_CXX_COMPILER}\")\n"
         << "endif()\n\n"
         << "project(" << target << " CXX)\n\n"
         << "set(CMAKE_CXX_STANDARD 26)\n"
@@ -322,9 +399,10 @@ static std::string render_cmakelists(const Manifest &m) {
         << "    " << m.user_include.string() << "\n"
         << "    " << m.rosetta_include.string() << ")\n\n"
         << "target_compile_options(" << target << " PRIVATE\n"
-        << "    -freflection -freflection-latest -fexperimental-library -fannotation-attributes)\n\n"
+        << "    -freflection -freflection-latest -fexperimental-library "
+           "-fannotation-attributes)\n\n"
         << "target_link_options(" << target << " PRIVATE\n"
-        << "    -nostdlib++ -L${CLANG_P2996_ROOT}/lib -Wl,-rpath,${CLANG_P2996_ROOT}/lib\n"
+        << "    -nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB}\n"
         << "    -lc++ -lc++abi)\n";
     return out.str();
 }
@@ -335,9 +413,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     const fs::path manifest_path = argv[1];
-    const fs::path out_dir       = (argc == 3)
-            ? fs::path(argv[2])
-            : fs::absolute(manifest_path).parent_path() / "generated";
+    const fs::path out_dir =
+        (argc == 3) ? fs::path(argv[2]) : fs::absolute(manifest_path).parent_path() / "generated";
 
     try {
         const Manifest    m      = load(manifest_path);
@@ -346,10 +423,8 @@ int main(int argc, char **argv) {
         write_file(out_dir / (target + ".cpp"), render_project_gen_cpp(m));
         write_file(out_dir / "CMakeLists.txt", render_cmakelists(m));
 
-        std::fprintf(stderr,
-                     "wrote %s/{bindings.h, %s.cpp, CMakeLists.txt}\n",
-                     out_dir.string().c_str(),
-                     target.c_str());
+        std::fprintf(stderr, "wrote %s/{bindings.h, %s.cpp, CMakeLists.txt}\n",
+                     out_dir.string().c_str(), target.c_str());
     } catch (const std::exception &e) {
         std::fprintf(stderr, "rosetta_gen: %s\n", e.what());
         return 1;

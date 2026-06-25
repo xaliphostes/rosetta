@@ -2,7 +2,7 @@
 
 A variant of [`../geom-lib`](../geom-lib) whose generated bindings **build with a
 stock toolchain** — no clang-p2996, no reflection, (almost) no rosetta headers on
-the machine that compiles the binding. It ships four such targets:
+the machine that compiles the binding. It ships seven such targets:
 
 - **`python-expanded`** → a pybind11 module that builds with a stock **C++17** compiler.
 - **`nanobind-expanded`** → a [nanobind](https://github.com/wjakob/nanobind) module
@@ -11,8 +11,18 @@ the machine that compiles the binding. It ships four such targets:
   (uses the header-only, reflection-free `node_runtime.h`).
 - **`wasm-expanded`** → an emscripten/embind module that builds with a **stock emsdk**
   (no reflection-aware fork — the limitation noted for the plain `wasm` target).
+- **`qt-expanded`** → a Qt Widgets inspector window (stock **C++17** + Qt 6) via the
+  header-only, reflection-free `qt_widgets_runtime.h`; no moc on the generated code.
+- **`qml-expanded`** → a QtQuick inspector (stock **C++17** + Qt 6) that fills the
+  generic `ReflectedObject` bridge; moc runs only on that bridge, never per type.
+- **`csharp-expanded`** → a native shared library (stock **C++20**) exposing a flat
+  C ABI, plus idiomatic handle-backed C# wrappers that reach it through P/Invoke
+  (values marshalled as JSON via `System.Text.Json`); ships a `.csproj`. The native
+  shim registers every field/method/constructor by *member pointer*, so the runtime
+  deduces the marshalled types — no reflection. Out-of-line `range`/`readonly`/`doc`
+  flow straight in (e.g. `Triangle.a` rejects an out-of-range value at run time).
 
-Two things make that possible:
+Two things make the stock-toolchain targets possible:
 
 1. **Out-of-line annotations.** The headers in [`geom/`](geom) are plain C++:
    no `[[ = rosetta::doc{...} ]]`, no rosetta include. Every doc/range lives in a
@@ -72,6 +82,42 @@ cmake --build bindings/wasm-expanded/build -j
 #   -> bindings/wasm-expanded/build/geom.js + geom.wasm, loadable in node/web
 ```
 
+### 3e. Qt Widgets / QML — stock C++17 + Qt 6
+```sh
+# Qt prefix defaults to ~/Qt/6.8.3/macos; set it per-project with "qt_dir" in
+# manifest.json, or override at configure time with -DQT_DIR=...
+cmake -S bindings/qt-expanded  -B bindings/qt-expanded/build  && cmake --build bindings/qt-expanded/build  -j
+cmake -S bindings/qml-expanded -B bindings/qml-expanded/build && cmake --build bindings/qml-expanded/build -j
+#   -> ./bindings/qt-expanded/build/geom_qt    (QTabWidget, one inspector per class)
+#   -> ./bindings/qml-expanded/build/geom_qml  (QtQuick inspector via the generic ReflectedObject)
+```
+
+`qt-expanded` includes only Qt + the (stock) user headers — no moc on the generated
+code. `qml-expanded` reuses rosetta's generic `ReflectedObject` + `qml/Inspector.qml`,
+so moc runs on that bridge only, never on per-type reflection.
+
+### 3f. C# — native library (stock C++20) + .NET assembly
+```sh
+# reflection-free shim — builds with a stock compiler, no clang-p2996
+cmake -S bindings/csharp-expanded -B bindings/csharp-expanded/build
+cmake --build bindings/csharp-expanded/build -j
+#   -> bindings/csharp-expanded/build/libcsgeom.{dylib,so}
+
+# the C# wrappers (only needs dotnet)
+dotnet build bindings/csharp-expanded/csgeom.csproj
+```
+
+```csharp
+using csgeom;
+using var t = new Triangle();
+t.a = 2;                 // ok
+t.a = -5;                // throws RosettaException — out-of-line range, enforced natively
+System.Console.WriteLine(t.kind);   // enum, marshalled as its integer value
+```
+
+At run time the .NET loader must find `libcsgeom.*` (e.g.
+`DYLD_LIBRARY_PATH=bindings/csharp-expanded/build` on macOS, `LD_LIBRARY_PATH=…` on Linux).
+
 ## Run the examples
 
 Each binding has a matching, self-contained script:
@@ -84,7 +130,15 @@ node    example_node.js       # node-expanded      (jsgeom — std::vector <-> J
 
 node    example_wasm.js       # wasm-expanded      (geom — embind, async load + .delete())
 python3 -m http.server 8000   # wasm-expanded running in a browser
+
+DYLD_LIBRARY_PATH=bindings/csharp-expanded/build dotnet run --project run # csharp-expanded
 ```
+
+[`example_csharp.cs`](example_csharp.cs) covers the **csharp-expanded** target
+(csgeom). C# needs the wrapper compiled in rather than imported, so the example's
+header carries a short `dotnet run` recipe; it exercises the scalar / enum /
+vector / range surface (object-graph methods stay on the node target — see the
+boundary note in the file).
 
 The wasm module also runs in the **browser** — [`example_wasm.html`](example_wasm.html)
 loads it, exercises the same API, prints the results and draws the surface on a

@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/Clang%20%7C%20MSVC-tracking-lightgrey.svg" alt="Clang | MSVC: tracking">
 </p>
 
-A C++26 reflection playground that generates Python, Node, REST, WebAssembly, Julia, OpenAPI, JSON, TypeScript, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground that generates Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 > **Your target compiler doesn't support reflection?** Generate the expanded binding once on a Linux or macOS host with a C++26 / P2996 compiler — e.g. the [Bloomberg `clang-p2996`](https://github.com/bloomberg/clang-p2996) fork — then ship and build the generated sources anywhere with a stock toolchain (plain Clang / GCC / MSVC, or a stock emsdk for WebAssembly). No reflection is needed on the target (see the **expanded** backends below).
 
@@ -65,28 +65,34 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 
 **Backends** (one combined module per target, from a single generator)
 
-| Target | Output | C++26 status |
-|---|---|---|
-| **Python** | pybind11 extension module | ✅ Working |
-| **Python (expanded)** | `python-expanded` — fully-expanded pybind11 | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
-| **Python (nanobind)** | `nanobind` extension module — leaner/faster pybind11 successor | ✅ Working (≈½ the binary size of the pybind11 build) |
-| **Python (nanobind, expanded)** | `nanobind-expanded` — fully-expanded nanobind | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
-| **Node** | N-API native addon | ✅ Working |
-| **Node (expanded)** | `node-expanded` — fully-expanded N-API | ✅ Builds with a **stock C++20** compiler — no reflection on the target |
-| **Julia** | CxxWrap.jl / jlcxx shared module | ✅ Builds & runs <br> ⚠️ `std::vector` skipped (fork libc++ gap) |
-| **WebAssembly** | Emscripten/embind module | ⚠️ Needs a reflection-aware emsdk |
-| **WebAssembly (expanded)** | `wasm-expanded` — fully-expanded embind | ✅ Builds with a **stock emsdk** (`std::vector` via `register_vector`) |
-| **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client, with `/openapi.json` and Swagger UI at `/docs` | ✅ Working |
-| **OpenAPI** | OpenAPI 3.1 spec describing the REST surface — annotations become schema constraints (`range`→min/max, `readonly`→readOnly, `combobox`→enum) | ✅ Working |
-| **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code | ✅ Working |
-| **TypeScript** | ambient `.d.ts` type declarations | ✅ Working |
-| **Markdown** | API reference document | ✅ Working |
-| **HTML** | self-contained, styled API reference page (anchored TOC, field/enum tables; annotations become description tags) | ✅ Working |
-| **ParaView** | Server Manager XML for a plugin: fields → properties with range / **enumeration** / boolean / string-list domains, **default values** (from member initializers), `readonly`→`information_only`, plus a pipeline **`InputProperty`** and **`ArrayListDomain`** array-selection. Proxy `class=`/group/input from `paraview_proxy` / `paraview_input` / `paraview_array` annotations | ✅ Working (single input port) |
+| # | Target | Output | C++26 status |
+|---|---|---|---|
+| 1 | **Python** | pybind11 extension module | ✅ Working |
+| 2 | **Python (expanded)** | `python-expanded` — fully-expanded pybind11 | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
+| 3 | **Python (nanobind)** | `nanobind` extension module — leaner/faster pybind11 successor | ✅ Working (≈½ the binary size of the pybind11 build) |
+| 4 | **Python (nanobind, expanded)** | `nanobind-expanded` — fully-expanded nanobind | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
+| 5 | **Node** | N-API native addon | ✅ Working |
+| 6 | **Node (expanded)** | `node-expanded` — fully-expanded N-API | ✅ Builds with a **stock C++20** compiler — no reflection on the target |
+| 7 | **Julia** | CxxWrap.jl / jlcxx shared module | ✅ Builds & runs <br> ⚠️ `std::vector` skipped (fork libc++ gap) |
+| 8 | **WebAssembly** | Emscripten/embind module | ⚠️ Needs a reflection-aware emsdk |
+| 9 | **WebAssembly (expanded)** | `wasm-expanded` — fully-expanded embind | ✅ Builds with a **stock emsdk** (`std::vector` via `register_vector`) |
+| 10 | **Qt Widgets** | live property/method inspector window (`QtVisitor`) | ✅ Working (needs reflection at the inspector's compile time) |
+| 11 | **Qt Widgets (expanded)** | `qt-expanded` — generated inspector via `qt_widgets_runtime.h` | ✅ Builds with a **stock C++17** compiler + Qt 6 (no moc on generated code) |
+| 12 | **QML** | QtQuick inspector via a generic `ReflectedObject` (`QmlVisitor`) | ✅ Working (needs reflection at compile time) |
+| 13 | **QML (expanded)** | `qml-expanded` — fills the generic `ReflectedObject` explicitly | ✅ Builds with a **stock C++17** compiler + Qt 6 (moc only on the generic bridge) |
+| 14 | **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client, with `/openapi.json` and Swagger UI at `/docs` | ✅ Working |
+| 15 | **OpenAPI** | OpenAPI 3.1 spec describing the REST surface — annotations become schema constraints (`range`→min/max, `readonly`→readOnly, `combobox`→enum) | ✅ Working |
+| 16 | **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code | ✅ Working |
+| 17 | **TypeScript** | ambient `.d.ts` type declarations | ✅ Working |
+| 18 | **Markdown** | API reference document | ✅ Working |
+| 19 | **HTML** | self-contained, styled API reference page (anchored TOC, field/enum tables; annotations become description tags) | ✅ Working |
+| 20 | **ParaView** | Server Manager XML for a plugin: fields → properties with range / **enumeration** / boolean / string-list domains, **default values** (from member initializers), `readonly`→`information_only`, plus a pipeline **`InputProperty`** and **`ArrayListDomain`** array-selection. Proxy `class=`/group/input from `paraview_proxy` / `paraview_input` / `paraview_array` annotations | ✅ Working (single input port) |
+| 21 | **C#** | `csharp` — a native shared library exposing a flat C ABI (`rosetta_csharp_*`) plus idiomatic handle-backed C# wrapper classes that reach it through P/Invoke (values marshalled as JSON with `System.Text.Json`); ships a `.csproj`. `readonly`→get-only property, `range`→bounds-checked setter | ✅ Working |
+| 22 | **C# (expanded)** | `csharp-expanded` — same C# wrapper / `.csproj`, but the native shim registers every member by pointer (no reflection walk) | ✅ Builds with a **stock C++20** compiler — no reflection on the target |
 
 > New backends register without touching the generator, thanks to the visitor pattern — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
 
-**Expanded (reflection-free) targets.** The default `python` / `node` / `wasm` backends emit a *thin* binding that re-runs the reflection walk at the target's compile time, so building the binding also needs the C++26 toolchain. The `python-expanded`, `node-expanded` and `wasm-expanded` targets instead **fully expand** every field, method, constructor and enumerator into explicit pybind11 / N-API / embind calls. Reflection runs once, on the generation host; the generated binding is ordinary C++ that builds with a stock compiler (the host still needs C++26 to *run the generator*, the target does not). This pairs naturally with [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) so the bound headers stay stock C++ too — see [`examples/geom-expanded`](examples/geom-expanded).
+**Expanded (reflection-free) targets.** The default `python` / `nanobind` / `node` / `wasm` / `qt` / `qml` / `csharp` backends emit a *thin* binding that re-runs the reflection walk at the target's compile time, so building the binding also needs the C++26 toolchain. The `python-expanded`, `nanobind-expanded`, `node-expanded`, `wasm-expanded`, `qt-expanded`, `qml-expanded` and `csharp-expanded` targets instead **fully expand** every field, method, constructor and enumerator into explicit pybind11 / nanobind / N-API / embind / Qt / member-pointer calls. Reflection runs once, on the generation host; the generated binding is ordinary C++ that builds with a stock compiler — a plain C++17/20 compiler, a stock emsdk, or stock Qt 6 (the host still needs C++26 to *run the generator*, the target does not). This pairs naturally with [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) so the bound headers stay stock C++ too — see [`examples/geom-expanded`](examples/geom-expanded).
 
 ## Mini-MOC — Qt signals / slots / properties, without moc
 
@@ -233,7 +239,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 | `examples/manifest`        | Manifest-driven generation for `Person` (no class modification) |
 | `examples/annotate-manifest`| Out-of-line annotations from an external JSON file, wired by the manifest's `annotations` field ([details](docs/OUT_OF_LINE_ANNOTATIONS.md)) |
 | `examples/geom-lib`        | Manifest-driven bindings for a small geometry library (nested types, vectors) |
-| `examples/geom-expanded`   | Reflection-free `python-expanded` / `node-expanded` / `wasm-expanded` bindings (stock compiler + stock emsdk) with out-of-line annotations |
+| `examples/geom-expanded`   | Reflection-free `python-expanded` / `nanobind-expanded` / `node-expanded` / `wasm-expanded` / `qt-expanded` / `qml-expanded` bindings (stock compiler, stock emsdk, stock Qt) with out-of-line annotations |
 | `examples/trampoline`      | Overriding C++ virtuals from Python — generated pybind11 trampolines from `virtual_spec` |
 | `examples/trampoline-node` | Overriding C++ virtuals from JavaScript — generated N-API trampolines from `virtual_spec` |
 | `examples/moc`             | Qt-flavoured meta-object demo on `mini_moc.h` (properties + signals) |

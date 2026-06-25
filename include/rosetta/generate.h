@@ -139,6 +139,11 @@ namespace rosetta {
         bool                     is_noexcept = false;
         std::string              ret_cpp;   // exact return-type spelling
         std::vector<std::string> param_cpp; // exact parameter-type spellings, in order
+
+        // Every annotation on this method, type-erased (mirrors GenField). UI
+        // backends query the ones they care about — e.g. rosetta::button /
+        // rosetta::label — via find_annotation<A>(); the core names none of them.
+        std::vector<std::any> annotations;
     };
 
     /**
@@ -210,6 +215,32 @@ namespace rosetta {
         std::filesystem::path    rosetta_include; // path to rosetta's include/
         std::vector<TargetSpec>  targets;         // backends + per-backend module name
         std::vector<GenFunction> functions;       // free functions to expose
+
+        // Optional pointers to the C++26 / P2996 reflection toolchain, baked into
+        // the *thin* backends' generated CMakeLists so reflection-driven targets
+        // find the right compiler and runtime without editing the output. The
+        // stock *-expanded targets ignore all of these. Each is also overridable
+        // at configure time (-DCLANG_P2996_ROOT=..., -DROSETTA_CXX_COMPILER=...,
+        // -DROSETTA_C_COMPILER=..., -DROSETTA_STDLIB=...).
+        //
+        //   cpp26_root — toolchain root (clang-p2996 build dir). Empty ⇒ built-in
+        //                default $ENV{HOME}/devs/c++/clang-p2996/build. The three
+        //                below default to ${CLANG_P2996_ROOT}/{bin/clang++,
+        //                bin/clang,lib} when empty, so usually only this is set.
+        //   cpp26_cxx  — C++ compiler (name or full path).
+        //   cpp26_cc   — C compiler (name or full path).
+        //   cpp26_lib  — directory holding the fork's libc++ / libc++abi, used for
+        //                -L and -rpath (the "lib" the binding links against).
+        std::string cpp26_root;
+        std::string cpp26_cxx;
+        std::string cpp26_cc;
+        std::string cpp26_lib;
+
+        // Optional Qt 6 install prefix, baked as the default of the QT_DIR cache
+        // variable in the qt-expanded / qml-expanded CMakeLists. Empty ⇒ built-in
+        // default ($ENV{HOME}/Qt/6.8.3/macos). Overridable at configure time with
+        // -DQT_DIR=...; backends other than qt/qml ignore it.
+        std::string qt_dir;
     };
 
     /**
@@ -223,6 +254,11 @@ namespace rosetta {
         std::vector<GenFunction> functions;       // all free functions to expose
         std::string              user_include;    // dir containing the class headers
         std::string              rosetta_include; // path to rosetta's include/
+        std::string              cpp26_root;      // C++26 toolchain root (default of CLANG_P2996_ROOT)
+        std::string              cpp26_cxx;       // C++ compiler   (default ${CLANG_P2996_ROOT}/bin/clang++)
+        std::string              cpp26_cc;        // C compiler     (default ${CLANG_P2996_ROOT}/bin/clang)
+        std::string              cpp26_lib;       // fork stdlib dir (default ${CLANG_P2996_ROOT}/lib)
+        std::string              qt_dir;          // Qt 6 prefix (default of QT_DIR; qt/qml backends)
     };
 
     /**

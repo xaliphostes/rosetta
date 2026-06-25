@@ -32,23 +32,19 @@ flowchart TD
     classDef final fill:#e8f8ec,stroke:#27ae60,stroke-width:2px
 ```
 
-Blue = you write it. Orange = a tool you run. Dashed grey = generated
-output. Green = the finished binding artifacts.
+Blue = you write it. Orange = a tool you run. Dashed grey = generated output. Green = the finished binding artifacts.
 
-Two stages of generation, two CMake builds — described step by step
-below.
+Two stages of generation, two CMake builds — described step by step below.
 
 ## 0. Prerequisites
 
-- The clang-p2996 fork at `$HOME/devs/c++/clang-p2996/build`
-  (override with `-DCLANG_P2996_ROOT=…`).
+- The clang-p2996 fork at `$HOME/devs/c++/clang-p2996/build` (override with `-DCLANG_P2996_ROOT=…`).
 - CMake ≥ 3.28, Ninja, a system C++26 compiler.
 - For Python: `pip install pybind11`. For Node: `npm`. For Web: emsdk.
 
 ## 1. Your class — leave it as-is
 
-Rosetta is non-intrusive. Your existing class definitions don't have
-to change at all:
+Rosetta is non-intrusive. Your existing class definitions don't have to change at all:
 
 ```cpp
 // my_lib/person.h
@@ -62,17 +58,11 @@ struct Person {
 };
 ```
 
-Reflection alone is enough — fields and methods get bound, names match
-the C++ identifiers, types are mapped automatically. You won't get
-docstrings, range checks, or "readonly" semantics out of the box, but
-everything works.
+Reflection alone is enough — fields and methods get bound, names match the C++ identifiers, types are mapped automatically. You won't get docstrings, range checks, or "readonly" semantics out of the box, but everything works.
 
 ### Optional: enrich the bindings with member annotations
 
-If you *want* docstrings, validation, UI hints, or readonly semantics
-on a particular field, add a member-level annotation. The class shape
-is unchanged; annotations sit inside `[[…]]` next to each field or
-method.
+If you *want* docstrings, validation, UI hints, or readonly semantics on a particular field, add a member-level annotation. The class shape is unchanged; annotations sit inside `[[…]]` next to each field or method.
 
 ```cpp
 #include <rosetta/annotations.h>
@@ -94,10 +84,7 @@ struct Person {
 };
 ```
 
-Mix and match: annotate the fields where the extra metadata pays off,
-leave the rest alone. Available annotations: `doc`, `range`,
-`readonly`, `combobox`, `label`, `button`,
-`widget::{slider,checkbox,…}` — see `include/rosetta/annotations.h`.
+Mix and match: annotate the fields where the extra metadata pays off, leave the rest alone. Available annotations: `doc`, `range`, `readonly`, `combobox`, `label`, `button`, `widget::{slider,checkbox,…}` — see `include/rosetta/annotations.h`.
 
 ## 2. Write a `manifest.json`
 
@@ -121,10 +108,8 @@ One file, lives anywhere — paths inside are resolved relative to it.
 - `user_include` — where your class headers live.
 - `rosetta_include` — where rosetta's `include/` lives.
 - `generator_name` — name of the generated scaffolder tool / CMake target.
-- `targets` — any subset of `python`, `node`, `rest`, `wasm`; shared by every class.
-- `classes[].header` — required; `classes[].name` is optional and defaults
-  to the header's basename. Each class's binding library is derived as
-  `reflected_<lowercase name>`.
+- `targets` — any subset of `python`, `node`, `rest`, `wasm`, `csharp`, … (see the backend table in the README); shared by every class.
+- `classes[].header` — required; `classes[].name` is optional and defaults to the header's basename. Each class's binding library is derived as `reflected_<lowercase name>`.
 
 ## 3. Build the framework tool (one time)
 
@@ -168,9 +153,7 @@ cmake -G Ninja -B build && cmake --build build
 python -c "import my_person; p = my_person.Person(); p.name = 'Alice'; print(p.greet('Hi'))"
 ```
 
-Node needs `npm install` + `npx cmake-js compile`. Web needs `emcmake
-cmake …`. Rest pulls cpp-httplib + nlohmann/json via FetchContent on
-first configure.
+Node needs `npm install` + `npx cmake-js compile`. Web needs `emcmake cmake …`. Rest pulls cpp-httplib + nlohmann/json via FetchContent on first configure.
 
 ## Changing things
 
@@ -181,6 +164,4 @@ first configure.
 | Add a class, change `lib` or `targets` | Re-run step 4 (a) → (b) → (c). |
 | Move the manifest file | Re-run step 4 — paths resolve relative to the manifest. |
 
-That's it. `person.h` is yours to keep pristine or to enrich, your
-call; everything outside it is generated from `manifest.json` plus
-reflection.
+That's it. `person.h` is yours to keep pristine or to enrich, your call; everything outside it is generated from `manifest.json` plus reflection.

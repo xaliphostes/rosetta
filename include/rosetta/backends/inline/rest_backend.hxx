@@ -74,7 +74,7 @@ target_compile_options({{LIB}} PRIVATE
     -freflection -freflection-latest -fexperimental-library -fannotation-attributes)
 
 target_link_options({{LIB}} PRIVATE
-    -nostdlib++ -L${CLANG_P2996_ROOT}/lib -Wl,-rpath,${CLANG_P2996_ROOT}/lib
+    -nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB}
     -lc++ -lc++abi)
 )CMK";
 

@@ -1,3 +1,5 @@
 generator
 bindings
 gen
+run/obj/
+run/bin/
