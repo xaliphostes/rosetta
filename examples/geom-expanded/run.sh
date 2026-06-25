@@ -40,4 +40,4 @@ case "$(uname -s)" in
     *)      export LD_LIBRARY_PATH="$LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
 esac
 echo ">> dotnet run (TargetFramework=$TF)"
-exec dotnet run --project run -c Release -p:TargetFramework="$TF"
+exec dotnet run --project run -c Release -p:DemoTF="$TF"

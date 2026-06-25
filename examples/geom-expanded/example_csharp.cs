@@ -14,9 +14,9 @@
 // It compiles this file together with the generated wrapper via run/run.csproj.
 // To do it by hand instead, see README.md step 3f, then:
 //
-//   # macOS (use LD_LIBRARY_PATH on Linux); -p:TargetFramework matches your SDK
+//   # macOS (use LD_LIBRARY_PATH on Linux); -p:DemoTF matches your SDK
 //   DYLD_LIBRARY_PATH=bindings/csharp-expanded/build \
-//       dotnet run --project run -p:TargetFramework=net8.0
+//       dotnet run --project run -p:DemoTF=net8.0
 //
 // ---------------------------------------------------------------------------
 // Boundary note: the C# binding marshals values as JSON, exactly like the REST
