@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/Clang%20%7C%20MSVC-tracking-lightgrey.svg" alt="Clang | MSVC: tracking">
 </p>
 
-A C++26 reflection playground that generates Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Java, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground with **24 generator backends** — Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Java, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 > **Your target compiler doesn't support reflection?** Generate the expanded binding once on a Linux or macOS host with a C++26 / P2996 compiler — e.g. the [Bloomberg `clang-p2996`](https://github.com/bloomberg/clang-p2996) fork — then ship and build the generated sources anywhere with a stock toolchain (plain Clang / GCC / MSVC, or a stock emsdk for WebAssembly). No reflection is needed on the target (see the **expanded** backends below).
 
