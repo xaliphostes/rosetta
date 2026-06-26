@@ -611,6 +611,7 @@ endif()
 // docs/EXTENDING_BACKEND.md) without touching generate().
 #include <rosetta/backends/csharp_backend.h>
 #include <rosetta/backends/html_backend.h>
+#include <rosetta/backends/java_backend.h>
 #include <rosetta/backends/json_backend.h>
 #include <rosetta/backends/julia_backend.h>
 #include <rosetta/backends/markdown_backend.h>
@@ -621,6 +622,7 @@ endif()
 #include <rosetta/backends/python_backend.h>
 #include <rosetta/backends/python_expanded_backend.h>
 #include <rosetta/backends/csharp_expanded_backend.h>
+#include <rosetta/backends/java_expanded_backend.h>
 #include <rosetta/backends/nanobind_expanded_backend.h>
 #include <rosetta/backends/node_expanded_backend.h>
 #include <rosetta/backends/qt_expanded_backend.h>
@@ -657,6 +659,8 @@ namespace rosetta {
             m["paraview"]        = std::make_shared<gen_detail::ParaViewBackend>();
             m["csharp"]          = std::make_shared<gen_detail::CSharpBackend>();
             m["csharp-expanded"] = std::make_shared<gen_detail::CSharpExpandedBackend>();
+            m["java"]            = std::make_shared<gen_detail::JavaBackend>();
+            m["java-expanded"]   = std::make_shared<gen_detail::JavaExpandedBackend>();
             return m;
         }();
         return reg;

@@ -16,7 +16,8 @@
         { "lang": "wasm-expanded",   "name": "geom" },
         { "lang": "qt-expanded",     "name": "geom" },
         { "lang": "qml-expanded",    "name": "geom" },
-        { "lang": "csharp-expanded", "name": "csgeom" }
+        { "lang": "csharp-expanded", "name": "csgeom" },
+        { "lang": "java-expanded",   "name": "jvgeom" }
     ],
 
     "classes": [

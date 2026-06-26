@@ -2,41 +2,15 @@
     "user_include": "./geom",
     "rosetta_include": "../../include",
     "targets": [
-        {
-            "doc": "Automatique Python binding",
-            "lang": "python",
-            "name": "pygeom"
-        },
-        {
-            "doc": "Python binding via nanobind (leaner/faster pybind11 successor)",
-            "lang": "nanobind",
-            "name": "nbgeom"
-        },
-        {
-            "doc": "Automatique REST binding",
-            "lang": "rest"
-        },
-        {
-            "doc": "Automatique node (JavaScript) binding",
-            "lang": "node",
-            "name": "jsgeom"
-        },
-        {
-            "doc": "Will generate TypeScript interfaces",
-            "lang": "typescript"
-        },
-        {
-            "doc": "Will generate API doc in markdown",
-            "lang": "markdown"
-        },
-        {
-            "doc": "Will generate nlohmann::json to_json/from_json adapters",
-            "lang": "json"
-        },
-        {
-            "doc": "Will generate an OpenAPI 3.1 spec for the REST server",
-            "lang": "openapi"
-        }
+        { "doc": "Automatique Python binding", "lang": "python", "name": "pygeom"},
+        {"lang": "nanobind", "name": "nbgeom"},
+        {"lang": "rest"},
+        {"lang": "node", "name": "jsgeom"},
+        {"lang": "typescript"},
+        {"lang": "markdown"},
+        {"lang": "json"},
+        {"lang": "openapi"},
+        {"lang": "java", "name": "jvgeom"}
     ],
     "classes": [
         {
@@ -44,18 +18,10 @@
             "name": "Model",
             "header": "Model.h"
         },
-        {
-            "header": "Point.h"
-        },
-        {
-            "header": "Surface.h"
-        },
-        {
-            "header": "Triangle.h"
-        },
-        {
-            "header": "Kind.h"
-        }
+        {"header": "Point.h"},
+        {"header": "Surface.h"},
+        {"header": "Triangle.h"},
+        {"header": "Kind.h"}
     ],
     "functions": [
         {

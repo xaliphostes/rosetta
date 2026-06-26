@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/Clang%20%7C%20MSVC-tracking-lightgrey.svg" alt="Clang | MSVC: tracking">
 </p>
 
-A C++26 reflection playground that generates Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground that generates Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Java, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
 
 > **Your target compiler doesn't support reflection?** Generate the expanded binding once on a Linux or macOS host with a C++26 / P2996 compiler — e.g. the [Bloomberg `clang-p2996`](https://github.com/bloomberg/clang-p2996) fork — then ship and build the generated sources anywhere with a stock toolchain (plain Clang / GCC / MSVC, or a stock emsdk for WebAssembly). No reflection is needed on the target (see the **expanded** backends below).
 
@@ -89,6 +89,8 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 | 20 | **ParaView** — Server Manager XML for a plugin | ✅ | ✅ |
 | 21 | **C#** — native C-ABI shared library + handle-backed P/Invoke wrappers + `.csproj` | ✅ | — |
 | 22 | **C# (expanded)** — same wrapper, native shim registers members by pointer | ✅ | ✅ |
+| 23 | **Java** — native C-ABI shared library + handle-backed FFM wrappers (`java.lang.foreign`) + Maven `pom.xml` | ✅ | — |
+| 24 | **Java (expanded)** — same wrapper, native shim registers members by pointer (stock C++20) | ✅ | ✅ |
 
 > **C++26** = builds against the reflection toolchain (⚠️ = with caveats — see notes below). **C++20** = the generated target also builds on a stock, pre-reflection toolchain (no reflection needed on the target); text-only outputs qualify trivially. The generator itself always needs C++26.
 >
@@ -96,7 +98,7 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 
 > New backends register without touching the generator, thanks to the visitor pattern — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
 
-**Expanded (reflection-free) targets.** The default `python` / `nanobind` / `node` / `wasm` / `qt` / `qml` / `csharp` backends emit a *thin* binding that re-runs the reflection walk at the target's compile time, so building the binding also needs the C++26 toolchain. The `python-expanded`, `nanobind-expanded`, `node-expanded`, `wasm-expanded`, `qt-expanded`, `qml-expanded` and `csharp-expanded` targets instead **fully expand** every field, method, constructor and enumerator into explicit pybind11 / nanobind / N-API / embind / Qt / member-pointer calls. Reflection runs once, on the generation host; the generated binding is ordinary C++ that builds with a stock compiler — a plain C++17/20 compiler, a stock emsdk, or stock Qt 6 (the host still needs C++26 to *run the generator*, the target does not). This pairs naturally with [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) so the bound headers stay stock C++ too — see [`examples/geom-expanded`](examples/geom-expanded).
+**Expanded (reflection-free) targets.** The default `python` / `nanobind` / `node` / `wasm` / `qt` / `qml` / `csharp` / `java` backends emit a *thin* binding that re-runs the reflection walk at the target's compile time, so building the binding also needs the C++26 toolchain. The `python-expanded`, `nanobind-expanded`, `node-expanded`, `wasm-expanded`, `qt-expanded`, `qml-expanded`, `csharp-expanded` and `java-expanded` targets instead **fully expand** every field, method, constructor and enumerator into explicit pybind11 / nanobind / N-API / embind / Qt / member-pointer calls. Reflection runs once, on the generation host; the generated binding is ordinary C++ that builds with a stock compiler — a plain C++17/20 compiler, a stock emsdk, or stock Qt 6 (the host still needs C++26 to *run the generator*, the target does not). This pairs naturally with [out-of-line annotations](docs/OUT_OF_LINE_ANNOTATIONS.md) so the bound headers stay stock C++ too — see [`examples/geom-expanded`](examples/geom-expanded).
 
 ## Mini-MOC — Qt signals / slots / properties, without moc
 
