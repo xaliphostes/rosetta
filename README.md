@@ -65,30 +65,34 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 
 **Backends** (one combined module per target, from a single generator)
 
-| # | Target | Output | C++26 status |
-|---|---|---|---|
-| 1 | **Python** | pybind11 extension module | ✅ Working |
-| 2 | **Python (expanded)** | `python-expanded` — fully-expanded pybind11 | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
-| 3 | **Python (nanobind)** | `nanobind` extension module — leaner/faster pybind11 successor | ✅ Working (≈½ the binary size of the pybind11 build) |
-| 4 | **Python (nanobind, expanded)** | `nanobind-expanded` — fully-expanded nanobind | ✅ Builds with a **stock C++17** compiler — no reflection on the target |
-| 5 | **Node** | N-API native addon | ✅ Working |
-| 6 | **Node (expanded)** | `node-expanded` — fully-expanded N-API | ✅ Builds with a **stock C++20** compiler — no reflection on the target |
-| 7 | **Julia** | CxxWrap.jl / jlcxx shared module | ✅ Builds & runs <br> ⚠️ `std::vector` skipped (fork libc++ gap) |
-| 8 | **WebAssembly** | Emscripten/embind module | ⚠️ Needs a reflection-aware emsdk |
-| 9 | **WebAssembly (expanded)** | `wasm-expanded` — fully-expanded embind | ✅ Builds with a **stock emsdk** (`std::vector` via `register_vector`) |
-| 10 | **Qt Widgets** | live property/method inspector window (`QtVisitor`) | ✅ Working (needs reflection at the inspector's compile time) |
-| 11 | **Qt Widgets (expanded)** | `qt-expanded` — generated inspector via `qt_widgets_runtime.h` | ✅ Builds with a **stock C++17** compiler + Qt 6 (no moc on generated code) |
-| 12 | **QML** | QtQuick inspector via a generic `ReflectedObject` (`QmlVisitor`) | ✅ Working (needs reflection at compile time) |
-| 13 | **QML (expanded)** | `qml-expanded` — fills the generic `ReflectedObject` explicitly | ✅ Builds with a **stock C++17** compiler + Qt 6 (moc only on the generic bridge) |
-| 14 | **REST** | cpp-httplib JSON server (CRUD + method routes) + a generated `index.html` browser client, with `/openapi.json` and Swagger UI at `/docs` | ✅ Working |
-| 15 | **OpenAPI** | OpenAPI 3.1 spec describing the REST surface — annotations become schema constraints (`range`→min/max, `readonly`→readOnly, `combobox`→enum) | ✅ Working |
-| 16 | **JSON** | reflection-based nlohmann (de)serialization — one reusable `json_visitor.h`, no per-type code | ✅ Working |
-| 17 | **TypeScript** | ambient `.d.ts` type declarations | ✅ Working |
-| 18 | **Markdown** | API reference document | ✅ Working |
-| 19 | **HTML** | self-contained, styled API reference page (anchored TOC, field/enum tables; annotations become description tags) | ✅ Working |
-| 20 | **ParaView** | Server Manager XML for a plugin: fields → properties with range / **enumeration** / boolean / string-list domains, **default values** (from member initializers), `readonly`→`information_only`, plus a pipeline **`InputProperty`** and **`ArrayListDomain`** array-selection. Proxy `class=`/group/input from `paraview_proxy` / `paraview_input` / `paraview_array` annotations | ✅ Working (single input port) |
-| 21 | **C#** | `csharp` — a native shared library exposing a flat C ABI (`rosetta_csharp_*`) plus idiomatic handle-backed C# wrapper classes that reach it through P/Invoke (values marshalled as JSON with `System.Text.Json`); ships a `.csproj`. `readonly`→get-only property, `range`→bounds-checked setter | ✅ Working |
-| 22 | **C# (expanded)** | `csharp-expanded` — same C# wrapper / `.csproj`, but the native shim registers every member by pointer (no reflection walk) | ✅ Builds with a **stock C++20** compiler — no reflection on the target |
+| # | Target | C++26 | C++20 |
+|---|---|:---:|:---:|
+| 1 | **Python** — pybind11 extension module | ✅ | — |
+| 2 | **Python (expanded)** — fully-expanded pybind11 | ✅ | ✅ |
+| 3 | **Python (nanobind)** — leaner/faster pybind11 successor | ✅ | — |
+| 4 | **Python (nanobind, expanded)** — fully-expanded nanobind | ✅ | ✅ |
+| 5 | **Node** — N-API native addon | ✅ | — |
+| 6 | **Node (expanded)** — fully-expanded N-API | ✅ | ✅ |
+| 7 | **Julia** — CxxWrap.jl / jlcxx shared module | ⚠️ | — |
+| 8 | **WebAssembly** — Emscripten/embind module | ⚠️ | — |
+| 9 | **WebAssembly (expanded)** — fully-expanded embind | ✅ | ✅ |
+| 10 | **Qt Widgets** — live property/method inspector (`QtVisitor`) | ✅ | — |
+| 11 | **Qt Widgets (expanded)** — generated inspector via `qt_widgets_runtime.h` | ✅ | ✅ |
+| 12 | **QML** — QtQuick inspector via a generic `ReflectedObject` (`QmlVisitor`) | ✅ | — |
+| 13 | **QML (expanded)** — fills the generic `ReflectedObject` explicitly | ✅ | ✅ |
+| 14 | **REST** — cpp-httplib JSON server + generated browser client| ✅ | — |
+| 15 | **OpenAPI** — OpenAPI 3.1 spec describing the REST surface | ✅ | ✅ |
+| 16 | **JSON** — reflection-based nlohmann (de)serialization (`json_visitor.h`) | ✅ | — |
+| 17 | **TypeScript** — ambient `.d.ts` type declarations | ✅ | ✅ |
+| 18 | **Markdown** — API reference document | ✅ | ✅ |
+| 19 | **HTML** — self-contained, styled API reference page | ✅ | ✅ |
+| 20 | **ParaView** — Server Manager XML for a plugin | ✅ | ✅ |
+| 21 | **C#** — native C-ABI shared library + handle-backed P/Invoke wrappers + `.csproj` | ✅ | — |
+| 22 | **C# (expanded)** — same wrapper, native shim registers members by pointer | ✅ | ✅ |
+
+> **C++26** = builds against the reflection toolchain (⚠️ = with caveats — see notes below). **C++20** = the generated target also builds on a stock, pre-reflection toolchain (no reflection needed on the target); text-only outputs qualify trivially. The generator itself always needs C++26.
+>
+> Notes: **Julia** builds & runs but skips `std::vector` (fork libc++ gap); **WebAssembly** (thin) needs a reflection-aware emsdk, while **wasm-expanded** builds with a stock emsdk (`std::vector` via `register_vector`); the **expanded** Qt/QML targets need Qt 6 but no moc on the generated code.
 
 > New backends register without touching the generator, thanks to the visitor pattern — see [EXTENDING_BACKEND](docs/EXTENDING_BACKEND.md).
 
