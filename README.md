@@ -87,10 +87,10 @@ In a manifest-driven build you don't write that by hand: add an `"annotations": 
 | 18 | **Markdown** — API reference document | ✅ | ✅ |
 | 19 | **HTML** — self-contained, styled API reference page | ✅ | ✅ |
 | 20 | **ParaView** — Server Manager XML for a plugin | ✅ | ✅ |
-| 21 | **C#** — native C-ABI shared library + handle-backed P/Invoke wrappers + `.csproj` | ✅ | — |
-| 22 | **C# (expanded)** — same wrapper, native shim registers members by pointer | ✅ | ✅ |
-| 23 | **Java** — native C-ABI shared library + handle-backed FFM wrappers (`java.lang.foreign`) + Maven `pom.xml` | ✅ | — |
-| 24 | **Java (expanded)** — same wrapper, native shim registers members by pointer (stock C++20) | ✅ | ✅ |
+| 21 | **C#** — native C-ABI shared library + handle-backed P/Invoke wrappers | ✅ | — |
+| 22 | **C# (expanded)** — same wrapper (stock C++20) | ✅ | ✅ |
+| 23 | **Java** — native C-ABI + handle-backed FFM wrappers | ✅ | — |
+| 24 | **Java (expanded)** — same wrapper (stock C++20) | ✅ | ✅ |
 
 > **C++26** = builds against the reflection toolchain (⚠️ = with caveats — see notes below). **C++20** = the generated target also builds on a stock, pre-reflection toolchain (no reflection needed on the target); text-only outputs qualify trivially. The generator itself always needs C++26.
 >
