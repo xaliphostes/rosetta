@@ -2,15 +2,20 @@
     "user_include": "./geom",
     "rosetta_include": "../../include",
     "targets": [
-        { "doc": "Automatique Python binding", "lang": "python", "name": "pygeom"},
-        {"lang": "nanobind", "name": "nbgeom"},
-        {"lang": "rest"},
-        {"lang": "node", "name": "jsgeom"},
-        {"lang": "typescript"},
+        {"lang": "python", "name": "geom"},
+        {"lang": "nanobind", "name": "geom"},
+        {"lang": "rest", "name": "geom"},
+        {"lang": "node", "name": "geom"},
+        {"lang": "typescript", "name": "geom"},
+        {"lang": "java", "name": "geom"},
+        {"lang": "julia", "name": "geom"},
+        {"lang": "wasm", "name": "geom"},
+        {"lang": "paraview", "name": "geom"},
+        {"lang": "csharp", "name": "geom"},
         {"lang": "markdown"},
         {"lang": "json"},
         {"lang": "openapi"},
-        {"lang": "java", "name": "jvgeom"}
+        {"lang": "html"}
     ],
     "classes": [
         {
