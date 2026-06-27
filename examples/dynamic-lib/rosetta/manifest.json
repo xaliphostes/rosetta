@@ -4,9 +4,11 @@
     "//3": "dynamic library (../space/bin/libspace.*). The bound headers carry no",
     "//4": "annotations — every doc lives in the .ann.json side-cars below.",
     "//5": "",
-    "//6": "`user_lib` (new) tells rosetta to link the generated bindings against",
-    "//7": "that external library: each *-expanded backend emits a",
-    "//8": "target_link_directories / target_link_libraries (+ rpath) for it.",
+    "//6": "`user_lib` tells rosetta to link the generated bindings against that",
+    "//7": "external library. `link` picks the form: \"shared\" (default) or \"static\"",
+    "//8": "(\"dynamic\" aliases shared) — preferred form, with fallback to whichever",
+    "//9": "is built. The native python/node targets honor it; wasm is always static",
+    "//10": "(a native .dylib/.so cannot enter a wasm module).",
 
     "user_include": "../space/include",
     "rosetta_include": "../../../include",
@@ -15,7 +17,8 @@
 
     "user_lib": {
         "name": "space",
-        "dir": "../space/bin"
+        "dir": "../space/bin",
+        "link": "shared"
     },
 
     "targets": [

@@ -47,7 +47,7 @@ set_target_properties({{LIB}} PROPERTIES
 target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}}
     {{ROSETTA_INCLUDE}})
-
+{{USER_LIB_BLOCK}}
 target_link_libraries({{LIB}} PRIVATE nlohmann_json::nlohmann_json)
 )CMK";
 
@@ -224,15 +224,7 @@ ROSETTA_JAVA_EXPORT void rosetta_java_free(char *p) { std::free(p); }
             out += "#include <cstdlib>\n#include <cstring>\n#include <mutex>\n#include <string>\n";
             // User headers (deduped) — the only thing the shim needs besides the
             // runtime; no rosetta/annotations.h (these headers are stock C++).
-            auto add = [&](const std::string &h) {
-                if (h.empty()) {
-                    return;
-                }
-                const std::string line = "#include \"" + h + "\"\n";
-                if (out.find(line) == std::string::npos) {
-                    out += line;
-                }
-            };
+            auto add = [&](const std::string &h) { append_include(out, h); };
             for (const auto &k : c.classes) {
                 add(k.header);
             }

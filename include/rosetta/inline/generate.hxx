@@ -102,7 +102,32 @@ if(NOT CMAKE_CXX_COMPILER)
 endif()
 )CMK";
 
+        // Compiler / linker flag fragments shared by every reflection backend, so
+        // the flag set lives in one place. Injected as {{REFLECTION_FLAGS}} /
+        // {{STDLIB_LINK}} by render_meta() into a target_compile_options /
+        // target_link_options call the template still owns (it names the target).
+        //   REFLECTION_FLAGS — turn on the p2996 reflection + annotation front-end.
+        //   STDLIB_LINK      — link the fork's libc++/libc++abi (-L/-rpath ROSETTA_STDLIB).
+        constexpr std::string_view REFLECTION_FLAGS =
+            "-freflection -freflection-latest -fexperimental-library -fannotation-attributes";
+        constexpr std::string_view STDLIB_LINK =
+            "-nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB} -lc++ -lc++abi";
+
         // -------- shared render helpers (used by every backend) --------
+
+        // Append `#include "h"` to `out`, skipping empties and any header already
+        // present. The dedup primitive every backend's include-collection uses (a
+        // class and enum may share a header; backends prepend their own framework
+        // includes first). Backends keep a one-line `add` lambda over this.
+        inline void append_include(std::string &out, const std::string &h) {
+            if (h.empty()) {
+                return;
+            }
+            const std::string line = "#include \"" + h + "\"\n";
+            if (out.find(line) == std::string::npos) {
+                out += line;
+            }
+        }
 
         // One `#include "..."` line per class / enum — shared by every backend.
         // Headers are de-duplicated (a class and enum may share a header).
@@ -113,12 +138,7 @@ endif()
 
         inline std::string includes_of(const GenContext &c) {
             std::string s   = "#include <rosetta/annotations.h>\n";
-            auto        add = [&](const std::string &h) {
-                const std::string line = "#include \"" + h + "\"\n";
-                if (s.find(line) == std::string::npos) {
-                    s += line;
-                }
-            };
+            auto        add = [&](const std::string &h) { append_include(s, h); };
             for (const auto &k : c.classes) {
                 add(k.header);
             }
@@ -199,6 +219,68 @@ endif()
             return s;
         }
 
+        // CMake block linking the external user library (manifest "user_lib") into a
+        // *native* binding target. Honors c.user_lib_link ("shared" | "static"): it
+        // prefers that form but falls back to whichever is actually present, and
+        // references the library by full path — so a same-named project target is
+        // never linked by mistake, and the static/shared choice is unambiguous (a
+        // bare -l<name> lets the linker, not the manifest, decide). Resolution runs
+        // at CMake configure time; if neither form exists yet (library not built),
+        // it falls back to a name-based link resolved at build time. Returns "" when
+        // no user_lib is set.
+        //
+        // The block links whatever target ${ROSETTA_BINDING_TARGET} names; it
+        // defaults to c.lib, so backends whose target IS c.lib just drop in
+        // {{USER_LIB_BLOCK}}. Backends with a suffixed target (e.g. <lib>_qt,
+        // <lib>_demo) set(ROSETTA_BINDING_TARGET <target>) right before it.
+        //
+        // WebAssembly does NOT use this (a native shared object cannot enter a wasm
+        // module) — the wasm backends link the static archive directly.
+        inline std::string user_lib_block(const GenContext &c) {
+            if (c.user_lib_name.empty()) {
+                return {};
+            }
+            const std::string link = c.user_lib_link.empty() ? "shared" : c.user_lib_link;
+            std::string       s;
+            s += "\n# External user library (manifest \"user_lib\"): the bound headers only\n";
+            s += "# declare the API; link the separately-compiled library holding the bodies.\n";
+            s += "# `link` (\"shared\" | \"static\") picks the preferred form; we fall back to\n";
+            s += "# whichever is present and reference it by full path. Empty name ⇒ omitted.\n";
+            s += "if(NOT DEFINED ROSETTA_BINDING_TARGET)\n";
+            s += "    set(ROSETTA_BINDING_TARGET " + c.lib + ")\n";
+            s += "endif()\n";
+            s += "set(ROSETTA_USER_LIB \"" + c.user_lib_name + "\")\n";
+            s += "set(ROSETTA_USER_LIB_DIR \"" + c.user_lib_dir + "\")\n";
+            s += "set(ROSETTA_USER_LIB_LINK \"" + link + "\")\n";
+            s += "set(_rosetta_shared \"${ROSETTA_USER_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}"
+                 "${ROSETTA_USER_LIB}${CMAKE_SHARED_LIBRARY_SUFFIX}\")\n";
+            s += "set(_rosetta_static \"${ROSETTA_USER_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}"
+                 "${ROSETTA_USER_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}\")\n";
+            s += "if(ROSETTA_USER_LIB_LINK STREQUAL \"static\")\n";
+            s += "    set(_rosetta_order \"${_rosetta_static}\" \"${_rosetta_shared}\")\n";
+            s += "else()\n";
+            s += "    set(_rosetta_order \"${_rosetta_shared}\" \"${_rosetta_static}\")\n";
+            s += "endif()\n";
+            s += "set(_rosetta_lib \"\")\n";
+            s += "foreach(_cand IN LISTS _rosetta_order)\n";
+            s += "    if(EXISTS \"${_cand}\")\n";
+            s += "        set(_rosetta_lib \"${_cand}\")\n";
+            s += "        break()\n";
+            s += "    endif()\n";
+            s += "endforeach()\n";
+            s += "if(NOT _rosetta_lib)\n";
+            s += "    set(_rosetta_lib \"-l${ROSETTA_USER_LIB}\") # not built yet; resolved at build time\n";
+            s += "endif()\n";
+            s += "message(STATUS \"rosetta: ${ROSETTA_BINDING_TARGET} links user library "
+                 "${_rosetta_lib} (requested ${ROSETTA_USER_LIB_LINK})\")\n";
+            s += "target_link_directories(${ROSETTA_BINDING_TARGET} PRIVATE ${ROSETTA_USER_LIB_DIR})\n";
+            s += "target_link_libraries(${ROSETTA_BINDING_TARGET} PRIVATE \"${_rosetta_lib}\")\n";
+            s += "set_target_properties(${ROSETTA_BINDING_TARGET} PROPERTIES\n";
+            s += "    BUILD_RPATH \"${ROSETTA_USER_LIB_DIR}\"\n";
+            s += "    INSTALL_RPATH \"${ROSETTA_USER_LIB_DIR}\")\n";
+            return s;
+        }
+
         // CMake / package vars — backend source uses {{INCLUDES}}/{{BINDINGS}}
         // which are passed separately by render_source().
         inline std::string render_meta(std::string_view tmpl, const GenContext &c) {
@@ -224,7 +306,10 @@ endif()
                                 {"USER_INCLUDE", c.user_include},
                                 {"ROSETTA_INCLUDE", c.rosetta_include},
                                 {"USER_LIB_NAME", c.user_lib_name},
-                                {"USER_LIB_DIR", c.user_lib_dir}});
+                                {"USER_LIB_DIR", c.user_lib_dir},
+                                {"USER_LIB_BLOCK", user_lib_block(c)},
+                                {"REFLECTION_FLAGS", std::string(REFLECTION_FLAGS)},
+                                {"STDLIB_LINK", std::string(STDLIB_LINK)}});
         }
 
         inline std::string render_source(std::string_view tmpl, const GenContext &c,
@@ -783,7 +868,7 @@ namespace rosetta {
                                         opt.user_include.string(), opt.rosetta_include.string(),
                                         opt.cpp26_root, opt.cpp26_cxx, opt.cpp26_cc,
                                         opt.cpp26_lib, opt.qt_dir, opt.user_lib_name,
-                                        opt.user_lib_dir});
+                                        opt.user_lib_dir, opt.user_lib_link});
         }
     }
 

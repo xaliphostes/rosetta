@@ -32,16 +32,16 @@ add_executable({{LIB}}_demo demo.cpp)
 target_include_directories({{LIB}}_demo PRIVATE
     {{USER_INCLUDE}}
     {{ROSETTA_INCLUDE}})
-
+set(ROSETTA_BINDING_TARGET {{LIB}}_demo)
+{{USER_LIB_BLOCK}}
 target_link_libraries({{LIB}}_demo PRIVATE nlohmann_json::nlohmann_json)
 
 # Serialization is reflection-driven, so the demo needs the reflection flags.
 target_compile_options({{LIB}}_demo PRIVATE
-    -freflection -freflection-latest -fexperimental-library -fannotation-attributes)
+    {{REFLECTION_FLAGS}})
 
 target_link_options({{LIB}}_demo PRIVATE
-    -nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB}
-    -lc++ -lc++abi)
+    {{STDLIB_LINK}})
 )CMK";
 
         // A runnable demo: serialize a default instance of each class with the

@@ -35,24 +35,51 @@ to reach the out-of-line definitions. The manifest grew a field for that:
 
 ```json
 "user_lib": {
-    "name": "space",          // the library base name  (-lspace, libspace.dylib)
-    "dir":  "../space/bin"     // where it was built     (relative to the manifest)
+    "name": "space",          // the library base name  (libspace.dylib / .so / .a)
+    "dir":  "../space/bin",    // where it was built     (relative to the manifest)
+    "link": "shared"          // "shared" (default) | "static" | "dynamic" (= shared)
 }
 ```
 
-When set, rosetta emits the link wiring into the generated CMake projects:
+### `link` — static or dynamic
+
+`link` chooses which form of the library to link. The generated CMake resolves it
+at configure time and references the library **by full path**, so the manifest —
+not the linker's default — decides, and a same-named project target is never
+linked by mistake:
 
 ```cmake
-target_link_directories(<target> PRIVATE <dir>)
-target_link_libraries(<target>   PRIVATE <name>)
-set_target_properties(<target> PROPERTIES BUILD_RPATH "<dir>" INSTALL_RPATH "<dir>")
+# preferred form first, then fall back to whichever is actually on disk
+if(ROSETTA_USER_LIB_LINK STREQUAL "static")
+    set(_order "${_static}" "${_shared}")   # lib<name>.a, then lib<name>.dylib/.so
+else()
+    set(_order "${_shared}" "${_static}")
+endif()
+# first existing wins; if neither is built yet, fall back to -l<name>
 ```
 
-— for each C++ binding backend (the reflection `python` / `node` / … projects and
-their `*-expanded` variants) **and** for the generator driver itself (the
-reflection walk instantiates each bound type, so it needs the definitions at link
-time too). Without `user_lib` the block is skipped and the project stays
-header-only, exactly as before. See the field documented in
+So:
+
+- **`"shared"`** (default) → links `libspace.dylib` / `.so` (+ rpath). Falls back to
+  the static archive if no shared library exists.
+- **`"static"`** → links `libspace.a` directly into the module. Falls back to the
+  shared library if no archive exists.
+- **`"dynamic"`** is accepted as an alias for `"shared"`.
+- **WebAssembly ignores `link` and is always static** — a native `.dylib`/`.so`
+  cannot enter a wasm module and there is no rpath. The wasm backend links
+  `lib<name>.a` (built with the same emsdk) directly.
+
+The resolver prints which file it picked at configure time:
+
+```
+-- rosetta: space links user library .../space/bin/libspace.dylib (requested shared)
+```
+
+This wiring is emitted for each C++ binding backend (the reflection `python` /
+`node` / … projects and their `*-expanded` variants) **and** for the generator
+driver itself (the reflection walk instantiates each bound type, so it needs the
+definitions at link time too). Without `user_lib` the block is skipped and the
+project stays header-only, exactly as before. See the field documented in
 [`tools/rosetta_gen/rosetta_gen.cpp`](../../tools/rosetta_gen/rosetta_gen.cpp) and
 plumbed through [`include/rosetta/generate.h`](../../include/rosetta/generate.h).
 
@@ -127,6 +154,12 @@ second time as a *wasm static archive* with the **same emsdk** — its
 `space/bin/libspace.a` right next to the native `libspace.dylib`. The two
 coexist; each toolchain's linker picks the form it can use, so `user_lib.dir`
 already points at the right place (`space/bin`) — nothing to repoint.
+
+> **Note.** This `libspace.a` is the *wasm* archive. Because the native targets
+> here use `link: "shared"`, they resolve `libspace.dylib` and never touch it. If
+> you instead want native **`link: "static"`**, build a *native* `libspace.a` into
+> a **separate** directory and point `user_lib.dir` there — a native and a wasm
+> archive of the same name cannot share one directory.
 
 `build.sh` runs this only when `emcmake` is on `PATH`:
 

@@ -33,12 +33,16 @@
 //                                                   //   qt-expanded / qml-expanded
 //                                                   //   backends. Default that path.
 //     "user_lib": {                                 // optional: external library to link
-//       "name": "space",                            //   the bindings against (-lspace).
-//       "dir":  "../space/bin"                       //   Use when the bound headers only
-//     },                                            //   declare the API and the bodies
-//                                                   //   live in a separately-compiled
-//                                                   //   shared/static lib. Path is relative
-//                                                   //   to the manifest.
+//       "name": "space",                            //   the bindings against (libspace.*).
+//       "dir":  "../space/bin",                      //   Use when the bound headers only
+//       "link": "shared"                            //   declare the API and the bodies
+//     },                                            //   live in a separately-compiled lib.
+//                                                   //   `dir` is relative to the manifest.
+//                                                   //   `link`: "shared" (default) | "static"
+//                                                   //   | "dynamic" (alias of shared) — the
+//                                                   //   preferred form, with fallback to
+//                                                   //   whichever is built. wasm is always
+//                                                   //   static (no native .so in wasm).
 //     "targets": [                                  // shared by every class
 //       { "lang": "python", "name": "pygeom" },     // per-target module name
 //       "node"                                      // shorthand: uses module_name
@@ -101,6 +105,7 @@ struct Manifest {
     std::string                qt_dir;     // optional Qt 6 prefix (qt/qml backends)
     std::string                user_lib_name; // optional external lib to link bindings against
     std::string                user_lib_dir;  // optional dir holding it (absolute; -L / rpath)
+    std::string                user_lib_link; // "shared" (default) | "static"; wasm always static
 
     // CMake target / binary basename.
     std::string target() const { return generator_name; }
@@ -229,6 +234,21 @@ static Manifest load(const fs::path &manifest_path) {
         m.user_lib_name = ul.at("name").get<std::string>();
         m.user_lib_dir =
             fs::weakly_canonical(base / fs::path(ul.at("dir").get<std::string>())).string();
+        // Optional "link": prefer linking the shared or the static form of the
+        // library. "dynamic" is accepted as an alias for "shared". Default shared.
+        // (WebAssembly always links static regardless — see the wasm backend.)
+        if (ul.contains("link")) {
+            std::string link = ul.at("link").get<std::string>();
+            if (link == "dynamic") {
+                link = "shared";
+            }
+            if (link != "shared" && link != "static") {
+                throw std::runtime_error(
+                    "user_lib.link must be \"shared\", \"dynamic\", or \"static\" (got \"" + link +
+                    "\")");
+            }
+            m.user_lib_link = link;
+        }
     }
 
     if (m.generator_name.empty()) {
@@ -358,6 +378,9 @@ static std::string render_project_gen_cpp(const Manifest &m) {
     if (!m.user_lib_name.empty()) {
         out << "    opt.user_lib_name   = \"" << m.user_lib_name << "\";\n";
         out << "    opt.user_lib_dir    = \"" << m.user_lib_dir << "\";\n";
+        if (!m.user_lib_link.empty()) {
+            out << "    opt.user_lib_link   = \"" << m.user_lib_link << "\";\n";
+        }
     }
     out << "    opt.targets         = {\n";
     for (const auto &t : m.targets) {
@@ -437,11 +460,36 @@ static std::string render_cmakelists(const Manifest &m) {
     // bound type (e.g. to read default-constructed field values), so it needs
     // the out-of-line definitions at link AND run time (hence rpath).
     if (!m.user_lib_name.empty()) {
-        out << "\n# External user library (manifest \"user_lib\").\n"
-            << "target_link_directories(" << target << " PRIVATE " << m.user_lib_dir << ")\n"
-            << "target_link_libraries(" << target << " PRIVATE " << m.user_lib_name << ")\n"
+        const std::string link = m.user_lib_link.empty() ? "shared" : m.user_lib_link;
+        out << "\n# External user library (manifest \"user_lib\"). `link` (\"shared\" |\n"
+               "# \"static\") picks the preferred form; we fall back to whichever is present\n"
+               "# and reference it by full path (never mistaken for a same-named target).\n"
+            << "set(ROSETTA_USER_LIB \"" << m.user_lib_name << "\")\n"
+            << "set(ROSETTA_USER_LIB_DIR \"" << m.user_lib_dir << "\")\n"
+            << "set(ROSETTA_USER_LIB_LINK \"" << link << "\")\n"
+            << "set(_rosetta_shared \"${ROSETTA_USER_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}"
+               "${ROSETTA_USER_LIB}${CMAKE_SHARED_LIBRARY_SUFFIX}\")\n"
+            << "set(_rosetta_static \"${ROSETTA_USER_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}"
+               "${ROSETTA_USER_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}\")\n"
+            << "if(ROSETTA_USER_LIB_LINK STREQUAL \"static\")\n"
+            << "    set(_rosetta_order \"${_rosetta_static}\" \"${_rosetta_shared}\")\n"
+            << "else()\n"
+            << "    set(_rosetta_order \"${_rosetta_shared}\" \"${_rosetta_static}\")\n"
+            << "endif()\n"
+            << "set(_rosetta_lib \"\")\n"
+            << "foreach(_cand IN LISTS _rosetta_order)\n"
+            << "    if(EXISTS \"${_cand}\")\n"
+            << "        set(_rosetta_lib \"${_cand}\")\n"
+            << "        break()\n"
+            << "    endif()\n"
+            << "endforeach()\n"
+            << "if(NOT _rosetta_lib)\n"
+            << "    set(_rosetta_lib \"-l${ROSETTA_USER_LIB}\")\n"
+            << "endif()\n"
+            << "target_link_directories(" << target << " PRIVATE ${ROSETTA_USER_LIB_DIR})\n"
+            << "target_link_libraries(" << target << " PRIVATE \"${_rosetta_lib}\")\n"
             << "set_target_properties(" << target << " PROPERTIES\n"
-            << "    BUILD_RPATH \"" << m.user_lib_dir << "\")\n";
+            << "    BUILD_RPATH \"${ROSETTA_USER_LIB_DIR}\")\n";
     }
     return out.str();
 }

@@ -254,8 +254,14 @@ namespace rosetta {
         //   user_lib_name — the library's base name (e.g. "space" ⇒ -lspace,
         //                   libspace.dylib / .so / .a).
         //   user_lib_dir  — directory holding the built library (-L / rpath).
+        //   user_lib_link — preferred link form: "shared" (default) or "static".
+        //                   The generated CMake links that form by full path and
+        //                   falls back to whichever is actually present on disk.
+        //                   WebAssembly ignores it and always links static (a
+        //                   native shared object cannot enter a wasm module).
         std::string user_lib_name;
         std::string user_lib_dir;
+        std::string user_lib_link; // "shared" (default) | "static"; empty ⇒ shared
     };
 
     /**
@@ -276,6 +282,7 @@ namespace rosetta {
         std::string              qt_dir;          // Qt 6 prefix (default of QT_DIR; qt/qml backends)
         std::string              user_lib_name;   // external lib to link bindings against (-l<name>); empty ⇒ none
         std::string              user_lib_dir;    // directory holding that lib (-L / rpath)
+        std::string              user_lib_link;   // "shared" (default) | "static"; wasm always static
     };
 
     /**

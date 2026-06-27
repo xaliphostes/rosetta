@@ -33,18 +33,24 @@ add_executable({{LIB}} auto_emscripten.cpp)
 target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}})
 
-# Optional external user library (manifest "user_lib"): the bound headers only
-# declare the API. For WebAssembly the library must be a wasm static archive
-# (lib{{USER_LIB_NAME}}.a) compiled with the SAME emsdk — a native .dylib/.so
-# cannot be linked into wasm, and rpath does not apply. Empty ⇒ skipped.
+# Optional external user library (manifest "user_lib"). WebAssembly cannot link a
+# native .dylib/.so and has no rpath, so the manifest's `link` choice is overridden
+# here: the library is ALWAYS the wasm static archive (lib{{USER_LIB_NAME}}.a)
+# compiled with the SAME emsdk. Referenced by full path so a same-named project
+# target (the wasm module is itself named after the manifest target, e.g. `space`)
+# is never linked by mistake. Empty name ⇒ skipped.
 set(ROSETTA_USER_LIB "{{USER_LIB_NAME}}")
 set(ROSETTA_USER_LIB_DIR "{{USER_LIB_DIR}}")
 if(ROSETTA_USER_LIB)
     target_link_directories({{LIB}} PRIVATE ${ROSETTA_USER_LIB_DIR})
-    # `-l` flag (not a bare name) so CMake links the external library by file
-    # name and never mistakes it for a same-named project target (the wasm
-    # module is itself named after the manifest target, e.g. `space`).
-    target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
+    set(_rosetta_static "${ROSETTA_USER_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${ROSETTA_USER_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    if(EXISTS "${_rosetta_static}")
+        target_link_libraries({{LIB}} PRIVATE "${_rosetta_static}")
+    else()
+        # Archive not built yet at configure time — link by name (resolved from the
+        # link directory above; emcc's linker takes lib{{USER_LIB_NAME}}.a).
+        target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
+    endif()
 endif()
 
 target_link_options({{LIB}} PRIVATE
@@ -295,15 +301,7 @@ set_target_properties({{LIB}} PROPERTIES SUFFIX ".js")
             out += "#include <string>\n";
             out += "#include <vector>\n";
             // pybind-free: just the user's (stock) headers below.
-            auto add = [&](const std::string &h) {
-                if (h.empty()) {
-                    return;
-                }
-                const std::string line = "#include \"" + h + "\"\n";
-                if (out.find(line) == std::string::npos) {
-                    out += line;
-                }
-            };
+            auto add = [&](const std::string &h) { append_include(out, h); };
             for (const auto &k : c.classes) {
                 add(k.header);
             }

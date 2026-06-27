@@ -46,31 +46,17 @@ target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}}
     {{ROSETTA_INCLUDE}})
 
-# Optional external user library (manifest "user_lib"): the bound headers only
-# declare the API; its bodies live in a separately-compiled shared/static lib,
-# so link against it here. Empty ⇒ this block is skipped (header-only project).
-set(ROSETTA_USER_LIB "{{USER_LIB_NAME}}")
-set(ROSETTA_USER_LIB_DIR "{{USER_LIB_DIR}}")
-if(ROSETTA_USER_LIB)
-    target_link_directories({{LIB}} PRIVATE ${ROSETTA_USER_LIB_DIR})
-    # `-l` flag (not a bare name) so CMake links the external library by file
-    # name and never mistakes it for a same-named project target.
-    target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
-    set_target_properties({{LIB}} PROPERTIES
-        BUILD_RPATH "${ROSETTA_USER_LIB_DIR}"
-        INSTALL_RPATH "${ROSETTA_USER_LIB_DIR}")
-endif()
+{{USER_LIB_BLOCK}}
 
 target_link_libraries({{LIB}} PRIVATE ${CMAKE_JS_LIB})
 
 target_compile_definitions({{LIB}} PRIVATE NAPI_VERSION=8)
 
 target_compile_options({{LIB}} PRIVATE
-    -freflection -freflection-latest -fexperimental-library -fannotation-attributes)
+    {{REFLECTION_FLAGS}})
 
 target_link_options({{LIB}} PRIVATE
-    -nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB}
-    -lc++ -lc++abi)
+    {{STDLIB_LINK}})
 
 if(APPLE)
     target_link_options({{LIB}} PRIVATE -Wl,-undefined,dynamic_lookup)

@@ -43,7 +43,7 @@ nanobind_add_module({{LIB}} NB_STATIC auto_nanobind.cpp)
 # Only the user's headers — rosetta's include dir is deliberately absent.
 target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}})
-
+{{USER_LIB_BLOCK}}
 add_custom_command(TARGET {{LIB}} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:{{LIB}}>
@@ -156,15 +156,7 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
             out += "#include <nanobind/stl/string.h>\n";
             out += "#include <nanobind/stl/vector.h>\n";
             out += "#include <nanobind/stl/function.h>\n";
-            auto add = [&](const std::string &h) {
-                if (h.empty()) {
-                    return;
-                }
-                const std::string line = "#include \"" + h + "\"\n";
-                if (out.find(line) == std::string::npos) {
-                    out += line;
-                }
-            };
+            auto add = [&](const std::string &h) { append_include(out, h); };
             for (const auto &k : c.classes) {
                 add(k.header);
             }

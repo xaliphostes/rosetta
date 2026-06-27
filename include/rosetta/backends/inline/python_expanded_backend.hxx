@@ -42,20 +42,7 @@ pybind11_add_module({{LIB}} NO_EXTRAS auto_pybind.cpp)
 target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}})
 
-# Optional external user library (manifest "user_lib"): the bound headers only
-# declare the API; its bodies live in a separately-compiled shared/static lib,
-# so link against it here. Empty ⇒ this block is skipped (header-only project).
-set(ROSETTA_USER_LIB "{{USER_LIB_NAME}}")
-set(ROSETTA_USER_LIB_DIR "{{USER_LIB_DIR}}")
-if(ROSETTA_USER_LIB)
-    target_link_directories({{LIB}} PRIVATE ${ROSETTA_USER_LIB_DIR})
-    # `-l` flag (not a bare name) so CMake links the external library by file
-    # name and never mistakes it for a same-named project target.
-    target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
-    set_target_properties({{LIB}} PROPERTIES
-        BUILD_RPATH "${ROSETTA_USER_LIB_DIR}"
-        INSTALL_RPATH "${ROSETTA_USER_LIB_DIR}")
-endif()
+{{USER_LIB_BLOCK}}
 
 add_custom_command(TARGET {{LIB}} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
@@ -125,15 +112,7 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
             std::string s = "#include <pybind11/pybind11.h>\n"
                             "#include <pybind11/stl.h>\n"
                             "#include <pybind11/functional.h>\n";
-            auto add = [&](const std::string &h) {
-                if (h.empty()) {
-                    return;
-                }
-                const std::string line = "#include \"" + h + "\"\n";
-                if (s.find(line) == std::string::npos) {
-                    s += line;
-                }
-            };
+            auto add = [&](const std::string &h) { append_include(s, h); };
             for (const auto &k : c.classes) {
                 add(k.header);
             }

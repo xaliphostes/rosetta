@@ -52,13 +52,12 @@ nanobind_add_module({{LIB}} NB_STATIC auto_nanobind.cpp)
 target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}}
     {{ROSETTA_INCLUDE}})
-
+{{USER_LIB_BLOCK}}
 target_compile_options({{LIB}} PRIVATE
-    -freflection -freflection-latest -fexperimental-library -fannotation-attributes)
+    {{REFLECTION_FLAGS}})
 
 target_link_options({{LIB}} PRIVATE
-    -nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB}
-    -lc++ -lc++abi)
+    {{STDLIB_LINK}})
 
 add_custom_command(TARGET {{LIB}} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy

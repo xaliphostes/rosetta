@@ -44,20 +44,7 @@ target_include_directories({{LIB}} PRIVATE
 target_link_libraries({{LIB}} PRIVATE ${CMAKE_JS_LIB})
 target_compile_definitions({{LIB}} PRIVATE NAPI_VERSION=8)
 
-# Optional external user library (manifest "user_lib"): the bound headers only
-# declare the API; its bodies live in a separately-compiled shared/static lib,
-# so link against it here. Empty ⇒ this block is skipped (header-only project).
-set(ROSETTA_USER_LIB "{{USER_LIB_NAME}}")
-set(ROSETTA_USER_LIB_DIR "{{USER_LIB_DIR}}")
-if(ROSETTA_USER_LIB)
-    target_link_directories({{LIB}} PRIVATE ${ROSETTA_USER_LIB_DIR})
-    # `-l` flag (not a bare name) so CMake links the external library by file
-    # name and never mistakes it for a same-named project target.
-    target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
-    set_target_properties({{LIB}} PROPERTIES
-        BUILD_RPATH "${ROSETTA_USER_LIB_DIR}"
-        INSTALL_RPATH "${ROSETTA_USER_LIB_DIR}")
-endif()
+{{USER_LIB_BLOCK}}
 
 if(APPLE)
     target_link_options({{LIB}} PRIVATE -Wl,-undefined,dynamic_lookup)
@@ -238,15 +225,7 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
                               "do not edit by hand.\n";
             out += "#include <napi.h>\n";
             out += "#include <rosetta/backends/node_runtime.h>\n";
-            auto add = [&](const std::string &h) {
-                if (h.empty()) {
-                    return;
-                }
-                const std::string line = "#include \"" + h + "\"\n";
-                if (out.find(line) == std::string::npos) {
-                    out += line;
-                }
-            };
+            auto add = [&](const std::string &h) { append_include(out, h); };
             for (const auto &k : c.classes) {
                 add(k.header);
             }

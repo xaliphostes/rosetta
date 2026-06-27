@@ -17,3 +17,4 @@ site/
 *.bin
 *.make
 .DS_Store
+lkn.md
