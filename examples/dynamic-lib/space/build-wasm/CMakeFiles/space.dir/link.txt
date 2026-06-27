@@ -1,2 +1,0 @@
-/Users/fmaerten/emsdk/upstream/emscripten/emar qc /Users/fmaerten/devs/c++/rosetta/examples/dynamic-lib/space/bin/libspace.a CMakeFiles/space.dir/src/Vector3.cpp.o CMakeFiles/space.dir/src/BoundingBox.cpp.o
-/Users/fmaerten/emsdk/upstream/emscripten/emranlib /Users/fmaerten/devs/c++/rosetta/examples/dynamic-lib/space/bin/libspace.a

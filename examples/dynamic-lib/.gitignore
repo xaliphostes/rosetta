@@ -1,5 +1,6 @@
 # pure-C++ library build outputs
 space/build/
+space/build-wasm/
 space/bin/
 
 # rosetta generator scaffolding + emitted bindings (regenerate with build.sh)
