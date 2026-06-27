@@ -32,6 +32,13 @@
 //     "qt_dir": "$ENV{HOME}/Qt/6.8.3/macos",        // optional: Qt 6 prefix for the
 //                                                   //   qt-expanded / qml-expanded
 //                                                   //   backends. Default that path.
+//     "user_lib": {                                 // optional: external library to link
+//       "name": "space",                            //   the bindings against (-lspace).
+//       "dir":  "../space/bin"                       //   Use when the bound headers only
+//     },                                            //   declare the API and the bodies
+//                                                   //   live in a separately-compiled
+//                                                   //   shared/static lib. Path is relative
+//                                                   //   to the manifest.
 //     "targets": [                                  // shared by every class
 //       { "lang": "python", "name": "pygeom" },     // per-target module name
 //       "node"                                      // shorthand: uses module_name
@@ -92,6 +99,8 @@ struct Manifest {
     std::string                cpp26_cc;   // optional C compiler (name or path)
     std::string                cpp26_lib;  // optional fork stdlib dir (libc++/libc++abi)
     std::string                qt_dir;     // optional Qt 6 prefix (qt/qml backends)
+    std::string                user_lib_name; // optional external lib to link bindings against
+    std::string                user_lib_dir;  // optional dir holding it (absolute; -L / rpath)
 
     // CMake target / binary basename.
     std::string target() const { return generator_name; }
@@ -208,6 +217,18 @@ static Manifest load(const fs::path &manifest_path) {
     // Optional Qt 6 install prefix for the qt-expanded / qml-expanded backends.
     if (j.contains("qt_dir")) {
         m.qt_dir = j.at("qt_dir").get<std::string>();
+    }
+
+    // `user_lib` is optional: an external library the generated bindings link
+    // against. Use it when the bound headers only *declare* the API and its
+    // bodies are compiled into a separate shared/static library. `name` is the
+    // library base name (-l<name>); `dir` is the directory holding it, resolved
+    // to an absolute path (relative to the manifest) for -L / rpath.
+    if (j.contains("user_lib")) {
+        const auto &ul = j.at("user_lib");
+        m.user_lib_name = ul.at("name").get<std::string>();
+        m.user_lib_dir =
+            fs::weakly_canonical(base / fs::path(ul.at("dir").get<std::string>())).string();
     }
 
     if (m.generator_name.empty()) {
@@ -332,6 +353,12 @@ static std::string render_project_gen_cpp(const Manifest &m) {
     if (!m.qt_dir.empty()) {
         out << "    opt.qt_dir          = \"" << m.qt_dir << "\";\n";
     }
+    // External library to link the bindings against (manifest "user_lib"). Only
+    // the stock *-expanded backends consume these (see GenerateOptions).
+    if (!m.user_lib_name.empty()) {
+        out << "    opt.user_lib_name   = \"" << m.user_lib_name << "\";\n";
+        out << "    opt.user_lib_dir    = \"" << m.user_lib_dir << "\";\n";
+    }
     out << "    opt.targets         = {\n";
     for (const auto &t : m.targets) {
         out << "        {\"" << t.lang << "\", \"" << t.name << "\"},\n";
@@ -404,6 +431,18 @@ static std::string render_cmakelists(const Manifest &m) {
         << "target_link_options(" << target << " PRIVATE\n"
         << "    -nostdlib++ -L${ROSETTA_STDLIB} -Wl,-rpath,${ROSETTA_STDLIB}\n"
         << "    -lc++ -lc++abi)\n";
+
+    // If the bound headers only declare the API (bodies in an external library),
+    // the driver links against it too: the reflection walk instantiates each
+    // bound type (e.g. to read default-constructed field values), so it needs
+    // the out-of-line definitions at link AND run time (hence rpath).
+    if (!m.user_lib_name.empty()) {
+        out << "\n# External user library (manifest \"user_lib\").\n"
+            << "target_link_directories(" << target << " PRIVATE " << m.user_lib_dir << ")\n"
+            << "target_link_libraries(" << target << " PRIVATE " << m.user_lib_name << ")\n"
+            << "set_target_properties(" << target << " PROPERTIES\n"
+            << "    BUILD_RPATH \"" << m.user_lib_dir << "\")\n";
+    }
     return out.str();
 }
 

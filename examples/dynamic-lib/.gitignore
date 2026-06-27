@@ -1,0 +1,8 @@
+# pure-C++ library build outputs
+space/build/
+space/bin/
+
+# rosetta generator scaffolding + emitted bindings (regenerate with build.sh)
+rosetta/gen/
+rosetta/generator
+rosetta/bindings/

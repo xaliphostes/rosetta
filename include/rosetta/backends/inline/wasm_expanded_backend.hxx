@@ -33,6 +33,20 @@ add_executable({{LIB}} auto_emscripten.cpp)
 target_include_directories({{LIB}} PRIVATE
     {{USER_INCLUDE}})
 
+# Optional external user library (manifest "user_lib"): the bound headers only
+# declare the API. For WebAssembly the library must be a wasm static archive
+# (lib{{USER_LIB_NAME}}.a) compiled with the SAME emsdk — a native .dylib/.so
+# cannot be linked into wasm, and rpath does not apply. Empty ⇒ skipped.
+set(ROSETTA_USER_LIB "{{USER_LIB_NAME}}")
+set(ROSETTA_USER_LIB_DIR "{{USER_LIB_DIR}}")
+if(ROSETTA_USER_LIB)
+    target_link_directories({{LIB}} PRIVATE ${ROSETTA_USER_LIB_DIR})
+    # `-l` flag (not a bare name) so CMake links the external library by file
+    # name and never mistakes it for a same-named project target (the wasm
+    # module is itself named after the manifest target, e.g. `space`).
+    target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
+endif()
+
 target_link_options({{LIB}} PRIVATE
     --bind -sMODULARIZE=1 -sEXPORT_NAME=createModule
     -sENVIRONMENT=node,web -sALLOW_MEMORY_GROWTH=1 -sDISABLE_EXCEPTION_CATCHING=0)
@@ -299,6 +313,7 @@ set_target_properties({{LIB}} PROPERTIES SUFFIX ".js")
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            out += using_namespaces_of(c); // `using namespace` for namespaced user types
             out += "\nEMSCRIPTEN_BINDINGS(" + c.lib + ") {\n";
             out += body;
             out += "}\n";

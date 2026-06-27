@@ -174,6 +174,7 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            out += using_namespaces_of(c); // `using namespace` for namespaced user types
             out += "\nnamespace nb = nanobind;\n";
             out += "\nNB_MODULE(" + c.lib + ", m) {\n";
             out += "    m.doc() = \"Auto-generated (expanded) nanobind bindings for " + c.lib +

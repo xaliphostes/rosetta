@@ -1,0 +1,5 @@
+{
+  "x": { "doc": "The x-coordinate (first Cartesian axis)" },
+  "y": { "doc": "The y-coordinate (second Cartesian axis)" },
+  "z": { "doc": "The z-coordinate (third Cartesian axis)" }
+}

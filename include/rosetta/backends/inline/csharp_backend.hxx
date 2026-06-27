@@ -534,6 +534,8 @@ those. Members using any other type are omitted from both sides.
         }
 
         inline std::string csharp_source(const GenContext &c) {
+            // includes_of() also emits the `using namespace` a namespaced user
+            // library needs (so unqualified bind_csharp<T> resolves).
             return subst(CS_CPP, {{"INCLUDES", includes_of(c)},
                                   {"BINDINGS", csharp_registrations(c)}});
         }

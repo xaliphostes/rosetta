@@ -24,7 +24,12 @@ namespace py = pybind11;
 
 namespace rosetta {
 
-    template <typename T> void bind_pybind(py::module_ &, const char *);
+    // Trampoline defaults to T (plain py::class_<T>); the python backend passes a
+    // generated Py_T subclass for classes with virtuals. The default lives here on
+    // the declaration; the definition must NOT repeat it (one default per template,
+    // and a mismatched 1-param decl would make the <T> call ambiguous).
+    template <typename T, typename Trampoline = T>
+    void bind_pybind(py::module_ &, const char *);
 
     // Register an enum type as a py::enum_ (its enumerators become module-level
     // constants via export_values). T must be an enumeration type.

@@ -1,0 +1,3 @@
+/Users/fmaerten/devs/c++/rosetta/examples/dynamic-lib/space/build-wasm/CMakeFiles/space.dir
+/Users/fmaerten/devs/c++/rosetta/examples/dynamic-lib/space/build-wasm/CMakeFiles/edit_cache.dir
+/Users/fmaerten/devs/c++/rosetta/examples/dynamic-lib/space/build-wasm/CMakeFiles/rebuild_cache.dir

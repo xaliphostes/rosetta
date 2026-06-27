@@ -1,0 +1,31 @@
+{
+    "//1": "Bindings for the pure-C++ `space` library (../space). Its headers in",
+    "//2": "../space/include only DECLARE the API; the bodies are compiled into a",
+    "//3": "dynamic library (../space/bin/libspace.*). The bound headers carry no",
+    "//4": "annotations — every doc lives in the .ann.json side-cars below.",
+    "//5": "",
+    "//6": "`user_lib` (new) tells rosetta to link the generated bindings against",
+    "//7": "that external library: each *-expanded backend emits a",
+    "//8": "target_link_directories / target_link_libraries (+ rpath) for it.",
+
+    "user_include": "../space/include",
+    "rosetta_include": "../../../include",
+    "generator_name": "space_bindings",
+    "module_name": "space",
+
+    "user_lib": {
+        "name": "space",
+        "dir": "../space/bin"
+    },
+
+    "targets": [
+        { "lang": "python", "name": "space" },
+        { "lang": "node",   "name": "space" },
+        { "lang": "wasm-expanded",   "name": "space" }
+    ],
+
+    "classes": [
+        { "name": "space::Vector3",     "header": "Vector3.h",     "annotations": "Vector3.ann.json" },
+        { "name": "space::BoundingBox", "header": "BoundingBox.h", "annotations": "BoundingBox.ann.json" }
+    ]
+}

@@ -42,6 +42,32 @@ namespace rosetta {
             return std::string(n);
         }
 
+        // Enclosing-namespace spelling of T as a runtime string: "" for a global
+        // type, "space" for space::Vector3, "a::b" for a::b::T. Walks parent
+        // scopes via reflection, stopping at the (identifier-less) global
+        // namespace. The *-expanded backends emit a `using namespace` for each
+        // distinct namespace so they can keep spelling bound types by their
+        // unqualified identifier (see using_namespaces_of()).
+        template <typename T> inline std::string class_namespace() {
+            constexpr const char *n = std::define_static_string([] consteval -> std::string {
+                std::vector<std::string_view> parts;
+                std::meta::info               scope = std::meta::parent_of(^^T);
+                while (std::meta::is_namespace(scope) && std::meta::has_identifier(scope)) {
+                    parts.push_back(std::meta::identifier_of(scope));
+                    scope = std::meta::parent_of(scope);
+                }
+                std::string out;
+                for (auto it = parts.rbegin(); it != parts.rend(); ++it) {
+                    if (!out.empty()) {
+                        out += "::";
+                    }
+                    out += *it;
+                }
+                return out;
+            }());
+            return std::string(n);
+        }
+
         // -------- shared CMake fragment --------
 
         // Defaults used when the manifest does not set a field. The cache vars
@@ -83,6 +109,8 @@ endif()
         // rosetta's annotations are included first so user headers that carry
         // `[[ = rosetta::doc{...} ]]` annotations parse (they don't include
         // rosetta themselves).
+        inline std::string using_namespaces_of(const GenContext &c); // defined below
+
         inline std::string includes_of(const GenContext &c) {
             std::string s   = "#include <rosetta/annotations.h>\n";
             auto        add = [&](const std::string &h) {
@@ -100,6 +128,12 @@ endif()
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            // `using namespace` for namespaced user types, emitted right after the
+            // class headers (so T is complete) and *before* everything below that
+            // spells T unqualified — the annotation specializations here and the
+            // backend's own bind_*<T> / trampoline code. Empty when all bound
+            // types are global, so global-namespace projects are byte-identical.
+            s += using_namespaces_of(c);
             // Out-of-line annotations: backends whose emitted .cpp re-walks the
             // type at its own compile time (python / node) need the
             // ann_json_source<T> specialization in their TU, or they would see
@@ -139,6 +173,32 @@ endif()
             return s;
         }
 
+        // `using namespace X;` lines for every distinct, non-global namespace the
+        // bound classes/enums live in, in first-seen order. The *-expanded
+        // backends spell bound types by their unqualified identifier; emitting
+        // these directives after the includes lets a namespaced user library
+        // (e.g. space::Vector3) bind without qualifying every spelling. Empty
+        // when all bound types are global (matching the older examples).
+        inline std::string using_namespaces_of(const GenContext &c) {
+            std::vector<std::string> seen;
+            auto                     add = [&](const std::string &ns) {
+                if (!ns.empty() && std::find(seen.begin(), seen.end(), ns) == seen.end()) {
+                    seen.push_back(ns);
+                }
+            };
+            for (const auto &k : c.classes) {
+                add(k.name_space);
+            }
+            for (const auto &e : c.enums) {
+                add(e.name_space);
+            }
+            std::string s;
+            for (const auto &ns : seen) {
+                s += "using namespace " + ns + ";\n";
+            }
+            return s;
+        }
+
         // CMake / package vars — backend source uses {{INCLUDES}}/{{BINDINGS}}
         // which are passed separately by render_source().
         inline std::string render_meta(std::string_view tmpl, const GenContext &c) {
@@ -162,11 +222,16 @@ endif()
                                 {"CPP26_LIB", lib},
                                 {"QT_DIR", qt},
                                 {"USER_INCLUDE", c.user_include},
-                                {"ROSETTA_INCLUDE", c.rosetta_include}});
+                                {"ROSETTA_INCLUDE", c.rosetta_include},
+                                {"USER_LIB_NAME", c.user_lib_name},
+                                {"USER_LIB_DIR", c.user_lib_dir}});
         }
 
         inline std::string render_source(std::string_view tmpl, const GenContext &c,
                                          std::string_view binds) {
+            // includes_of() already appends the `using namespace` directives a
+            // namespaced user library needs (the reflection-based C++ TUs spell
+            // bound types by their unqualified identifier).
             return subst(tmpl, {{"LIB", c.lib}, {"INCLUDES", includes_of(c)}, {"BINDINGS", binds}});
         }
 
@@ -526,7 +591,8 @@ endif()
         // Erase one class to plain data — the only place reflection runs.
         template <typename T> inline GenClass describe() {
             GenClass gc;
-            gc.name = class_name<T>();
+            gc.name       = class_name<T>();
+            gc.name_space = class_namespace<T>();
             // binding_info<T>::header is the #include basename — needed by code
             // backends, but not by render-to-string callers (to_markdown / to_html),
             // which may have no specialization. Use it only when present.
@@ -572,6 +638,7 @@ endif()
         template <typename T> inline GenEnum describe_enum() {
             GenEnum ge;
             ge.name       = class_name<T>();
+            ge.name_space = class_namespace<T>();
             ge.header     = binding_info<T>::header;
             ge.underlying = std::define_static_string(
                 std::meta::display_string_of(std::meta::underlying_type(^^T)));
@@ -715,7 +782,8 @@ namespace rosetta {
             it->second->emit(GenContext{opt.out_dir, t.name, classes, enums, opt.functions,
                                         opt.user_include.string(), opt.rosetta_include.string(),
                                         opt.cpp26_root, opt.cpp26_cxx, opt.cpp26_cc,
-                                        opt.cpp26_lib, opt.qt_dir});
+                                        opt.cpp26_lib, opt.qt_dir, opt.user_lib_name,
+                                        opt.user_lib_dir});
         }
     }
 

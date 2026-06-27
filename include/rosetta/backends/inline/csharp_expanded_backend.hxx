@@ -252,6 +252,7 @@ ROSETTA_CS_EXPORT void rosetta_csharp_free(char *p) { std::free(p); }
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            out += using_namespaces_of(c); // `using namespace` for namespaced user types
             out += "\nnamespace {\n\nvoid register_all() {\n";
             out += csharp_expanded_registrations(c);
             out += "}\n";

@@ -201,6 +201,7 @@ target_link_libraries({{LIB}}_qt PRIVATE Qt6::Widgets)
             for (const auto &k : c.classes) {
                 add(k.header);
             }
+            s += using_namespaces_of(c); // `using namespace` for namespaced user types
             s += "\nclass QWidget;\n\nnamespace rosetta_qt {\n";
             for (const auto &k : c.classes) {
                 s += "    QWidget *build_" + k.name + "_inspector(" + k.name +

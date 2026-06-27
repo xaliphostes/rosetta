@@ -83,6 +83,9 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
 
         inline std::string nanobind_source(const GenContext &c) {
             return subst(NB_CPP, {{"LIB", c.lib},
+                                  // includes_of() also emits the `using namespace`
+                                  // a namespaced user library needs (so unqualified
+                                  // bind_nanobind<T> resolves).
                                   {"INCLUDES", includes_of(c)},
                                   {"BINDINGS", nanobind_bindings(c)}});
         }

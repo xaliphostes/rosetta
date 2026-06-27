@@ -425,7 +425,7 @@ namespace rosetta {
     // backend for classes with virtual methods), the wrapper holds it instead of
     // a plain T, so a JS subclass can override T's virtuals and C++ dispatches
     // back into JS. With no trampoline (the default) this is the prior behaviour.
-    template <typename T, typename Trampoline = T>
+    template <typename T, typename Trampoline> // default `= T` is on the declaration
     inline Napi::Function bind_napi(Napi::Env env, const char *class_name) {
         using This = Wrap<T, Trampoline>;
         std::vector<Napi::ClassPropertyDescriptor<This>> props;

@@ -764,8 +764,10 @@ final class Rt {
         }
 
         inline std::string java_source(const GenContext &c) {
-            return subst(JAVA_CPP,
-                         {{"INCLUDES", includes_of(c)}, {"BINDINGS", java_registrations(c)}});
+            // includes_of() also emits the `using namespace` a namespaced user
+            // library needs (so unqualified bind_java<T> resolves).
+            return subst(JAVA_CPP, {{"INCLUDES", includes_of(c)},
+                                    {"BINDINGS", java_registrations(c)}});
         }
 
         inline std::string JavaBackend::render(const GenContext &c) const {

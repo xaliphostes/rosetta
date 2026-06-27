@@ -83,7 +83,7 @@ namespace rosetta {
     // the class is registered as py::class_<T, Trampoline> so Python subclasses
     // can override those virtuals and C++ dispatches back into Python. With no
     // trampoline (the default) this is the plain py::class_<T> binding as before.
-    template <typename T, typename Trampoline = T>
+    template <typename T, typename Trampoline> // default `= T` is on the declaration
     inline void bind_pybind(py::module_ &m, const char *py_name) {
         if constexpr (std::is_same_v<Trampoline, T>) {
             py::class_<T> cls(m, py_name);

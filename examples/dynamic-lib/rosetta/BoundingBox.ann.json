@@ -1,0 +1,4 @@
+{
+  "min": { "doc": "The corner with the smallest coordinate on every axis" },
+  "max": { "doc": "The corner with the largest coordinate on every axis" }
+}

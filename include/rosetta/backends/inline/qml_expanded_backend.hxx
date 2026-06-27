@@ -266,6 +266,7 @@ target_link_libraries({{LIB}}_qml PRIVATE
                 }
                 h += seen;
             }
+            h += using_namespaces_of(c); // `using namespace` for namespaced user types
             h += "\nnamespace rosetta_qml {\n";
             for (const auto &k : c.classes) {
                 h += "    void bind_" + k.name + "(rosetta::ReflectedObject *obj, " + k.name +

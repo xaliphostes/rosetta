@@ -170,7 +170,8 @@ namespace rosetta {
      * a runtime visitor can ignore it and use just `name` / `header`.
      */
     struct GenClass {
-        std::string name;   // reflected C++ identifier
+        std::string name;       // reflected (unqualified) C++ identifier
+        std::string name_space; // enclosing namespace ("" if global, "a::b" if nested)
         std::string header; // binding_info<T>::header — basename for #include
         std::string doc;    // class_markdown(*this) — per-class Markdown fragment (README body)
         std::string annotations_json; // raw out-of-line annotation side-car (ann_json_source<T>), if any
@@ -202,7 +203,8 @@ namespace rosetta {
      * backends render enums as pure text — no reflection.
      */
     struct GenEnum {
-        std::string                name;       // reflected C++ identifier
+        std::string                name;       // reflected (unqualified) C++ identifier
+        std::string                name_space; // enclosing namespace ("" if global, "a::b" if nested)
         std::string                header;     // binding_info<T>::header
         std::string                doc;        // markdown fragment for READMEs
         std::string                underlying; // underlying integer type spelling
@@ -241,6 +243,19 @@ namespace rosetta {
         // default ($ENV{HOME}/Qt/6.8.3/macos). Overridable at configure time with
         // -DQT_DIR=...; backends other than qt/qml ignore it.
         std::string qt_dir;
+
+        // Optional external user library to link the generated bindings against.
+        // Use this when the bound headers only *declare* the API and the bodies
+        // live in a separately-compiled (shared or static) library — the binding
+        // TU then needs that library at link time. Both must be set to take
+        // effect; the stock *-expanded backends emit a target_link_directories /
+        // target_link_libraries (+ rpath) referencing them.
+        //
+        //   user_lib_name — the library's base name (e.g. "space" ⇒ -lspace,
+        //                   libspace.dylib / .so / .a).
+        //   user_lib_dir  — directory holding the built library (-L / rpath).
+        std::string user_lib_name;
+        std::string user_lib_dir;
     };
 
     /**
@@ -259,6 +274,8 @@ namespace rosetta {
         std::string              cpp26_cc;        // C compiler     (default ${CLANG_P2996_ROOT}/bin/clang)
         std::string              cpp26_lib;       // fork stdlib dir (default ${CLANG_P2996_ROOT}/lib)
         std::string              qt_dir;          // Qt 6 prefix (default of QT_DIR; qt/qml backends)
+        std::string              user_lib_name;   // external lib to link bindings against (-l<name>); empty ⇒ none
+        std::string              user_lib_dir;    // directory holding that lib (-L / rpath)
     };
 
     /**

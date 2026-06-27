@@ -242,6 +242,7 @@ ROSETTA_JAVA_EXPORT void rosetta_java_free(char *p) { std::free(p); }
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            out += using_namespaces_of(c); // `using namespace` for namespaced user types
             out += "\nnamespace {\n\nvoid register_all() {\n";
             out += java_expanded_registrations(c);
             out += "}\n";

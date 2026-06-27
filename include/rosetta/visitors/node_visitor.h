@@ -33,7 +33,12 @@
 
 namespace rosetta {
 
-    template <typename T> Napi::Function bind_napi(Napi::Env, const char *);
+    // Trampoline defaults to T (plain wrapper); the node backend passes a generated
+    // trampoline subclass for classes with virtuals. The default lives here on the
+    // declaration; the definition must NOT repeat it (one default per template, and
+    // a mismatched 1-param decl would make the <T> call ambiguous).
+    template <typename T, typename Trampoline = T>
+    Napi::Function bind_napi(Napi::Env, const char *);
 
     // Build a frozen JS object exposing an enum's enumerators as numeric
     // constants ({ Red: 0, Green: 1, ... }). T must be an enumeration type.

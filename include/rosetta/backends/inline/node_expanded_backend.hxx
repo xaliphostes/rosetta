@@ -44,6 +44,21 @@ target_include_directories({{LIB}} PRIVATE
 target_link_libraries({{LIB}} PRIVATE ${CMAKE_JS_LIB})
 target_compile_definitions({{LIB}} PRIVATE NAPI_VERSION=8)
 
+# Optional external user library (manifest "user_lib"): the bound headers only
+# declare the API; its bodies live in a separately-compiled shared/static lib,
+# so link against it here. Empty ⇒ this block is skipped (header-only project).
+set(ROSETTA_USER_LIB "{{USER_LIB_NAME}}")
+set(ROSETTA_USER_LIB_DIR "{{USER_LIB_DIR}}")
+if(ROSETTA_USER_LIB)
+    target_link_directories({{LIB}} PRIVATE ${ROSETTA_USER_LIB_DIR})
+    # `-l` flag (not a bare name) so CMake links the external library by file
+    # name and never mistakes it for a same-named project target.
+    target_link_libraries({{LIB}} PRIVATE "-l${ROSETTA_USER_LIB}")
+    set_target_properties({{LIB}} PROPERTIES
+        BUILD_RPATH "${ROSETTA_USER_LIB_DIR}"
+        INSTALL_RPATH "${ROSETTA_USER_LIB_DIR}")
+endif()
+
 if(APPLE)
     target_link_options({{LIB}} PRIVATE -Wl,-undefined,dynamic_lookup)
 endif()
@@ -241,6 +256,7 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
             for (const auto &f : c.functions) {
                 add(f.header);
             }
+            out += using_namespaces_of(c); // `using namespace` for namespaced user types
             out += node_trampolines_of(c); // reflection-free; empty when no virtuals
             out += "\nNapi::Object Init(Napi::Env env, Napi::Object exports) {\n";
             out += body;
