@@ -65,6 +65,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <glob.h>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
@@ -72,6 +73,31 @@
 
 namespace fs = std::filesystem;
 using json   = nlohmann::json;
+
+// True if `s` carries shell-glob magic (so it must be expanded, not used as a
+// literal path). Matches POSIX glob's special characters.
+static bool is_glob_pattern(const std::string &s) {
+    return s.find_first_of("*?[") != std::string::npos;
+}
+
+// Expand a shell glob (relative to `base`) into the matching files, sorted for
+// reproducible output. Used by `user_sources` so a manifest can say
+// "src/algorithms/*.cpp" instead of listing every file. POSIX glob expands `*`,
+// `?` and `[...]` within a path component (not recursive `**`); a pattern that
+// matches nothing yields an empty list (the caller warns).
+static std::vector<fs::path> expand_glob(const fs::path &base, const std::string &pattern) {
+    const fs::path full = fs::absolute(base / fs::path(pattern)).lexically_normal();
+    glob_t         g{};
+    std::vector<fs::path> out;
+    if (::glob(full.c_str(), GLOB_NOSORT | GLOB_ERR, nullptr, &g) == 0) {
+        for (std::size_t i = 0; i < g.gl_pathc; ++i) {
+            out.push_back(fs::weakly_canonical(fs::path(g.gl_pathv[i])));
+        }
+    }
+    ::globfree(&g);
+    std::sort(out.begin(), out.end());
+    return out;
+}
 
 struct ClassEntry {
     std::string name;
@@ -222,12 +248,25 @@ static Manifest load(const fs::path &manifest_path) {
     // into every generated binding target (use when the bound headers only
     // declare the API and you want the bodies built in rather than linked from a
     // pre-built user_lib). A single string is accepted as a one-element list.
-    // Each path is resolved relative to the manifest (or taken absolute).
+    // Each entry is resolved relative to the manifest (or taken absolute) and may
+    // be a shell glob ("src/algorithms/*.cpp"), expanded here at generation time.
     if (j.contains("user_sources")) {
         const auto &us  = j.at("user_sources");
         auto        add = [&](const std::string &p) {
-            m.user_sources.push_back(
-                fs::weakly_canonical(base / fs::path(p)).string());
+            if (is_glob_pattern(p)) {
+                std::vector<fs::path> matches = expand_glob(base, p);
+                if (matches.empty()) {
+                    std::fprintf(stderr,
+                                 "rosetta_gen: warning: \"user_sources\" pattern matched "
+                                 "no files: %s\n",
+                                 p.c_str());
+                }
+                for (const auto &mt : matches) {
+                    m.user_sources.push_back(mt.string());
+                }
+            } else {
+                m.user_sources.push_back(fs::weakly_canonical(base / fs::path(p)).string());
+            }
         };
         if (us.is_array()) {
             for (const auto &e : us) {
@@ -236,6 +275,16 @@ static Manifest load(const fs::path &manifest_path) {
         } else {
             add(us.get<std::string>());
         }
+        // Drop duplicates (a file named literally and also matched by a glob, or
+        // overlapping globs) — keeping first-seen order — so a target never lists
+        // the same source twice (which CMake rejects).
+        std::vector<std::string> deduped;
+        for (const auto &src : m.user_sources) {
+            if (std::find(deduped.begin(), deduped.end(), src) == deduped.end()) {
+                deduped.push_back(src);
+            }
+        }
+        m.user_sources = std::move(deduped);
     }
 
     // `cpp26_root` is optional: the path to the C++26 / P2996 reflection

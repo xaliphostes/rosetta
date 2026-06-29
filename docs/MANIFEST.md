@@ -264,6 +264,19 @@ absolute). Every compiled backend adds them to its binding target via
 `target_sources(...)`, so they build with the same include path and flags as
 the generated binding. A single string is accepted as a one-element list.
 
+Each entry may be a **shell glob**, expanded at generation time:
+
+```json
+"user_sources": ["./extern/pmp/src/pmp/algorithms/*.cpp"]
+```
+
+`*`, `?` and `[...]` are supported within a path component (POSIX glob — not
+recursive `**`). Matches are sorted for reproducible output, and the final
+list is de-duplicated, so mixing a literal path with a glob that also covers
+it is safe. A pattern that matches nothing emits a warning and is skipped.
+Because globs expand when `rosetta_gen` runs, **re-run it after adding or
+removing matching files**.
+
 `user_sources` and `user_lib` are independent — use either, or both. The
 text-only backends (`markdown`, `html`, `json`, `typescript`, `openapi`,
 `paraview`) compile nothing and ignore it.

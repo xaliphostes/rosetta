@@ -14,6 +14,8 @@ rather than by version number. Dates are `YYYY-MM-DD`.
   it when the bound headers only *declare* the API and you want the bodies
   built into the binding rather than linked from a pre-built `user_lib`. Works
   alongside or instead of `user_lib`; ignored by the text-only backends.
+  Entries may be **shell globs** (e.g. `src/algorithms/*.cpp`), expanded at
+  generation time; results are sorted and de-duplicated.
 - **Multiple include directories** — `user_include` now accepts an array of
   directories (a class `header` is searched across all of them, like a
   compiler's `-I` order), in addition to the existing single-string form.
