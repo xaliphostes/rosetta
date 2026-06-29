@@ -27,8 +27,13 @@ namespace rosetta {
     } // namespace ann
 
     consteval bool is_exportable_member_function(std::meta::info fn) {
-        return std::meta::is_function(fn) && !std::meta::is_constructor(fn) &&
-               !std::meta::is_destructor(fn) && !std::meta::is_special_member_function(fn);
+        // Operator overloads and conversion functions have no plain identifier
+        // (operator==, operator[], operator T) — they can't be bound by name to a
+        // target language, and identifier_of() on them is a hard error, so the
+        // has_identifier() guard both filters them and keeps the later walk safe.
+        return std::meta::is_function(fn) && std::meta::has_identifier(fn) &&
+               !std::meta::is_constructor(fn) && !std::meta::is_destructor(fn) &&
+               !std::meta::is_special_member_function(fn);
     }
 
     consteval bool is_exportable_constructor(std::meta::info fn) {

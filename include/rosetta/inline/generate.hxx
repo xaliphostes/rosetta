@@ -36,9 +36,15 @@ namespace rosetta {
             return nullptr;
         }
 
-        // Reflected identifier of T as a runtime string.
+        // Reflected name of T as a runtime string. A plain class/enum yields its
+        // bare identifier ("Point"); a template specialization
+        // (Eigen::SparseMatrix<double>, pmp::Matrix<float, 3, 1>) has no
+        // identifier, so fall back to its full display spelling — identifier_of
+        // would otherwise be a hard constant-evaluation error.
         template <typename T> inline std::string class_name() {
-            constexpr const char *n = std::define_static_string(std::meta::identifier_of(^^T));
+            constexpr const char *n = std::define_static_string(
+                std::meta::has_identifier(^^T) ? std::meta::identifier_of(^^T)
+                                               : std::meta::display_string_of(^^T));
             return std::string(n);
         }
 
