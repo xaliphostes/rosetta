@@ -21,6 +21,20 @@ rather than by version number. Dates are `YYYY-MM-DD`.
   compiler's `-I` order), in addition to the existing single-string form.
 
 ### Fixed
+- **Node: reference parameters of bound types** — the N-API backend materialized
+  every argument by value (`from_napi<remove_cvref_t<P>>`), so a non-const
+  lvalue-reference parameter couldn't bind and any function taking a bound type
+  by reference (e.g. an algorithm taking `SurfaceMesh&` and mutating it in place)
+  failed to compile. A new `arg_from_napi<P>` binds reference parameters of
+  wrapped user types directly to the wrapper's persistent `inner` object, so
+  in-place mutations propagate back to the JS object (and `const T&` no longer
+  copies). Applied to free functions, instance/static methods, and constructors.
+- **Node: unbindable free functions are skipped, not fatal** — a free function
+  whose signature can't cross the N-API boundary (a pointer out-parameter such as
+  `std::vector<T>*`, a `std::function`, an unsupported return type, …) previously
+  broke the whole module build. `bind_napi_function` now guards on a consteval
+  `napi_free_supported<F>()` and binds a stub that throws on call instead, so the
+  module still loads and every other function stays usable.
 - **Template-specialization type names** — `class_name<T>()` no longer hard-errors
   when a bound free function takes or returns a template specialization
   (e.g. `pmp::Matrix<float, 3, 1>`, `Eigen::SparseMatrix<double>`); it falls

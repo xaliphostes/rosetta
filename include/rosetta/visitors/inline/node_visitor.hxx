@@ -133,6 +133,32 @@ namespace rosetta {
         }
     }
 
+    // A wrapped user class type — i.e. one marshalled as a JS object holding an
+    // `inner` C++ value (everything class-like except the strings/containers we
+    // convert by value).
+    template <typename T> consteval bool is_napi_user_class() {
+        using U = std::remove_cvref_t<T>;
+        return std::is_class_v<U> && !std::is_same_v<U, std::string> &&
+               !is_std_vector<U>::value && !is_std_function<U>::value;
+    }
+
+    // Materialize a call argument from a JS value for a reflected parameter of
+    // declared type P (which keeps its cv-ref qualifiers). For an lvalue-reference
+    // parameter of a wrapped user type, bind directly to the persistent `inner`
+    // object held by the JS wrapper: this lets functions that take the object by
+    // reference (e.g. PMP algorithms taking `SurfaceMesh&`) mutate the caller's
+    // object in place, and avoids copying for `const T&`. Everything else is
+    // produced by value via from_napi (a temporary, which still binds to by-value
+    // and `const T&` parameters).
+    template <typename P> decltype(auto) arg_from_napi(const Napi::Value &v) {
+        using U = std::remove_cvref_t<P>;
+        if constexpr (std::is_lvalue_reference_v<P> && is_napi_user_class<U>()) {
+            return (Wrap<U>::Unwrap(v.As<Napi::Object>())->inner); // -> U& into the wrapper
+        } else {
+            return from_napi<U>(v);
+        }
+    }
+
     // Has the JS object overridden `name`, rather than inheriting T's bound C++
     // method? True iff the function it would call differs from the one we bound
     // onto the prototype. This is the recursion guard: without it, a non-override
@@ -276,14 +302,10 @@ namespace rosetta {
             using R               = [:std::meta::return_type_of(Fn):];
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
             if constexpr (std::is_void_v<R>) {
-                (inner.[:Fn:])(
-                    from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                        info[Is])...);
+                (inner.[:Fn:])(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
                 return info.Env().Undefined();
             } else {
-                R r = (inner.[:Fn:])(
-                    from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                        info[Is])...);
+                R r = (inner.[:Fn:])(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
                 return to_napi(info.Env(), r);
             }
         }
@@ -294,13 +316,10 @@ namespace rosetta {
             using R               = [:std::meta::return_type_of(Fn):];
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
             if constexpr (std::is_void_v<R>) {
-                ([:Fn:])(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                    info[Is])...);
+                ([:Fn:])(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
                 return info.Env().Undefined();
             } else {
-                R r = ([:Fn:])(
-                    from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                        info[Is])...);
+                R r = ([:Fn:])(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
                 return to_napi(info.Env(), r);
             }
         }
@@ -411,8 +430,7 @@ namespace rosetta {
         template <std::meta::info Ctor, std::size_t... Is>
         static Tramp construct(const Napi::CallbackInfo &info) {
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Ctor));
-            return Tramp(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                info[Is])...);
+            return Tramp(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
         }
 
         template <std::meta::info Ctor, std::size_t... Is>
@@ -472,12 +490,10 @@ namespace rosetta {
         using R               = [:std::meta::return_type_of(F):];
         constexpr auto params = std::define_static_array(std::meta::parameters_of(F));
         if constexpr (std::is_void_v<R>) {
-            ([:F:])(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                info[Is])...);
+            ([:F:])(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
             return info.Env().Undefined();
         } else {
-            R r = ([:F:])(from_napi<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
-                info[Is])...);
+            R r = ([:F:])(arg_from_napi<typename[:std::meta::type_of(params[Is]):]>(info[Is])...);
             return to_napi(info.Env(), r);
         }
     }
@@ -487,9 +503,46 @@ namespace rosetta {
         return napi_free_call<F>(info, std::make_index_sequence<arity>{});
     }
 
+    // Can this free function's whole signature cross the N-API boundary? True iff
+    // the return type is void or marshalable and every parameter type is
+    // marshalable. Functions with e.g. pointer parameters (raw out-params),
+    // std::function callbacks, or other unsupported types are not bindable and are
+    // skipped rather than breaking the build (see bind_napi_function).
+    template <std::meta::info F> consteval bool napi_free_supported() {
+        using R = [:std::meta::return_type_of(F):];
+        if (!(std::is_void_v<R> || napi_supported<R>())) {
+            return false;
+        }
+        bool ok = true;
+        template for (constexpr auto p :
+                      std::define_static_array(std::meta::parameters_of(F))) {
+            if (!napi_supported<typename[:std::meta::type_of(p):]>()) {
+                ok = false;
+            }
+        }
+        return ok;
+    }
+
     template <std::meta::info F>
     inline Napi::Function bind_napi_function(Napi::Env env, const char *name) {
-        return Napi::Function::New(env, &napi_free_entry<F>, name);
+        if constexpr (napi_free_supported<F>()) {
+            return Napi::Function::New(env, &napi_free_entry<F>, name);
+        } else {
+            // Unmarshalable signature: bind a stub that throws if called, so the
+            // module still loads and every other function stays usable.
+            return Napi::Function::New(
+                env,
+                [](const Napi::CallbackInfo &info) -> Napi::Value {
+                    Napi::Error::New(
+                        info.Env(),
+                        "rosetta: this function is not bindable for the Node backend "
+                        "(a parameter or return type cannot cross the N-API boundary — "
+                        "e.g. a pointer out-parameter, std::function, or unregistered type)")
+                        .ThrowAsJavaScriptException();
+                    return info.Env().Undefined();
+                },
+                name);
+        }
     }
 
 } // namespace rosetta
