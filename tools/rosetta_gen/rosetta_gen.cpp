@@ -98,6 +98,7 @@ struct Manifest {
     std::vector<ClassEntry>    classes;
     std::vector<FunctionEntry> functions; // free functions to expose
     std::vector<std::string>   plugins;   // extra .cpp sources (absolute) for the driver
+    std::vector<std::string>   user_sources; // user .cpp sources (absolute) compiled into the bindings
     std::string                cpp26_root; // optional C++26/P2996 toolchain root (verbatim)
     std::string                cpp26_cxx;  // optional C++ compiler (name or path)
     std::string                cpp26_cc;   // optional C compiler (name or path)
@@ -214,6 +215,26 @@ static Manifest load(const fs::path &manifest_path) {
         for (const auto &p : j.at("plugins")) {
             m.plugins.push_back(
                 fs::weakly_canonical(base / fs::path(p.get<std::string>())).string());
+        }
+    }
+
+    // `user_sources` is optional: a list of user .cpp files compiled directly
+    // into every generated binding target (use when the bound headers only
+    // declare the API and you want the bodies built in rather than linked from a
+    // pre-built user_lib). A single string is accepted as a one-element list.
+    // Each path is resolved relative to the manifest (or taken absolute).
+    if (j.contains("user_sources")) {
+        const auto &us  = j.at("user_sources");
+        auto        add = [&](const std::string &p) {
+            m.user_sources.push_back(
+                fs::weakly_canonical(base / fs::path(p)).string());
+        };
+        if (us.is_array()) {
+            for (const auto &e : us) {
+                add(e.get<std::string>());
+            }
+        } else {
+            add(us.get<std::string>());
         }
     }
 
@@ -403,6 +424,14 @@ static std::string render_project_gen_cpp(const Manifest &m) {
         if (!m.user_lib_link.empty()) {
             out << "    opt.user_lib_link   = \"" << m.user_lib_link << "\";\n";
         }
+    }
+    // User .cpp sources compiled into each binding target (manifest "user_sources").
+    if (!m.user_sources.empty()) {
+        out << "    opt.user_sources    = {\n";
+        for (const auto &src : m.user_sources) {
+            out << "        \"" << src << "\",\n";
+        }
+        out << "    };\n";
     }
     out << "    opt.targets         = {\n";
     for (const auto &t : m.targets) {

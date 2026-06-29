@@ -243,18 +243,36 @@ endif()
         // WebAssembly does NOT use this (a native shared object cannot enter a wasm
         // module) — the wasm backends link the static archive directly.
         inline std::string user_lib_block(const GenContext &c) {
-            if (c.user_lib_name.empty()) {
+            if (c.user_lib_name.empty() && c.user_sources.empty()) {
                 return {};
             }
+            std::string s;
+            // Both the user-sources and user-lib parts act on ${ROSETTA_BINDING_TARGET};
+            // establish it once (a suffixed-target backend — <lib>_qt, <lib>_demo —
+            // sets it before this block, so only default when unset).
+            s += "\nif(NOT DEFINED ROSETTA_BINDING_TARGET)\n";
+            s += "    set(ROSETTA_BINDING_TARGET " + c.lib + ")\n";
+            s += "endif()\n";
+
+            // User sources (manifest "user_sources"): the bound headers declare the
+            // API; compile these translation units holding the bodies into the binding.
+            if (!c.user_sources.empty()) {
+                s += "# User sources (manifest \"user_sources\") compiled into the binding.\n";
+                s += "target_sources(${ROSETTA_BINDING_TARGET} PRIVATE\n";
+                for (const auto &src : c.user_sources) {
+                    s += "    " + src + "\n";
+                }
+                s += ")\n";
+            }
+
+            if (c.user_lib_name.empty()) {
+                return s;
+            }
             const std::string link = c.user_lib_link.empty() ? "shared" : c.user_lib_link;
-            std::string       s;
             s += "\n# External user library (manifest \"user_lib\"): the bound headers only\n";
             s += "# declare the API; link the separately-compiled library holding the bodies.\n";
             s += "# `link` (\"shared\" | \"static\") picks the preferred form; we fall back to\n";
             s += "# whichever is present and reference it by full path. Empty name ⇒ omitted.\n";
-            s += "if(NOT DEFINED ROSETTA_BINDING_TARGET)\n";
-            s += "    set(ROSETTA_BINDING_TARGET " + c.lib + ")\n";
-            s += "endif()\n";
             s += "set(ROSETTA_USER_LIB \"" + c.user_lib_name + "\")\n";
             s += "set(ROSETTA_USER_LIB_DIR \"" + c.user_lib_dir + "\")\n";
             s += "set(ROSETTA_USER_LIB_LINK \"" + link + "\")\n";
@@ -302,6 +320,14 @@ endif()
                 c.cpp26_lib.empty() ? std::string(DEFAULT_CPP26_LIB) : c.cpp26_lib;
             const std::string qt =
                 c.qt_dir.empty() ? std::string(DEFAULT_QT_DIR) : c.qt_dir;
+            // {{USER_SOURCES}} — user .cpp files appended to a backend's source list
+            // (used by the wasm templates, whose target name is fixed and so don't go
+            // through {{USER_LIB_BLOCK}}/${ROSETTA_BINDING_TARGET}). Each on its own
+            // indented line so it slots straight into an add_executable(...) call.
+            std::string user_sources;
+            for (const auto &src : c.user_sources) {
+                user_sources += "\n    " + src;
+            }
             return subst(tmpl, {{"LIB", c.lib},
                                 {"HEADER_BLOCK", CMAKE_HEADER},
                                 {"CPP26_ROOT", root},
@@ -314,6 +340,7 @@ endif()
                                 {"USER_LIB_NAME", c.user_lib_name},
                                 {"USER_LIB_DIR", c.user_lib_dir},
                                 {"USER_LIB_BLOCK", user_lib_block(c)},
+                                {"USER_SOURCES", user_sources},
                                 {"REFLECTION_FLAGS", std::string(REFLECTION_FLAGS)},
                                 {"STDLIB_LINK", std::string(STDLIB_LINK)}});
         }
@@ -872,6 +899,13 @@ namespace rosetta {
             user_include += opt.user_include[i].string();
         }
 
+        // User .cpp sources as plain strings for the GenContext (backends compile
+        // them into their binding target — see user_lib_block / {{USER_SOURCES}}).
+        std::vector<std::string> user_sources;
+        for (const auto &src : opt.user_sources) {
+            user_sources.push_back(src.string());
+        }
+
         for (const TargetSpec &t : opt.targets) {
             auto &reg = backend_registry();
             auto  it  = reg.find(t.lang);
@@ -885,7 +919,7 @@ namespace rosetta {
                                         user_include, opt.rosetta_include.string(),
                                         opt.cpp26_root, opt.cpp26_cxx, opt.cpp26_cc,
                                         opt.cpp26_lib, opt.qt_dir, opt.user_lib_name,
-                                        opt.user_lib_dir, opt.user_lib_link});
+                                        opt.user_lib_dir, opt.user_lib_link, user_sources});
         }
     }
 

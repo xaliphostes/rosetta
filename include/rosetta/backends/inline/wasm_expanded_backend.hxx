@@ -27,7 +27,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable({{LIB}} auto_emscripten.cpp)
+add_executable({{LIB}} auto_emscripten.cpp{{USER_SOURCES}})
 
 # Only the user's headers — rosetta's include dir is deliberately absent.
 target_include_directories({{LIB}} PRIVATE

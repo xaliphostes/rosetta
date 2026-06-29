@@ -262,6 +262,14 @@ namespace rosetta {
         std::string user_lib_name;
         std::string user_lib_dir;
         std::string user_lib_link; // "shared" (default) | "static"; empty ⇒ shared
+
+        // Optional user source files (.cpp) compiled directly into every generated
+        // binding target. Use this — instead of (or alongside) user_lib — when the
+        // bound headers only *declare* the API and the bodies live in source files
+        // you want built into the binding rather than linked from a pre-built
+        // library. Each compiled backend adds them to its binding target via
+        // target_sources(); the text-only backends ignore them. Absolute paths.
+        std::vector<std::filesystem::path> user_sources;
     };
 
     /**
@@ -283,6 +291,7 @@ namespace rosetta {
         std::string              user_lib_name;   // external lib to link bindings against (-l<name>); empty ⇒ none
         std::string              user_lib_dir;    // directory holding that lib (-L / rpath)
         std::string              user_lib_link;   // "shared" (default) | "static"; wasm always static
+        std::vector<std::string> user_sources;    // user .cpp files compiled into the binding target (abs paths)
     };
 
     /**

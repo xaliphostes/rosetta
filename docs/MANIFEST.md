@@ -73,6 +73,7 @@ cmake --build path/to/generated/build
 | `classes` | ✅ | — | The classes / structs / enums to bind. See [Classes](#classes). |
 | `functions` | — | `[]` | Free (non-member) functions to bind. See [Functions](#functions). |
 | `user_lib` | — | — | Link the generated bindings against a pre-built external library. See [Linking an external library](#linking-an-external-library-user_lib). |
+| `user_sources` | — | `[]` | List of user `.cpp` files compiled directly into every generated binding target. See [Compiling user sources](#compiling-user-sources-user_sources). |
 | `plugins` | — | `[]` | Extra `.cpp` sources to compile into the generator driver (e.g. a custom backend). Paths relative to the manifest. |
 | `qt_dir` | — | a built-in path | Qt 6 install prefix used by the `qt` / `qml` (and `-expanded`) backends. e.g. `"$ENV{HOME}/Qt/6.8.3/macos"`. |
 | `cpp26_root` | — | `$ENV{HOME}/devs/c++/clang-p2996/build` | Root of the C++26 / P2996 reflection toolchain used by the *thin* backends. Moves `cpp26_cxx` / `cpp26_cc` / `cpp26_lib` together. |
@@ -242,6 +243,30 @@ rosetta links the generated bindings against it and sets up rpath.
 `wasm` targets are **always** static — a native `.dylib` / `.so` cannot
 enter a wasm module. The native `python` / `node` targets honor `link`. See
 [`examples/dynamic-lib`](../examples/dynamic-lib).
+
+---
+
+## Compiling user sources (`user_sources`)
+
+Use `user_sources` when your bound headers only **declare** the API and the
+definitions live in `.cpp` files you want **compiled straight into the
+binding** — rather than linked from a pre-built [`user_lib`](#linking-an-external-library-user_lib).
+
+```json
+"user_sources": [
+  "../src/widget.cpp",
+  "../src/shape.cpp"
+]
+```
+
+It is always a **list of paths**, each relative to the manifest (or
+absolute). Every compiled backend adds them to its binding target via
+`target_sources(...)`, so they build with the same include path and flags as
+the generated binding. A single string is accepted as a one-element list.
+
+`user_sources` and `user_lib` are independent — use either, or both. The
+text-only backends (`markdown`, `html`, `json`, `typescript`, `openapi`,
+`paraview`) compile nothing and ignore it.
 
 ---
 
