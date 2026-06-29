@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/Clang%20%7C%20MSVC-tracking-lightgrey.svg" alt="Clang | MSVC: tracking">
 </p>
 
-A C++26 reflection playground with **24 generator backends** — Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Java, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small `manifest.json`, run one tool, get per-language binding projects out.
+A C++26 reflection playground with **24 generator backends** — Python (pybind11 / nanobind), Node, WebAssembly, Qt, QML, REST, Julia, OpenAPI, JSON, TypeScript, C#, Java, Markdown, HTML, ParaView... bindings for **your existing classes — without modifying them**. Point rosetta at a header via a small [manifest.json](./docs/MANIFEST.md), run one tool, get per-language binding projects out.
 
 > **Your target compiler doesn't support reflection?** Generate the expanded binding once on a Linux or macOS host with a C++26 / P2996 compiler — e.g. the [Bloomberg `clang-p2996`](https://github.com/bloomberg/clang-p2996) fork — then ship and build the generated sources anywhere with a stock toolchain (plain Clang / GCC / MSVC, or a stock emsdk for WebAssembly). No reflection is needed on the target (see the **expanded** backends below).
 
@@ -28,7 +28,7 @@ Annotations (`doc`, `range`, `readonly`, …) are an *opt-in* enrichment, not a 
 
 ## Features
 
-Everything below is discovered by **reflection** from your unmodified headers — you declare *what* to bind in `manifest.json`, never *how*.
+Everything below is discovered by **reflection** from your unmodified headers — you declare *what* to bind in [manifest.json](./docs/MANIFEST.md), never *how*.
 
 **What rosetta can bind**
 
@@ -37,7 +37,7 @@ Everything below is discovered by **reflection** from your unmodified headers �
 - **Inheritance** — public base-class fields and methods are flattened into the derived binding; a derived declaration shadows the base one (most-derived wins) and a virtual diamond collapses to a single member. Virtual / overriding methods are flagged (`virtual_spec`) so backends can tell them apart from plain ones.
 - **Multiple constructors** — default *and* parameterized; each overload is bound.
 - **Enums** — `enum` / `enum class`, with enumerators surfaced as named constants.
-- **Free (non-member) functions** — declared in the manifest, no edit to your headers ([details](docs/FREE_FUNCTIONS.md)).
+- **Free (non-member) functions** — declared in the [manifest](./docs/MANIFEST.md), no edit to your headers ([details](docs/FREE_FUNCTIONS.md)).
 - **Nested user types & `std::vector`** — `Surface` returning `Point`/`Triangle`, vector members, etc. are marshalled across the language boundary.
 - Members a backend can't marshal (e.g. `std::function` params) are **skipped**, not fatal.
 
@@ -196,7 +196,7 @@ struct Person {
 };
 ```
 
-Write a small `manifest.json` next to it. Each `targets` entry names the module/library produced for that backend; list every class you want bound:
+Write a small [manifest.json](./docs/MANIFEST.md) next to it. Each `targets` entry names the module/library produced for that backend; list every class you want bound:
 
 ```json
 {
@@ -236,7 +236,7 @@ Result: `bindings/{python,node}/` — each a self-contained CMake project exposi
 
 > `generator_name` and `module_name` are optional manifest fields: `generator_name` (the generated `.cpp` / usage name) defaults to the manifest's folder name, and a bare-string target like `"node"` falls back to `module_name` for its module name.
 
-The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the manifest schema, the `binding_info<T>` trait, and the layered tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The worked examples live in `examples/manifest/` and `examples/geom-lib/`.
+The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); every manifest field is documented in [`docs/MANIFEST.md`](./docs/MANIFEST.md); the `binding_info<T>` trait and the layered tooling model are in [`docs/GENERATE.md`](./docs/GENERATE.md). The worked examples live in `examples/manifest/` and `examples/geom-lib/`.
 
 ## Examples
 
@@ -264,6 +264,7 @@ The full walkthrough is in [`docs/QUICKSTART.md`](./docs/QUICKSTART.md); the man
 - [Quick start](docs/QUICKSTART.md) — five-step guide to generating bindings for an existing library
 - [Extending](docs/EXTENDING_BACKEND.md) — how to extend the rosetta backend
 <br><br>
+- [Manifest](docs/MANIFEST.md) — complete reference for `manifest.json`: every field, target and option
 - [Generate](docs/GENERATE.md) — full reference for `rosetta::generate`, the manifest schema, and the tool layering
 - [Free functions](docs/FREE_FUNCTIONS.md) — sketch for reflecting namespace-scope functions
 - [Other annotations](docs/OTHER_ANNOTATIONS.md) — proposed annotation kinds beyond the current three

@@ -91,7 +91,7 @@ struct TargetEntry {
 };
 
 struct Manifest {
-    fs::path                   user_include;    // absolute
+    std::vector<fs::path>      user_include;    // one or more, absolute
     fs::path                   rosetta_include; // absolute
     std::string                generator_name;  // driver tool / CMake target name
     std::vector<TargetEntry>   targets;         // backends + per-backend module name
@@ -132,7 +132,25 @@ static Manifest load(const fs::path &manifest_path) {
     Manifest       m;
     const fs::path base = fs::absolute(manifest_path).parent_path();
 
-    m.user_include = fs::weakly_canonical(base / fs::path(j.at("user_include").get<std::string>()));
+    // `user_include` is either a single string ("../my_lib") or an array of
+    // them (["../my_lib", "../shared"]). Each is resolved relative to the
+    // manifest (or taken absolute) and added to the bindings' include path.
+    {
+        const auto &ui = j.at("user_include");
+        auto        add = [&](const std::string &p) {
+            m.user_include.push_back(fs::weakly_canonical(base / fs::path(p)));
+        };
+        if (ui.is_array()) {
+            if (ui.empty()) {
+                throw std::runtime_error("\"user_include\" array must not be empty");
+            }
+            for (const auto &e : ui) {
+                add(e.get<std::string>());
+            }
+        } else {
+            add(ui.get<std::string>());
+        }
+    }
     m.rosetta_include =
         fs::weakly_canonical(base / fs::path(j.at("rosetta_include").get<std::string>()));
 
@@ -354,7 +372,11 @@ static std::string render_project_gen_cpp(const Manifest &m) {
         << "    }\n\n"
         << "    rosetta::GenerateOptions opt;\n"
         << "    opt.out_dir         = argv[1];\n"
-        << "    opt.user_include    = \"" << m.user_include.string() << "\";\n"
+        << "    opt.user_include    = {";
+    for (std::size_t i = 0; i < m.user_include.size(); ++i) {
+        out << (i ? ", " : "") << "\"" << m.user_include[i].string() << "\"";
+    }
+    out << "};\n"
         << "    opt.rosetta_include = \"" << m.rosetta_include.string() << "\";\n";
     // These reach the per-backend (thin) CMakeLists via GenContext; each is
     // emitted only when set (empty ⇒ generate() applies its built-in default).
@@ -445,9 +467,11 @@ static std::string render_cmakelists(const Manifest &m) {
     }
     out << ")\n\n";
 
-    out << "target_include_directories(" << target << " PRIVATE\n"
-        << "    " << m.user_include.string() << "\n"
-        << "    " << m.rosetta_include.string() << ")\n\n"
+    out << "target_include_directories(" << target << " PRIVATE\n";
+    for (const auto &inc : m.user_include) {
+        out << "    " << inc.string() << "\n";
+    }
+    out << "    " << m.rosetta_include.string() << ")\n\n"
         << "target_compile_options(" << target << " PRIVATE\n"
         << "    -freflection -freflection-latest -fexperimental-library "
            "-fannotation-attributes)\n\n"

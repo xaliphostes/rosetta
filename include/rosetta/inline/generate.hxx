@@ -855,6 +855,17 @@ namespace rosetta {
             }(),
             ...);
 
+        // Join the (possibly several) user include dirs into one string that
+        // drops straight into each backend's target_include_directories(... PRIVATE)
+        // list: subsequent paths align under the first via the template's indent.
+        std::string user_include;
+        for (std::size_t i = 0; i < opt.user_include.size(); ++i) {
+            if (i) {
+                user_include += "\n    ";
+            }
+            user_include += opt.user_include[i].string();
+        }
+
         for (const TargetSpec &t : opt.targets) {
             auto &reg = backend_registry();
             auto  it  = reg.find(t.lang);
@@ -865,7 +876,7 @@ namespace rosetta {
                 continue;
             }
             it->second->emit(GenContext{opt.out_dir, t.name, classes, enums, opt.functions,
-                                        opt.user_include.string(), opt.rosetta_include.string(),
+                                        user_include, opt.rosetta_include.string(),
                                         opt.cpp26_root, opt.cpp26_cxx, opt.cpp26_cc,
                                         opt.cpp26_lib, opt.qt_dir, opt.user_lib_name,
                                         opt.user_lib_dir, opt.user_lib_link});

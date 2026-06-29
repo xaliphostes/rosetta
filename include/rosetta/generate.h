@@ -213,7 +213,7 @@ namespace rosetta {
 
     struct GenerateOptions {
         std::filesystem::path    out_dir;         // root of the generated tree
-        std::filesystem::path    user_include;    // dir containing the class headers
+        std::vector<std::filesystem::path> user_include; // dir(s) containing the class headers
         std::filesystem::path    rosetta_include; // path to rosetta's include/
         std::vector<TargetSpec>  targets;         // backends + per-backend module name
         std::vector<GenFunction> functions;       // free functions to expose
