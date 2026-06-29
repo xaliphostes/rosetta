@@ -9,6 +9,15 @@ rather than by version number. Dates are `YYYY-MM-DD`.
 ## [Unreleased]
 
 ### Added
+- **`rosetta_gen --init` flag** — writes a fully-commented example
+  `manifest.json` (default `./manifest.json`, or a path argument) so a new
+  project can start from a working template instead of the docs. The example
+  exercises the common fields: `cpp26_*` toolchain overrides, an array-form
+  `user_include`, `rosetta_include`, `generator_name` / `module_name`,
+  `user_sources`, a representative spread of `targets`, and one example class
+  and one example function. It **refuses to overwrite an existing file** —
+  warning and exiting non-zero instead — so a hand-written manifest is never
+  clobbered.
 - **`user_sources` manifest field** — a list of user `.cpp` files compiled
   directly into every generated binding target via `target_sources(...)`. Use
   it when the bound headers only *declare* the API and you want the bodies

@@ -12,6 +12,12 @@
 // driver tool's name. The user compiles `<generator_name>` and runs it
 // to emit the per-backend bindings.
 //
+// Usage:
+//   rosetta_gen <manifest.json> [out_dir]   emit the tool source tree
+//   rosetta_gen --init [manifest.json]       write a commented example manifest
+//                                            (default ./manifest.json; refuses to
+//                                            overwrite an existing file)
+//
 // Manifest shape:
 //   {
 //     "user_include": "./geom",
@@ -354,7 +360,11 @@ static Manifest load(const fs::path &manifest_path) {
 }
 
 static void write_file(const fs::path &p, const std::string &content) {
-    fs::create_directories(p.parent_path());
+    // parent_path() is empty for a bare filename (e.g. "manifest.json" in the
+    // cwd); create_directories("") throws, so only create when there's a dir.
+    if (p.has_parent_path()) {
+        fs::create_directories(p.parent_path());
+    }
     std::ofstream(p) << content;
 }
 
@@ -596,9 +606,94 @@ static std::string render_cmakelists(const Manifest &m) {
     return out.str();
 }
 
+// A fully-commented example manifest, emitted by `--init`. It exercises every
+// commonly-used field — cpp26_* toolchain overrides, a multi-entry user_include,
+// rosetta_include, generator_name / module_name, user_sources, a representative
+// spread of targets, and one example class and one example function — so the
+// user can delete what they don't need rather than hunt the docs for what exists.
+static std::string render_example_manifest() {
+    return R"JSON({
+    "//": "Rosetta binding manifest. Edit the fields below to match your project.",
+    "//paths": "All relative paths resolve from THIS file's directory.",
+
+    "//cpp26": "Optional C++26 / P2996 reflection toolchain (clang-p2996 build dir). Only the reflection-driven (thin) targets use these; the *-expanded targets ignore them. Omit to fall back to the built-in defaults ($ENV{HOME}/devs/c++/clang-p2996/build).",
+    "cpp26_root": "$ENV{HOME}/devs/c++/clang-p2996/build",
+    "cpp26_cxx": "$ENV{HOME}/devs/c++/clang-p2996/build/bin/clang++",
+    "cpp26_cc": "$ENV{HOME}/devs/c++/clang-p2996/build/bin/clang",
+    "cpp26_lib": "$ENV{HOME}/devs/c++/clang-p2996/build/lib",
+
+    "//include": "user_include is one path or an array of them; each is added to the bindings' include path.",
+    "user_include": [
+        "./src",
+        "./extern/eigen-3.4.0"
+    ],
+    "rosetta_include": "./extern/rosetta/include",
+
+    "//names": "generator_name is the driver tool / CMake target; module_name is the default per-backend module name when a target gives no explicit name.",
+    "generator_name": "mylib",
+    "module_name": "mylib",
+
+    "//user_sources": "Optional .cpp files compiled straight into every binding target. Use when the bound headers only DECLARE the API and the bodies live in these sources (rather than a pre-built library). Entries may be shell globs, e.g. \"./src/algorithms/*.cpp\".",
+    "user_sources": [
+        "./src/widget.cpp",
+        "./src/algorithms/*.cpp"
+    ],
+
+    "//targets": "A target is a bare string (\"python\", uses module_name) or {\"lang\": ..., \"name\": ...}. *-expanded backends fully expand the bindings so they build with a stock compiler.",
+    "targets": [
+        {"lang": "python",        "name": "mylib"},
+        {"lang": "node",          "name": "mylib"},
+        {"lang": "wasm-expanded", "name": "mylib"},
+        {"lang": "typescript",    "name": "mylib"},
+        "rest",
+        "openapi",
+        "markdown"
+    ],
+
+    "//classes": "Each class: its (optionally qualified) name and the header declaring it. \"name\" may be omitted to derive it from the header stem. \"annotations\" points at an optional out-of-line annotation JSON side-car.",
+    "classes": [
+        {"doc": "An example bound class.", "name": "mylib::Widget", "header": "widget.h"}
+    ],
+
+    "//functions": "Free (non-member) functions to bind. \"name\" may be qualified (mylib::compute); \"doc\" is an optional description. Overloaded or template function names cannot be bound (^^name is ill-formed for them).",
+    "functions": [
+        {"header": "widget.h", "name": "mylib::compute", "doc": "An example bound free function."}
+    ]
+}
+)JSON";
+}
+
+// Write an example manifest to `path`. If a file is already there, warn and
+// leave it untouched (never clobber a hand-written manifest).
+static int init_manifest(const fs::path &path) {
+    if (fs::exists(path)) {
+        std::fprintf(stderr,
+                     "rosetta_gen: %s already exists — not overwriting it.\n"
+                     "             Remove it first (or pass a different path) to "
+                     "regenerate the example.\n",
+                     path.string().c_str());
+        return 1;
+    }
+    write_file(path, render_example_manifest());
+    std::fprintf(stderr, "wrote example manifest to %s\n", path.string().c_str());
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    // `--init [path]` writes an example manifest (default ./manifest.json) and
+    // exits, without clobbering an existing one.
+    if (argc >= 2 && std::string(argv[1]) == "--init") {
+        if (argc > 3) {
+            std::fprintf(stderr, "usage: rosetta_gen --init [manifest.json]\n");
+            return 1;
+        }
+        const fs::path path = (argc == 3) ? fs::path(argv[2]) : fs::path("manifest.json");
+        return init_manifest(path);
+    }
+
     if (argc < 2 || argc > 3) {
-        std::fprintf(stderr, "usage: rosetta_gen <manifest.json> [out_dir]\n");
+        std::fprintf(stderr, "usage: rosetta_gen <manifest.json> [out_dir]\n"
+                             "       rosetta_gen --init [manifest.json]\n");
         return 1;
     }
     const fs::path manifest_path = argv[1];
