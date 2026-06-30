@@ -15,6 +15,31 @@ namespace rosetta {
 
     namespace qml_detail {
 
+        // A type that can round-trip through QVariant in generated code. The
+        // hard compile-breakers are raw C arrays (e.g. a method returning
+        // `double (&)[3][3]`) and class types incomplete in this TU. Everything
+        // else goes through QVariant as before; a pointer stays usable even to
+        // an incomplete type.
+        template <class T>
+        concept bindable_type =
+            !std::is_array_v<std::remove_reference_t<T>> &&
+            (std::is_pointer_v<std::remove_cvref_t<T>> ||
+             std::is_arithmetic_v<std::remove_cvref_t<T>> ||
+             std::is_enum_v<std::remove_cvref_t<T>> || std::is_void_v<std::remove_cvref_t<T>> ||
+             requires { sizeof(std::remove_cvref_t<T>); });
+
+        template <std::meta::info Fn, std::size_t... Is>
+        consteval bool params_bindable(std::index_sequence<Is...>) {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
+            return (bindable_type<typename[:std::meta::type_of(params[Is]):]> && ...);
+        }
+
+        template <std::meta::info Fn> consteval bool bindable_fn() {
+            constexpr auto arity = std::meta::parameters_of(Fn).size();
+            return bindable_type<typename[:std::meta::return_type_of(Fn):]> &&
+                   params_bindable<Fn>(std::make_index_sequence<arity>{});
+        }
+
         // Bridge std::string <-> QString; everything else round-trips via QVariant.
         template <typename F> QVariant to_variant(const F &v) {
             if constexpr (std::is_same_v<F, std::string>) {
@@ -52,7 +77,11 @@ namespace rosetta {
                                     std::index_sequence<Is...>) {
             using R               = [:std::meta::return_type_of(Fn):];
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
-            if constexpr (std::is_void_v<R>) {
+            if constexpr (!bindable_fn<Fn>()) {
+                // Return or a parameter type can't cross the QVariant boundary
+                // (raw array / incomplete type) — keep the method inert.
+                return QVariant();
+            } else if constexpr (std::is_void_v<R>) {
                 (self.[:Fn:])(
                     from_variant<
                         std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
@@ -71,7 +100,11 @@ namespace rosetta {
         QVariant invoke_static_impl(const QVariantList &args, std::index_sequence<Is...>) {
             using R               = [:std::meta::return_type_of(Fn):];
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
-            if constexpr (std::is_void_v<R>) {
+            if constexpr (!bindable_fn<Fn>()) {
+                // Return or a parameter type can't cross the QVariant boundary
+                // (raw array / incomplete type) — keep the method inert.
+                return QVariant();
+            } else if constexpr (std::is_void_v<R>) {
                 ([:Fn:])(
                     from_variant<
                         std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
@@ -136,9 +169,17 @@ namespace rosetta {
         } else {
             info[QStringLiteral("choices")] = QVariantList{};
         }
-        info[QStringLiteral("value")] = qml_detail::to_variant<F>(target->[:Fld:]);
+        if constexpr (qml_detail::bindable_type<F>) {
+            info[QStringLiteral("value")] = qml_detail::to_variant<F>(target->[:Fld:]);
+        } else {
+            // raw-array field type can't cross the QVariant boundary
+            info[QStringLiteral("value")] = QVariant();
+        }
         obj->appendField(info);
 
+        // The field is listed above either way; only register a getter/setter
+        // when its type can round-trip through QVariant.
+        if constexpr (qml_detail::bindable_type<F>) {
         T *tgt = target;
         obj->registerGetter(qname, [tgt]() -> QVariant {
             return qml_detail::to_variant<F>(tgt->[:Fld:]);
@@ -184,6 +225,7 @@ namespace rosetta {
                 return {};
             });
         }
+        } // if constexpr (qml_detail::bindable_type<F>)
     }
 
     template <typename T>

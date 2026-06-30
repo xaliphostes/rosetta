@@ -32,6 +32,32 @@ namespace rosetta {
 
     namespace widget_detail {
 
+        // A type that can round-trip through QVariant in generated code. The
+        // hard compile-breakers are raw C arrays (e.g. a method returning
+        // `double (&)[3][3]` — can't declare `R r` nor copy into a QVariant) and
+        // class types incomplete in this TU (no sizeof / copy). Everything else
+        // goes through QVariant::fromValue / QVariant::value as before. A pointer
+        // stays usable even to an incomplete type.
+        template <class T>
+        concept bindable_type =
+            !std::is_array_v<std::remove_reference_t<T>> &&
+            (std::is_pointer_v<std::remove_cvref_t<T>> ||
+             std::is_arithmetic_v<std::remove_cvref_t<T>> ||
+             std::is_enum_v<std::remove_cvref_t<T>> || std::is_void_v<std::remove_cvref_t<T>> ||
+             requires { sizeof(std::remove_cvref_t<T>); });
+
+        template <std::meta::info Fn, std::size_t... Is>
+        consteval bool params_bindable(std::index_sequence<Is...>) {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
+            return (bindable_type<typename[:std::meta::type_of(params[Is]):]> && ...);
+        }
+
+        template <std::meta::info Fn> consteval bool bindable_fn() {
+            constexpr auto arity = std::meta::parameters_of(Fn).size();
+            return bindable_type<typename[:std::meta::return_type_of(Fn):]> &&
+                   params_bindable<Fn>(std::make_index_sequence<arity>{});
+        }
+
         template <typename F> QVariant to_variant(const F &v) {
             if constexpr (std::is_same_v<F, std::string>)
                 return QString::fromStdString(v);
@@ -52,7 +78,11 @@ namespace rosetta {
         QVariant invoke_method_impl(T &self, const QVariantList &args, std::index_sequence<Is...>) {
             using R               = [:std::meta::return_type_of(Fn):];
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
-            if constexpr (std::is_void_v<R>) {
+            if constexpr (!bindable_fn<Fn>()) {
+                // Return or a parameter type can't cross the QVariant boundary
+                // (raw array / incomplete type) — keep the method inert.
+                return QVariant();
+            } else if constexpr (std::is_void_v<R>) {
                 (self.[:Fn:])(
                     from_variant<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
                         args[Is])...);
@@ -69,7 +99,11 @@ namespace rosetta {
         QVariant invoke_static_impl(const QVariantList &args, std::index_sequence<Is...>) {
             using R               = [:std::meta::return_type_of(Fn):];
             constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
-            if constexpr (std::is_void_v<R>) {
+            if constexpr (!bindable_fn<Fn>()) {
+                // Return or a parameter type can't cross the QVariant boundary
+                // (raw array / incomplete type) — keep the method inert.
+                return QVariant();
+            } else if constexpr (std::is_void_v<R>) {
                 ([:Fn:])(
                     from_variant<std::remove_cvref_t<typename[:std::meta::type_of(params[Is]):]>>(
                         args[Is])...);
@@ -255,7 +289,11 @@ namespace rosetta {
         }
 
         // -------- commit on edit (no GET / PUT buttons) --------
-        if constexpr (!ro) {
+        // `bindable_type<F>` gates the setter: a raw-array / incomplete field
+        // type can't round-trip through QVariant (the editor above already
+        // falls back to a read-only "(unsupported type)" line edit), so wiring
+        // a commit lambda would be a hard compile error.
+        if constexpr (!ro && widget_detail::bindable_type<F>) {
             QTextEdit *log_ptr = log;
             auto       commit  = [log_ptr, tgt, read_editor, qname]() {
                 F val = widget_detail::from_variant<F>(read_editor());

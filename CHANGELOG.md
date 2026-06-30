@@ -30,6 +30,30 @@ rather than by version number. Dates are `YYYY-MM-DD`.
   compiler's `-I` order), in addition to the existing single-string form.
 
 ### Fixed
+- **Python / nanobind / WebAssembly / Qt / QML: unbindable members no longer
+  break the module** — a method, static method, or field whose return type,
+  a parameter type, or (for a field) its type can't be represented by the
+  target framework now gets skipped instead of aborting the whole build. The
+  two compile-breakers are **raw C arrays** (e.g. a method returning
+  `double (&)[3][3]` — pybind11 / nanobind / embind have no caster, and the
+  Qt / QML backends can't declare `R r` nor round-trip it through `QVariant`)
+  and **types only forward-declared in the binding TU** (pybind needs
+  `sizeof` / `typeid` / `is_polymorphic` on the complete type). A new
+  consteval `*_bindable_type` / `*_bindable_fn` guard drops exactly those,
+  matching the support guards the Node, Julia, Java, C#, and REST backends
+  already had. Pointers stay bindable even to an incomplete type.
+- **Python / nanobind / WebAssembly / Julia: the synthesized default
+  constructor was registered behind a runtime `if`** — `bind_*` fell back to
+  registering `T()` with `if (!saw_default_ctor && std::is_default_constructible_v<T>)`.
+  A plain `if` still *instantiates* the discarded branch, so the framework's
+  default-construct (`py::init<>()`, `nb::init<>()`, embind / jlcxx
+  `constructor<>()`, and ultimately `new Trampoline{}`) was compiled even for a
+  non-default-constructible type — a hard error for classes / trampolines whose
+  only constructors take arguments (e.g. a `Surface(Model*, …)` or a pybind
+  trampoline over such a base). Switched to `if constexpr` so the fallback is
+  only instantiated when the type is actually default-constructible. (The Java
+  and C# backends already used `if constexpr`; the Node backend has no such
+  fallback.)
 - **Node: reference parameters of bound types** — the N-API backend materialized
   every argument by value (`from_napi<remove_cvref_t<P>>`), so a non-const
   lvalue-reference parameter couldn't bind and any function taking a bound type

@@ -1,5 +1,29 @@
 namespace rosetta {
 
+    // A type embind can represent in a generated signature. Raw C arrays
+    // (e.g. a method returning `double (&)[3][3]`) have no embind binding, and a
+    // class returned/taken by value or reference must be complete (sizeof). A
+    // pointer stays bindable even to an incomplete type.
+    template <class T>
+    concept wasm_bindable_type =
+        !std::is_array_v<std::remove_reference_t<T>> &&
+        (std::is_pointer_v<std::remove_cvref_t<T>> ||
+         std::is_arithmetic_v<std::remove_cvref_t<T>> ||
+         std::is_enum_v<std::remove_cvref_t<T>> || std::is_void_v<std::remove_cvref_t<T>> ||
+         requires { sizeof(std::remove_cvref_t<T>); });
+
+    template <std::meta::info Fn, std::size_t... Is>
+    consteval bool wasm_params_bindable(std::index_sequence<Is...>) {
+        constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
+        return (wasm_bindable_type<typename[:std::meta::type_of(params[Is]):]> && ...);
+    }
+
+    template <std::meta::info Fn> consteval bool wasm_bindable_fn() {
+        constexpr auto arity = std::meta::parameters_of(Fn).size();
+        return wasm_bindable_type<typename[:std::meta::return_type_of(Fn):]> &&
+               wasm_params_bindable<Fn>(std::make_index_sequence<arity>{});
+    }
+
     template <typename T> struct EmscriptenVisitor {
         emscripten::class_<T> &cls;
         bool                   saw_default_ctor = false;
@@ -14,7 +38,10 @@ namespace rosetta {
         template <std::meta::info Fld, auto... Anns> void field(const char * name) {
             using F = [:std::meta::type_of(Fld):];
 
-            if constexpr (ann::has<readonly>(Anns...)) {
+            if constexpr (!wasm_bindable_type<F>) {
+                // embind can't expose a raw-array or incomplete-type field as a
+                // by-value property; drop it rather than failing the build.
+            } else if constexpr (ann::has<readonly>(Anns...)) {
                 // Pair the getter with a throwing setter so JS-side assignment
                 // surfaces a clear error (embind silently no-ops a getter-only
                 // accessor in non-strict mode).
@@ -46,11 +73,15 @@ namespace rosetta {
         }
 
         template <std::meta::info Fn, auto... /*Anns*/> void method_instance(const char *name) {
-            cls.function(name, &[:Fn:]);
+            if constexpr (wasm_bindable_fn<Fn>()) {
+                cls.function(name, &[:Fn:]);
+            }
         }
 
         template <std::meta::info Fn, auto... /*Anns*/> void method_static(const char *name) {
-            cls.class_function(name, &[:Fn:]);
+            if constexpr (wasm_bindable_fn<Fn>()) {
+                cls.class_function(name, &[:Fn:]);
+            }
         }
 
       private:
@@ -66,9 +97,14 @@ namespace rosetta {
         EmscriptenVisitor<T>  v{cls};
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
-        // reflection; register one so `new Module.T()` keeps working.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<T>) {
-            cls.template constructor<>();
+        // reflection; register one so `new Module.T()` keeps working. The
+        // constructibility test must be `if constexpr`: a plain `if` still
+        // instantiates `constructor<>()` (embind's default-construct) for the
+        // discarded branch, a hard error for a non-default-constructible type.
+        if constexpr (std::is_default_constructible_v<T>) {
+            if (!v.saw_default_ctor) {
+                cls.template constructor<>();
+            }
         }
     }
 

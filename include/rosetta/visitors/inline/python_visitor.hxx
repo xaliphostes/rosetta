@@ -1,5 +1,39 @@
 namespace rosetta {
 
+    // A type pybind11 can actually represent in a generated signature.
+    //
+    // Two signatures slip through reflection that pybind11 has no type-caster
+    // for and that abort the build deep inside <pybind11/cast.h>:
+    //   * raw C arrays, e.g. a method returning `double (&)[3][3]` — pybind11
+    //     only casts scalars / registered classes / pointers, never `T[N]`;
+    //   * a class type that is only forward-declared in this translation unit —
+    //     pybind11 needs `sizeof` / `typeid` (is_base_of, is_polymorphic, the
+    //     ReadableFunctionSignature) on the complete type.
+    // Pointers stay bindable even to an incomplete type: pybind compiles them
+    // and only resolves the registered class at call time.
+    template <class T>
+    concept py_bindable_type =
+        !std::is_array_v<std::remove_reference_t<T>> &&
+        (std::is_pointer_v<std::remove_cvref_t<T>> ||
+         std::is_arithmetic_v<std::remove_cvref_t<T>> ||
+         std::is_enum_v<std::remove_cvref_t<T>> || std::is_void_v<std::remove_cvref_t<T>> ||
+         requires { sizeof(std::remove_cvref_t<T>); });
+
+    // True when a member function's return type and every parameter type are
+    // representable by pybind11; methods that fail this are silently dropped
+    // from the binding rather than breaking the whole module.
+    template <std::meta::info Fn, std::size_t... Is>
+    consteval bool py_params_bindable(std::index_sequence<Is...>) {
+        constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
+        return (py_bindable_type<typename[:std::meta::type_of(params[Is]):]> && ...);
+    }
+
+    template <std::meta::info Fn> consteval bool py_bindable_fn() {
+        constexpr auto arity = std::meta::parameters_of(Fn).size();
+        return py_bindable_type<typename[:std::meta::return_type_of(Fn):]> &&
+               py_params_bindable<Fn>(std::make_index_sequence<arity>{});
+    }
+
     // Templated on the py::class_ instantiation (Cls) rather than py::class_<T>
     // directly, so the same visitor drives both a plain py::class_<T> and a
     // trampoline-backed py::class_<T, Trampoline> — the pybind member API
@@ -30,7 +64,10 @@ namespace rosetta {
             constexpr auto        dann   = ann::get_or<doc>(doc{""}, Anns...);
             constexpr const char *docstr = dann.text;
 
-            if constexpr (ann::has<readonly>(Anns...)) {
+            if constexpr (!py_bindable_type<F>) {
+                // pybind11 can't expose a raw-array or incomplete-type field as a
+                // by-value property; drop it rather than failing the build.
+            } else if constexpr (ann::has<readonly>(Anns...)) {
                 cls.def_property_readonly(name, [](const T &s) -> F { return s.[:Fld:]; }, docstr);
             } else if constexpr (ann::has<range>(Anns...) && std::is_arithmetic_v<F>) {
                 constexpr auto r = ann::get_or<range>(range{0, 0}, Anns...);
@@ -54,13 +91,17 @@ namespace rosetta {
         }
 
         template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
-            constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
-            cls.def(name, &[:Fn:], dann.text);
+            if constexpr (py_bindable_fn<Fn>()) {
+                constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
+                cls.def(name, &[:Fn:], dann.text);
+            }
         }
 
         template <std::meta::info Fn, auto... Anns> void method_static(const char *name) {
-            constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
-            cls.def_static(name, &[:Fn:], dann.text);
+            if constexpr (py_bindable_fn<Fn>()) {
+                constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
+                cls.def_static(name, &[:Fn:], dann.text);
+            }
         }
     };
 
@@ -72,9 +113,14 @@ namespace rosetta {
         PybindVisitor<T, Cls> v{cls};
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
-        // reflection; register one so `T()` keeps working.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<Trampoline>) {
-            cls.def(py::init<>());
+        // reflection; register one so `T()` keeps working. The constructibility
+        // test must be `if constexpr`: a plain `if` still instantiates
+        // `py::init<>()` (and pybind's `new Trampoline{}`) for the discarded
+        // branch, which is a hard error for a non-default-constructible type.
+        if constexpr (std::is_default_constructible_v<Trampoline>) {
+            if (!v.saw_default_ctor) {
+                cls.def(py::init<>());
+            }
         }
     }
 

@@ -16,6 +16,7 @@
 #include <experimental/meta>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/functional.h>
 #include <rosetta/walk.h>
 #include <string>
 #include <type_traits>

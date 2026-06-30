@@ -147,9 +147,14 @@ namespace rosetta {
         JuliaVisitor<T>       v{mod, cls};
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
-        // reflection; register one so `T()` keeps working from Julia.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<T>) {
-            cls.template constructor<>();
+        // reflection; register one so `T()` keeps working from Julia. The
+        // constructibility test must be `if constexpr`: a plain `if` still
+        // instantiates `constructor<>()` (jlcxx's default-construct) for the
+        // discarded branch, a hard error for a non-default-constructible type.
+        if constexpr (std::is_default_constructible_v<T>) {
+            if (!v.saw_default_ctor) {
+                cls.template constructor<>();
+            }
         }
     }
 

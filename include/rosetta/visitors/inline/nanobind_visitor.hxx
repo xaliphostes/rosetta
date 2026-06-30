@@ -1,5 +1,30 @@
 namespace rosetta {
 
+    // A type nanobind can represent in a generated signature. Mirrors
+    // PybindVisitor's py_bindable_type: nanobind, like pybind11, has no caster
+    // for raw C arrays (e.g. a method returning `double (&)[3][3]`) and needs a
+    // complete type (sizeof / typeid) for a class returned/taken by value or
+    // reference. Pointers stay bindable even to an incomplete type.
+    template <class T>
+    concept nb_bindable_type =
+        !std::is_array_v<std::remove_reference_t<T>> &&
+        (std::is_pointer_v<std::remove_cvref_t<T>> ||
+         std::is_arithmetic_v<std::remove_cvref_t<T>> ||
+         std::is_enum_v<std::remove_cvref_t<T>> || std::is_void_v<std::remove_cvref_t<T>> ||
+         requires { sizeof(std::remove_cvref_t<T>); });
+
+    template <std::meta::info Fn, std::size_t... Is>
+    consteval bool nb_params_bindable(std::index_sequence<Is...>) {
+        constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
+        return (nb_bindable_type<typename[:std::meta::type_of(params[Is]):]> && ...);
+    }
+
+    template <std::meta::info Fn> consteval bool nb_bindable_fn() {
+        constexpr auto arity = std::meta::parameters_of(Fn).size();
+        return nb_bindable_type<typename[:std::meta::return_type_of(Fn):]> &&
+               nb_params_bindable<Fn>(std::make_index_sequence<arity>{});
+    }
+
     // Mirrors PybindVisitor, against the nanobind API. Bound to nb::class_<T>
     // directly (no trampoline parameterisation yet).
     template <typename T> struct NanobindVisitor {
@@ -27,7 +52,10 @@ namespace rosetta {
             constexpr auto        dann   = ann::get_or<doc>(doc{""}, Anns...);
             constexpr const char *docstr = dann.text;
 
-            if constexpr (ann::has<readonly>(Anns...)) {
+            if constexpr (!nb_bindable_type<F>) {
+                // nanobind can't expose a raw-array or incomplete-type field as a
+                // by-value property; drop it rather than failing the build.
+            } else if constexpr (ann::has<readonly>(Anns...)) {
                 cls.def_prop_ro(name, [](const T &s) -> F { return s.[:Fld:]; }, docstr);
             } else if constexpr (ann::has<range>(Anns...) && std::is_arithmetic_v<F>) {
                 constexpr auto r = ann::get_or<range>(range{0, 0}, Anns...);
@@ -52,13 +80,17 @@ namespace rosetta {
         }
 
         template <std::meta::info Fn, auto... Anns> void method_instance(const char *name) {
-            constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
-            cls.def(name, &[:Fn:], dann.text);
+            if constexpr (nb_bindable_fn<Fn>()) {
+                constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
+                cls.def(name, &[:Fn:], dann.text);
+            }
         }
 
         template <std::meta::info Fn, auto... Anns> void method_static(const char *name) {
-            constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
-            cls.def_static(name, &[:Fn:], dann.text);
+            if constexpr (nb_bindable_fn<Fn>()) {
+                constexpr auto dann = ann::get_or<doc>(doc{""}, Anns...);
+                cls.def_static(name, &[:Fn:], dann.text);
+            }
         }
     };
 
@@ -67,9 +99,14 @@ namespace rosetta {
         NanobindVisitor<T> v{cls};
         walk<T>(v);
         // The implicitly-declared default ctor may not be enumerated by
-        // reflection; register one so `T()` keeps working.
-        if (!v.saw_default_ctor && std::is_default_constructible_v<T>) {
-            cls.def(nb::init<>());
+        // reflection; register one so `T()` keeps working. The constructibility
+        // test must be `if constexpr`: a plain `if` still instantiates
+        // `nb::init<>()` (and nanobind's default-construct) for the discarded
+        // branch, which is a hard error for a non-default-constructible type.
+        if constexpr (std::is_default_constructible_v<T>) {
+            if (!v.saw_default_ctor) {
+                cls.def(nb::init<>());
+            }
         }
     }
 
