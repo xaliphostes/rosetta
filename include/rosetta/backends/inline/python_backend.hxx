@@ -86,6 +86,13 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
             std::string s = "class Py_" + k.name + " : public " + k.name + " {\npublic:\n";
             s += "    using " + k.name + "::" + k.name + ";\n";
             for (const GenMethod *m : virts) {
+                // A virtual whose signature pybind11 can't cast (e.g. a pointer to an
+                // incomplete type) would make PYBIND11_OVERRIDE fail to compile. Skip
+                // its override: a concrete bound class already supplies the body, so
+                // the trampoline stays instantiable; Python just can't override it.
+                if (!m->sig_bindable) {
+                    continue;
+                }
                 std::string sig = "    " + m->ret_cpp + " " + m->name + "(";
                 std::string fwd; // forwarded argument names for the macro
                 for (std::size_t i = 0; i < m->param_cpp.size(); ++i) {
@@ -121,7 +128,13 @@ add_custom_command(TARGET {{LIB}} POST_BUILD
             if (body.empty()) {
                 return {};
             }
-            return "\nnamespace rosetta_py {\n" + body + "} // namespace rosetta_py\n";
+            // `using namespace std;` is scoped to this trampoline-only namespace so
+            // override signatures that reproduce a parameter's exact spelling resolve
+            // unqualified std names (display_string_of drops `std::`, e.g.
+            // `vector<double, allocator<double>>`). It cannot leak into — or create
+            // ambiguities with — the binding-registration code or user headers.
+            return "\nnamespace rosetta_py {\nusing namespace std;\n" + body +
+                   "} // namespace rosetta_py\n";
         }
 
         inline std::string python_bindings(const GenContext &c) {

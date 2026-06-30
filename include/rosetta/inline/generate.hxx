@@ -528,6 +528,52 @@ endif()
             return param_cpp_impl<Fn>(std::make_index_sequence<n>{});
         }
 
+        // --- Signature representability, evaluated here at reflection time ---
+        // Mirrors python_visitor's py_bindable_type gate, but the result is baked
+        // into GenMethod::sig_bindable so a backend (which only sees the string IR)
+        // can skip emitting a trampoline override pybind11 can't compile — e.g. a
+        // virtual taking a pointer to a type left incomplete in the binding TU.
+        // `sizeof(T*)` is always valid, so a pointer is judged by its pointee; a
+        // std::vector is cast element-wise, so it recurses into its element.
+        template <class P>
+        concept sig_pointee_ok =
+            std::is_void_v<std::remove_cv_t<std::remove_pointer_t<P>>> ||
+            requires { sizeof(std::remove_pointer_t<P>); };
+
+        template <class T> struct sig_vector_elem {
+            static constexpr bool is = false;
+            using type               = void;
+        };
+        template <class E, class A> struct sig_vector_elem<std::vector<E, A>> {
+            static constexpr bool is = true;
+            using type               = E;
+        };
+
+        template <class T> consteval bool sig_type_bindable() {
+            using U = std::remove_cvref_t<T>;
+            if constexpr (std::is_array_v<std::remove_reference_t<T>>) {
+                return false;
+            } else if constexpr (std::is_pointer_v<U>) {
+                return sig_pointee_ok<U>;
+            } else if constexpr (sig_vector_elem<U>::is) {
+                return sig_type_bindable<typename sig_vector_elem<U>::type>();
+            } else {
+                return std::is_arithmetic_v<U> || std::is_enum_v<U> || std::is_void_v<U> ||
+                       requires { sizeof(U); };
+            }
+        }
+
+        template <std::meta::info Fn, std::size_t... Is>
+        consteval bool sig_params_bindable(std::index_sequence<Is...>) {
+            constexpr auto params = std::define_static_array(std::meta::parameters_of(Fn));
+            return (sig_type_bindable<typename[:std::meta::type_of(params[Is]):]>() && ...);
+        }
+        template <std::meta::info Fn> consteval bool sig_fn_bindable() {
+            constexpr auto arity = std::meta::parameters_of(Fn).size();
+            return sig_type_bindable<typename[:std::meta::return_type_of(Fn):]>() &&
+                   sig_params_bindable<Fn>(std::make_index_sequence<arity>{});
+        }
+
         inline std::string num_str(double d); // defined below; used by default_value_str
 
         // Render a field's default member initializer (read from a default-built
@@ -617,8 +663,9 @@ endif()
                 m.is_pure     = vs.pure;
                 m.is_const    = std::meta::is_const(Fn);
                 m.is_noexcept = std::meta::is_noexcept(Fn);
-                m.ret_cpp     = exact_spelling<std::meta::return_type_of(Fn)>();
-                m.param_cpp   = param_cpp_of<Fn>();
+                m.ret_cpp      = exact_spelling<std::meta::return_type_of(Fn)>();
+                m.param_cpp    = param_cpp_of<Fn>();
+                m.sig_bindable = sig_fn_bindable<Fn>();
                 out.methods.push_back(std::move(m));
             }
         };

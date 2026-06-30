@@ -140,6 +140,12 @@ namespace rosetta {
         std::string              ret_cpp;   // exact return-type spelling
         std::vector<std::string> param_cpp; // exact parameter-type spellings, in order
 
+        // False when the return type or a parameter is something pybind11 has no
+        // type-caster for in this TU (a pointer/vector-of-pointer to an incomplete
+        // type, a raw C array). Computed at reflection time so a backend can skip
+        // emitting a trampoline override it could not compile. Defaults true.
+        bool sig_bindable = true;
+
         // Every annotation on this method, type-erased (mirrors GenField). UI
         // backends query the ones they care about — e.g. rosetta::button /
         // rosetta::label — via find_annotation<A>(); the core names none of them.

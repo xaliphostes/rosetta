@@ -2,22 +2,53 @@ namespace rosetta {
 
     // A type pybind11 can actually represent in a generated signature.
     //
-    // Two signatures slip through reflection that pybind11 has no type-caster
-    // for and that abort the build deep inside <pybind11/cast.h>:
+    // Signatures that slip through reflection but have no pybind11 type-caster
+    // and abort the build deep inside <pybind11/cast.h>:
     //   * raw C arrays, e.g. a method returning `double (&)[3][3]` — pybind11
     //     only casts scalars / registered classes / pointers, never `T[N]`;
     //   * a class type that is only forward-declared in this translation unit —
     //     pybind11 needs `sizeof` / `typeid` (is_base_of, is_polymorphic, the
-    //     ReadableFunctionSignature) on the complete type.
-    // Pointers stay bindable even to an incomplete type: pybind compiles them
-    // and only resolves the registered class at call time.
+    //     ReadableFunctionSignature) on the complete type;
+    //   * a pointer to such an incomplete type — registering the conversion
+    //     still needs `typeid`/`sizeof` of the *pointee*. Note `sizeof(T*)` is
+    //     always valid (pointer size is known), so a pointer must be checked via
+    //     its pointee, not the generic completeness clause below.
+    template <class P>
+    concept py_pointee_ok =
+        std::is_void_v<std::remove_cv_t<std::remove_pointer_t<P>>> ||
+        requires { sizeof(std::remove_pointer_t<P>); };
+
+    // std::vector<E> is cast element-wise by <pybind11/stl.h>, so it is only
+    // representable when its element type is — recurse so e.g.
+    // `std::vector<Triangle*>` (pointer to an incomplete type) is rejected just
+    // like a bare `Triangle*` would be.
+    template <class T> struct py_vector_elem {
+        static constexpr bool is = false;
+        using type               = void;
+    };
+    template <class E, class A> struct py_vector_elem<std::vector<E, A>> {
+        static constexpr bool is = true;
+        using type               = E;
+    };
+
+    // The recursion lives in a consteval function (a concept may not refer to
+    // itself); `py_bindable_type` is the concept wrapper used in constraints.
+    template <class T> consteval bool py_is_bindable() {
+        using U = std::remove_cvref_t<T>;
+        if constexpr (std::is_array_v<std::remove_reference_t<T>>) {
+            return false;
+        } else if constexpr (std::is_pointer_v<U>) {
+            return py_pointee_ok<U>;
+        } else if constexpr (py_vector_elem<U>::is) {
+            return py_is_bindable<typename py_vector_elem<U>::type>();
+        } else {
+            return std::is_arithmetic_v<U> || std::is_enum_v<U> || std::is_void_v<U> ||
+                   requires { sizeof(U); };
+        }
+    }
+
     template <class T>
-    concept py_bindable_type =
-        !std::is_array_v<std::remove_reference_t<T>> &&
-        (std::is_pointer_v<std::remove_cvref_t<T>> ||
-         std::is_arithmetic_v<std::remove_cvref_t<T>> ||
-         std::is_enum_v<std::remove_cvref_t<T>> || std::is_void_v<std::remove_cvref_t<T>> ||
-         requires { sizeof(std::remove_cvref_t<T>); });
+    concept py_bindable_type = py_is_bindable<T>();
 
     // True when a member function's return type and every parameter type are
     // representable by pybind11; methods that fail this are silently dropped
@@ -47,7 +78,11 @@ namespace rosetta {
             constexpr auto dann   = ann::get_or<doc>(doc{""}, Anns...);
             if constexpr (params.size() == 0)
                 saw_default_ctor = true;
-            register_init<Ctor>(std::make_index_sequence<params.size()>{}, dann.text);
+            // Skip a constructor pybind11 can't represent (a parameter type with no
+            // type-caster, e.g. a vector of pointers to an incomplete type) rather
+            // than aborting the build inside py::init<>.
+            if constexpr (py_params_bindable<Ctor>(std::make_index_sequence<params.size()>{}))
+                register_init<Ctor>(std::make_index_sequence<params.size()>{}, dann.text);
         }
 
       private:
